@@ -16,7 +16,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox fx:id="shootOffContainer" prefHeight="576.0" prefWidth="959.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.shootoff.gui.controller.ShootOFFController">
+<VBox fx:id="shootOffContainer" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.shootoff.gui.controller.ShootOFFController">
    <children>
       <HBox fx:id="controlsContainer" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="60.0" prefHeight="60.0" prefWidth="1190.0" spacing="20.0">
          <children>
@@ -35,13 +35,13 @@
                <items>
                   <SplitPane dividerPositions="0.24242424242424243, 0.8543771043771043" maxHeight="1.7976931348623157E308" minHeight="480.0" minWidth="640.0">
                     <items>
-                        <ScrollPane fitToHeight="true" fitToWidth="true" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308">
+                        <ScrollPane fitToHeight="true" fitToWidth="true" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="100.0">
                            <content>
-                              <TableView fx:id="shotTimerTable" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="100.0" />
+                              <TableView fx:id="shotTimerTable" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="100.0" />
                            </content>
                         </ScrollPane>
-                        <TabPane fx:id="cameraTabPane" minHeight="480.0" minWidth="640.0" prefHeight="480.0" prefWidth="640.0" tabClosingPolicy="UNAVAILABLE" />
-                        <VBox fx:id="buttonsContainer" alignment="TOP_CENTER" fillWidth="false" maxHeight="1.7976931348623157E308" maxWidth="200.0" prefWidth="200.0" spacing="30.0" SplitPane.resizableWithParent="false">
+                        <TabPane fx:id="cameraTabPane" minHeight="240.0" minWidth="320.0" prefHeight="480.0" prefWidth="640.0" tabClosingPolicy="UNAVAILABLE" />
+                        <VBox fx:id="buttonsContainer" alignment="TOP_CENTER" fillWidth="false" maxHeight="1.7976931348623157E308" maxWidth="150.0" minHeight="240.0" minWidth="150.0" prefHeight="480.0" prefWidth="150.0" spacing="30.0" SplitPane.resizableWithParent="false">
                            <children>
                               <Button mnemonicParsing="false" onAction="#resetClicked" prefHeight="30.0" prefWidth="150.0" text="Reset" GridPane.halignment="CENTER" GridPane.hgrow="NEVER" GridPane.valignment="CENTER" GridPane.vgrow="NEVER">
                                  <GridPane.margin>
@@ -55,7 +55,7 @@
                         </VBox>
                     </items>
                   </SplitPane>
-                  <ScrollPane fx:id="trainingExerciseScrollPane" hbarPolicy="NEVER" minHeight="150.0">
+                  <ScrollPane fx:id="trainingExerciseScrollPane" hbarPolicy="NEVER" minHeight="150.0" minWidth="320.0">
                      <content>
                         <VBox fx:id="trainingExerciseContainer" />
                      </content>
