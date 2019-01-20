@@ -90,7 +90,7 @@ dependencies {
     compile group: 'com.google.code.findbugs', name: 'annotations', version: '3.+'
 
     // Raven, exception reporting client (requires logback)
-    compile group: 'com.getsentry.raven', name: 'raven-logback', version: '7.+'
+    //compile group: 'com.getsentry.raven', name: 'raven-logback', version: '7.+'
 
     // Logback to enable exception reporting
     compile group: 'ch.qos.logback', name: 'logback-core', version: '1.+'
