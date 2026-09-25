@@ -3,13 +3,21 @@ package com.shootoff.session.io;
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
@@ -29,6 +37,8 @@ import com.shootoff.session.TargetResizedEvent;
 import javafx.scene.Group;
 
 public class TestSessionIO {
+	private static final File LEGACY_SESSION = new File("src/test/resources/sessions/legacy_session.json");
+
 	private SessionRecorder sessionRecorder;
 	private String cameraName1;
 	private String cameraName2;
@@ -187,5 +197,67 @@ public class TestSessionIO {
 		checkSession(sessionRecorder);
 
 		if (!tempJSONSession.delete()) System.err.println("Failed to delete " + tempJSONSession.getPath());
+	}
+
+	@Test
+	public void testReadsLegacyJSONSession() {
+		checkSession(SessionIO.loadSession(LEGACY_SESSION));
+	}
+
+	@Test
+	public void testRewritingLegacyJSONSessionKeepsItsStructure() throws IOException {
+		final File rewritten = new File("temp_rewritten_session.json");
+		try {
+			SessionIO.saveSession(SessionIO.loadSession(LEGACY_SESSION).get(), rewritten);
+			assertEquals(camerasByName(LEGACY_SESSION), camerasByName(rewritten));
+		} finally {
+			if (!rewritten.delete()) System.err.println("Failed to delete " + rewritten.getPath());
+		}
+	}
+
+	// Camera order in the file follows map iteration order, so compare cameras by name
+	private static Map<String, JsonElement> camerasByName(File sessionFile) throws IOException {
+		final Map<String, JsonElement> cameras = new HashMap<>();
+		try (Reader reader = Files.newBufferedReader(sessionFile.toPath(), StandardCharsets.UTF_8)) {
+			for (final JsonElement camera : JsonParser.parseReader(reader).getAsJsonObject().getAsJsonArray("cameras")) {
+				final JsonObject cameraObject = camera.getAsJsonObject();
+				cameras.put(cameraObject.get("name").getAsString(), cameraObject.get("events"));
+			}
+		}
+		return cameras;
+	}
+
+	@Test
+	public void testReadsIntegerCoordinatesAndNamedColors() throws IOException {
+		final File session = new File("temp_handwritten_session.json");
+		final String json = "{\"cameras\":[{\"name\":\"Default\",\"events\":["
+				+ "{\"type\":\"shot\",\"timestamp\":5,\"color\":\"RED\",\"x\":10,\"y\":11,\"shotTimestamp\":3,"
+				+ "\"markerRadius\":2,\"isMalfunction\":false,\"isReload\":false,\"targetIndex\":-1,\"hitRegionIndex\":-1},"
+				+ "{\"type\":\"shot\",\"timestamp\":6,\"color\":\"INFRARED\",\"x\":12.5,\"y\":15,\"shotTimestamp\":4,"
+				+ "\"markerRadius\":5,\"isMalfunction\":false,\"isReload\":true,\"targetIndex\":0,\"hitRegionIndex\":1},"
+				+ "{\"type\":\"targetResized\",\"timestamp\":7,\"index\":0,\"newWidth\":10,\"newHeight\":20}"
+				+ "]}]}";
+		Files.write(session.toPath(), json.getBytes(StandardCharsets.UTF_8));
+
+		try {
+			final List<Event> events = new JSONSessionReader(session).load().get("Default");
+
+			assertEquals(3, events.size());
+			final ShotEvent red = (ShotEvent) events.get(0);
+			assertEquals(ShotColor.RED, red.getShot().getColor());
+			assertEquals(10, red.getShot().getX(), 0.001);
+			assertFalse(red.getTargetIndex().isPresent());
+			assertFalse(red.getVideoString().isPresent());
+
+			final ShotEvent infrared = (ShotEvent) events.get(1);
+			assertEquals(ShotColor.INFRARED, infrared.getShot().getColor());
+			assertEquals(12.5, infrared.getShot().getX(), 0.001);
+			assertEquals(1, infrared.getHitRegionIndex().get().intValue());
+			assertTrue(infrared.isReload());
+
+			assertEquals(10, ((TargetResizedEvent) events.get(2)).getNewWidth(), 0.001);
+		} finally {
+			if (!session.delete()) System.err.println("Failed to delete " + session.getPath());
+		}
 	}
 }

@@ -50,7 +50,7 @@ dependencies {
     implementation 'org.openpnp:opencv:2.4.13-0'
     implementation 'com.github.dblock:oshi-core:3.4.0'
     implementation 'org.jsoup:jsoup:1.23.2'
-    implementation 'com.google.code.gson:gson:2.8.0'
+    implementation 'com.google.code.gson:gson:2.13.2'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.hamcrest:hamcrest-core:1.3'
