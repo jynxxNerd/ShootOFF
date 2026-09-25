@@ -3,6 +3,7 @@ package com.shootoff.camera;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -12,28 +13,20 @@ import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.cameratypes.CameraEventListener;
 import com.shootoff.camera.shotdetection.JavaShotDetector;
 import com.shootoff.camera.shotdetection.ShotDetector;
-import com.xuggle.mediatool.IMediaListener;
-import com.xuggle.mediatool.IMediaReader;
-import com.xuggle.mediatool.MediaListenerAdapter;
-import com.xuggle.mediatool.ToolFactory;
-import com.xuggle.mediatool.event.ICloseEvent;
-import com.xuggle.mediatool.event.IVideoPictureEvent;
+import com.shootoff.camera.video.TimedFrame;
+import com.shootoff.camera.video.VideoReader;
 
-public class MockCamera extends MediaListenerAdapter implements Camera {
+public class MockCamera implements Camera {
 	protected static final Logger logger = LoggerFactory.getLogger(MockCamera.class);
 
-	
 	protected File videoFile;
 	protected long lastVideoTimestamp = -1;
 	protected static final int SECOND_IN_MICROSECONDS = 1000 * 1000;
 	protected Optional<CameraEventListener> cameraEventListener = Optional.empty();
 
-	public MockCamera() {
-		super();
-	}
-	
+	public MockCamera() {}
+
 	public MockCamera(File videoFile) {
-		super();
 		this.videoFile = videoFile;
 	}
 
@@ -41,36 +34,27 @@ public class MockCamera extends MediaListenerAdapter implements Camera {
 	public boolean isOpen() {
 		return true;
 	}
-	
+
 	@Override
-	public String getName()
-	{
+	public String getName() {
 		return "MockCamera";
 	}
-	
+
+	@Override
 	public void run() {
-		if (videoFile == null)
-			return;
-		
-		IMediaReader reader = ToolFactory.makeReader(videoFile.getAbsolutePath());
-		reader.setBufferedImageTypeToGenerate(BufferedImage.TYPE_3BYTE_BGR);
-		reader.addListener(this);
+		if (videoFile == null) return;
 
 		logger.trace("opening {}", videoFile.getAbsolutePath());
 
-		while (reader.readPacket() == null)
-			do {} while (false);
-	}
+		try (VideoReader reader = new VideoReader(videoFile)) {
+			Optional<TimedFrame> frame;
+			while ((frame = reader.next()).isPresent())
+				onVideoFrame(frame.get());
+		} catch (final IOException e) {
+			logger.error("Error reading mock camera video {}", videoFile.getAbsolutePath(), e);
+		}
 
-	public void processVideo(IMediaListener listener) {
-		IMediaReader reader = ToolFactory.makeReader(videoFile.getAbsolutePath());
-		reader.setBufferedImageTypeToGenerate(BufferedImage.TYPE_3BYTE_BGR);
-		reader.addListener(listener);
-
-		logger.trace("opening {}", videoFile.getAbsolutePath());
-
-		while (reader.readPacket() == null)
-			do {} while (false);
+		if (cameraEventListener.isPresent()) cameraEventListener.get().cameraClosed();
 	}
 
 	private long initialSystemTimeAtVideoStart = -1;
@@ -79,47 +63,38 @@ public class MockCamera extends MediaListenerAdapter implements Camera {
 	public static final int DEFAULT_FPS = 30;
 	private double webcamFPS = 0.0;
 
-	@Override
-	public void onVideoPicture(IVideoPictureEvent event) {
-		BufferedImage currentFrame = event.getImage();
+	private void onVideoFrame(TimedFrame frame) {
+		final BufferedImage currentFrame = frame.getImage();
 
 		if (initialSystemTimeAtVideoStart == -1) initialSystemTimeAtVideoStart = System.currentTimeMillis();
 
-		currentFrameTimestamp = (event.getTimeStamp() / 1000) + initialSystemTimeAtVideoStart;
+		currentFrameTimestamp = frame.getTimestampMs() + initialSystemTimeAtVideoStart;
 
-		if (frameCount == 0) {
-			if (cameraEventListener.isPresent())
-				setViewSize(new Dimension(currentFrame.getWidth(), currentFrame.getHeight()));
-				cameraEventListener.get().setFeedResolution(currentFrame.getWidth(), currentFrame.getHeight());
+		if (frameCount == 0 && cameraEventListener.isPresent()) {
+			setViewSize(new Dimension(currentFrame.getWidth(), currentFrame.getHeight()));
+			cameraEventListener.get().setFeedResolution(currentFrame.getWidth(), currentFrame.getHeight());
 		}
 
 		if (lastVideoTimestamp > -1 && (frameCount % 30) == 0) {
-
-			double estimateFPS = (double) SECOND_IN_MICROSECONDS
-					/ (double) (event.getTimeStamp() - lastVideoTimestamp);
+			final double estimateFPS = (double) SECOND_IN_MICROSECONDS
+					/ (double) (frame.getTimestampMicros() - lastVideoTimestamp);
 
 			setFPS(estimateFPS);
 		}
-		lastVideoTimestamp = event.getTimeStamp();
+		lastVideoTimestamp = frame.getTimestampMicros();
 
 		if (cameraEventListener.isPresent())
 			cameraEventListener.get().newFrame(new Frame(Camera.bufferedImageToMat(currentFrame), currentFrameTimestamp));
-		
+
 		frameCount++;
 	}
+
 	protected void setFPS(double newFPS) {
 		// This just tells us if it's the first FPS estimate
 		if (getFrameCount() > DEFAULT_FPS)
 			webcamFPS = ((webcamFPS * 4.0) + newFPS) / 5.0;
 		else
 			webcamFPS = newFPS;
-	}
-	
-
-	@Override
-	public void onClose(ICloseEvent event) {
-		if (cameraEventListener.isPresent())
-			cameraEventListener.get().cameraClosed();
 	}
 
 	@Override
@@ -138,9 +113,7 @@ public class MockCamera extends MediaListenerAdapter implements Camera {
 	}
 
 	@Override
-	public void close() {
-		return;
-	}
+	public void close() {}
 
 	@Override
 	public void setCameraEventListener(CameraEventListener cameraEventListener) {
@@ -164,7 +137,7 @@ public class MockCamera extends MediaListenerAdapter implements Camera {
 	public boolean isLocked() {
 		return false;
 	}
-	
+
 	private Dimension size = null;
 
 	@Override
@@ -186,29 +159,27 @@ public class MockCamera extends MediaListenerAdapter implements Camera {
 	public boolean setState(CameraState state) {
 		return true;
 	}
-	public CameraState getState()
-	{
+
+	@Override
+	public CameraState getState() {
 		return CameraState.DETECTING;
 	}
 
 	@Override
 	public boolean supportsExposureAdjustment() {
-
 		return false;
 	}
 
+	@Override
 	public boolean decreaseExposure() {
 		return false;
 	}
-	
-	public void resetExposure()
-	{
-		return;
-	}
-	
+
 	@Override
-	public boolean limitsFrames()
-	{
+	public void resetExposure() {}
+
+	@Override
+	public boolean limitsFrames() {
 		return false;
 	}
 }

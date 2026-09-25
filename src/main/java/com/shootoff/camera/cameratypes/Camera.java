@@ -30,7 +30,7 @@ import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
 import com.shootoff.camera.Frame;
 import com.shootoff.camera.shotdetection.ShotDetector;
-import com.xuggle.xuggler.video.ConverterFactory;
+import com.shootoff.camera.video.BgrImages;
 
 public interface Camera extends Runnable, Closeable {
 	public enum CameraState {
@@ -83,7 +83,7 @@ public interface Camera extends Runnable, Closeable {
 	}
 
 	static Mat bufferedImageToMat(BufferedImage frame) {
-		final BufferedImage transformedFrame = ConverterFactory.convertToType(frame, BufferedImage.TYPE_3BYTE_BGR);
+		final BufferedImage transformedFrame = BgrImages.toBgr(frame);
 		final byte[] pixels = ((DataBufferByte) transformedFrame.getRaster().getDataBuffer()).getData();
 		final Mat mat = new Mat(frame.getHeight(), frame.getWidth(), CvType.CV_8UC3);
 		mat.put(0, 0, pixels);
