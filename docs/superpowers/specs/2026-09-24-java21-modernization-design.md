@@ -47,7 +47,7 @@
   - `installDist` produces `build/install/shootoff/` with `bin/shootoff`, `lib/`, and the resource directories `targets/`, `sounds/`, `courses/`, `exercises/` and `shootoff.properties`. The generated Unix start script is customized to `cd "$APP_HOME"` before launching, because ShootOFF and plugins resolve relative paths (e.g. `sounds/beep.wav`) against the working directory.
 - **`maven-publish`:** publish `com.shootoff:shootoff:5.0.0-SNAPSHOT` to `mavenLocal` so plugins can compile against it.
 - **Version:** `src/main/resources/version.properties` becomes `5.0.0-SNAPSHOT` (major bump: Java 21 required, headless removed).
-- **Removed from the build:** all ant-javafx tasks (`fxJar`, `fxSignedJar`, `fxWebstartSignedJar`, `fxRelease`, `fxJarWritableResources`, `msiRelease`), all GitHub release and gh-pages tasks, `updateJars`, the `buildscript` block (gpars, github-api), the `eclipse` plugin, and repositories other than Maven Central, the DFKI repo, and `nexus.terrestris.de`. MaryTTS 5.2.1 itself is on Maven Central, but its dependencies `de.dfki.lt.jtok:jtok-core` (DFKI only) and `gov.nist.math:Jampack:1.0` (terrestris only) are not. Both extra repositories are content-filtered to those artifacts.
+- **Removed from the build:** all ant-javafx tasks (`fxJar`, `fxSignedJar`, `fxWebstartSignedJar`, `fxRelease`, `fxJarWritableResources`, `msiRelease`), all GitHub release and gh-pages tasks, `updateJars`, the `buildscript` block (gpars, github-api), the `eclipse` plugin, and repositories other than Maven Central, the DFKI repo, `nexus.terrestris.de`, and `nrgxnat.jfrog.io`. MaryTTS 5.2.1 itself is on Maven Central, but its dependencies `de.dfki.lt.jtok:jtok-core` (DFKI only), `gov.nist.math:Jampack:1.0` (terrestris only), and `com.twmacinta:fast-md5` (jfrog only) are not. All three extra repositories are content-filtered to those artifacts.
 - **Repository hygiene:** commit the Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`). `.gitignore` ignores `*.jar`, so add a `!gradle/wrapper/gradle-wrapper.jar` exception (`build/` and `log/` are already ignored).
 - **Unchanged:** `eyeCam32.dll`/`eyeCam64.dll` stay in the repo and are copied into the distribution as today.
 
@@ -178,6 +178,7 @@ Each step is one or more commits on `modernize/java21` and leaves `test` green a
 | webcam-capture/BridJ misbehaves on JDK 21 | `/sys/class/video4linux` enumerator fallback (4.3) |
 | MaryTTS DFKI repository becomes unavailable | Versions are pinned; if resolution fails, vendor the three jars into the repo, or fall back to pre-recorded audio (separate decision) |
 | JavaCV native bundle size | Linux-only classifiers for now |
+| OpenCV's bundled highgui hard-requires the system GTK 2 library (`libgtk-x11-2.0.so.0`) at runtime | On Linux, the JavaFX toolkit (GTK 3) is started (`Platform.startup`) before OpenCV's native library loads, so JavaFX claims GTK first and OpenCV's GTK 2 load doesn't conflict with it (`Main.main`) |
 
 ## 9. Out of scope (sub-project 2 or later)
 

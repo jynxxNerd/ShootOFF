@@ -111,8 +111,8 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	protected volatile VideoWriter videoWriterStream;
 	protected long recordingStartTime;
 
-	protected boolean recordingShots = false;
-	protected RollingRecorder rollingRecorder;
+	protected volatile boolean recordingShots = false;
+	protected volatile RollingRecorder rollingRecorder;
 	protected Map<Shot, ShotRecorder> shotRecorders = new ConcurrentHashMap<>();
 
 	protected boolean[][] sectorStatuses;
@@ -577,7 +577,9 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		}
 
 		if (recordingShots) {
-			rollingRecorder.recordFrame(currentImage);
+			final RollingRecorder recorder = rollingRecorder;
+
+			if (recorder != null) recorder.recordFrame(currentImage);
 
 			final List<Shot> removeKeys = new ArrayList<>();
 			for (final Entry<Shot, ShotRecorder> r : shotRecorders.entrySet()) {

@@ -20,8 +20,10 @@ package com.shootoff.camera.cameratypes;
 
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opencv.core.Mat;
@@ -232,13 +234,27 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			return null;
 	}
 
+	// Frame-processing exception types already logged by run(), so a
+	// repeating failure (e.g. a broken recorder/shot-detector pipeline)
+	// can't flood the log every frame.
+	private final Set<Class<?>> loggedFrameExceptionTypes = new HashSet<>();
+
 	@Override
 	public void run() {
 		while (isOpen() && !closing.get()) {
-			if (cameraEventListener.isPresent()) cameraEventListener.get().newFrame(getFrame());
+			try {
+				if (cameraEventListener.isPresent()) cameraEventListener.get().newFrame(getFrame());
 
-			if (((int) (getFrameCount() % Math.min(getFPS(), 5)) == 0) && cameraState != CameraState.CALIBRATING) {
-				estimateCameraFPS();
+				if (((int) (getFrameCount() % Math.min(getFPS(), 5)) == 0) && cameraState != CameraState.CALIBRATING) {
+					estimateCameraFPS();
+				}
+			} catch (final RuntimeException e) {
+				// A failure processing one frame (e.g. in the shot detector
+				// or recorder pipeline reached via the listener) must not
+				// kill this thread and freeze the feed.
+				if (loggedFrameExceptionTypes.add(e.getClass())) {
+					logger.error("Unexpected exception processing a frame from {}; continuing", getName(), e);
+				}
 			}
 
 		}

@@ -18,6 +18,8 @@
   </root>
   -->
 
+  <logger name="com.shootoff.camera.cameratypes.SarxosCaptureCamera" level="INFO"/>
+
   <root level="warn">
     <appender-ref ref="STDOUT"/>
   </root>

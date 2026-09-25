@@ -301,4 +301,52 @@ public class TestRollingRecorder {
 		clockShouldThrow.set(false);
 		rolling.recordFrame(frame(999));
 	}
+
+	@Test(timeout = 30_000)
+	public void testRollDuringRecordFrameSurvivesRuntimeExceptionFromFork() throws IOException {
+		// recordFrame's roll path used to catch only IOException around its
+		// call to fork(), but fork() deliberately rethrows
+		// RuntimeException/Error after cleaning up its own state (see
+		// testForkCleansUpOnRuntimeExceptionDuringTheUnlockedPhase above).
+		// An uncaught RuntimeException here would propagate out of
+		// recordFrame and up through the camera thread, freezing the feed.
+		// Reuse the throwing-clock seam, but drive the failure through the
+		// roll path (an internal fork(false) call) instead of the public
+		// fork() used for shots.
+		final AtomicInteger clockCalls = new AtomicInteger(0);
+		final AtomicInteger throwOnCall = new AtomicInteger(Integer.MAX_VALUE);
+		final LongSupplier throwingClock = () -> {
+			if (clockCalls.incrementAndGet() >= throwOnCall.get()) throw new RuntimeException("Simulated clock failure");
+			return now.get();
+		};
+
+		final RollingRecorder rolling = new RollingRecorder(".mp4", "test", "cam", WIDTH, HEIGHT, throwingClock);
+
+		// 455 frames at FRAME_MS = 33 ms is just under RECORD_LENGTH * 3
+		// (15 s); the next frame is the first to cross the roll threshold.
+		record(rolling, Optional.empty(), 455);
+
+		// The triggering call below reads the clock once at recordFrame's
+		// own top (must succeed, to detect the roll is needed), then rolls
+		// into fork(false), whose commit step reads the clock a second time
+		// (must throw there, exercising fork()'s cleanup-then-rethrow path).
+		throwOnCall.set(clockCalls.get() + 2);
+
+		// Must not throw: the roll path must swallow the RuntimeException
+		// fork() rethrows after cleaning up, the same way it already
+		// swallows IOException.
+		rolling.recordFrame(frame(999));
+
+		// fork() already deleted every file it touched as part of its own
+		// cleanup (the original rolling file plus the half-built cut).
+		final String[] remaining = sessionFolder.list();
+		assertEquals(Arrays.toString(remaining), 0, remaining.length);
+
+		// Recording must be left stopped (not stuck mid-fork): a frame
+		// recorded now, with a normal non-throwing clock call, must be
+		// dropped immediately rather than appended to an ever-growing
+		// buffer.
+		throwOnCall.set(Integer.MAX_VALUE);
+		rolling.recordFrame(frame(1000));
+	}
 }

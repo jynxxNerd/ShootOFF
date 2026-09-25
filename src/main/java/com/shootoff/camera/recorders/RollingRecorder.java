@@ -127,10 +127,13 @@ public class RollingRecorder implements Closeable {
 		if (forkLock.tryLock()) {
 			try {
 				fork(false);
-			} catch (final IOException e) {
-				// Either fork() logged a real failure and stopped recording,
-				// or recording had already stopped for some other reason
-				// (nothing new to log here either way).
+			} catch (final IOException | RuntimeException e) {
+				// fork() already cleaned up its own state (recording/forking)
+				// and, for a real failure, already logged it once before
+				// rethrowing; catching it here just keeps that failure from
+				// propagating out of recordFrame and killing the camera
+				// thread. Do not catch Error here: something like an OOM
+				// should still surface.
 			} finally {
 				forkLock.unlock();
 			}
