@@ -18,26 +18,22 @@
 
 package com.shootoff.gui.controller;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.shootoff.camera.video.TimedFrame;
+import com.shootoff.camera.video.VideoReader;
 import com.shootoff.gui.PlaybackListener;
-import com.xuggle.mediatool.IMediaReader;
-import com.xuggle.mediatool.MediaListenerAdapter;
-import com.xuggle.mediatool.ToolFactory;
-import com.xuggle.mediatool.event.IVideoPictureEvent;
-import com.xuggle.xuggler.IContainer;
-import com.xuggle.xuggler.IError;
 
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
@@ -69,6 +65,13 @@ public class VideoPlayerController implements PlaybackListener {
 		togglePlaybackButton.setGraphic(new ImageView(
 				new Image(VideoPlayerController.class.getResourceAsStream("/images/gnome_media_playback_start.png"))));
 		createTabs(videos);
+
+		if (contexts.isEmpty()) {
+			timeSlider.setDisable(true);
+			togglePlaybackButton.setDisable(true);
+			return;
+		}
+
 		currentContext = contexts.get(videoTabPane.getSelectionModel().getSelectedItem().getText());
 		timeSlider.setMax(currentContext.getDuration());
 
@@ -115,25 +118,19 @@ public class VideoPlayerController implements PlaybackListener {
 		}
 	}
 
-	private static class PlaybackContext extends MediaListenerAdapter {
-		private final IMediaReader mediaReader;
+	private static class PlaybackContext {
+		private final VideoReader reader;
 		private final PlaybackListener listener;
 		private final long duration;
-		private boolean isPlaying = false;
+		private volatile boolean isPlaying = false;
 		private final ImageView imageView = new ImageView();
-		private boolean doDelay = true;
 		private long lastTimestamp = 0;
 
-		public PlaybackContext(File videoFile, PlaybackListener listener) {
+		public PlaybackContext(File videoFile, PlaybackListener listener) throws IOException {
 			this.listener = listener;
 
-			mediaReader = ToolFactory.makeReader(videoFile.getPath());
-			mediaReader.setBufferedImageTypeToGenerate(BufferedImage.TYPE_3BYTE_BGR);
-			mediaReader.open();
-			duration = mediaReader.getContainer().getDuration() / 1000; // microseconds
-			// to
-			// milliseconds
-			mediaReader.addListener(this);
+			reader = new VideoReader(videoFile);
+			duration = reader.getDurationMs();
 		}
 
 		public long getDuration() {
@@ -144,33 +141,48 @@ public class VideoPlayerController implements PlaybackListener {
 			return lastTimestamp;
 		}
 
-		@Override
-		public void onVideoPicture(IVideoPictureEvent event) {
-			final long currentTimestamp = event.getTimeStamp(TimeUnit.MILLISECONDS);
+		/**
+		 * @return false at the end of the video
+		 */
+		private boolean showNextFrame(boolean doDelay) {
+			final Optional<TimedFrame> frame;
+			try {
+				frame = reader.next();
+			} catch (final IOException e) {
+				logger.error("Error while reading video frames", e);
+				return false;
+			}
+
+			if (!frame.isPresent()) return false;
+
+			final long currentTimestamp = frame.get().getTimestampMs();
 
 			if (doDelay) {
 				try {
-					final long delay = currentTimestamp - lastTimestamp;
-					Thread.sleep(delay);
+					Thread.sleep(Math.max(0, currentTimestamp - lastTimestamp));
 				} catch (final InterruptedException e) {
-					logger.error("Error while reading video frames", e);
+					Thread.currentThread().interrupt();
+					return false;
 				}
 			}
 
 			lastTimestamp = currentTimestamp;
-			imageView.setImage(SwingFXUtils.toFXImage(event.getImage(), null));
-			if (isPlaying || !doDelay) Platform.runLater(() -> listener.frameUpdated(currentTimestamp));
+			final Image image = SwingFXUtils.toFXImage(frame.get().getImage(), null);
+			Platform.runLater(() -> {
+				imageView.setImage(image);
+				listener.frameUpdated(currentTimestamp);
+			});
+
+			return true;
 		}
 
 		private void playVideo() {
 			new Thread(() -> {
-				IError ret = mediaReader.readPacket();
-				while (isPlaying && ret == null) {
-					ret = mediaReader.readPacket();
-				}
+				boolean moreFrames = true;
+				while (isPlaying && (moreFrames = showNextFrame(true))) {}
 
-				// ret is null if movie was paused
-				if (ret != null && ret.getType() == IError.Type.ERROR_EOF) {
+				// moreFrames is still true if playback was paused
+				if (!moreFrames) {
 					isPlaying = false;
 					lastTimestamp = getDuration();
 					Platform.runLater(() -> listener.frameUpdated(getDuration()));
@@ -180,15 +192,19 @@ public class VideoPlayerController implements PlaybackListener {
 
 		private void playFromBeginning() {
 			lastTimestamp = 0;
-			mediaReader.open();
-			mediaReader.getContainer().seekKeyFrame(0, 0, 0, 0, IContainer.SEEK_FLAG_ANY);
+
+			try {
+				reader.rewind();
+			} catch (final IOException e) {
+				logger.error("Error rewinding video", e);
+				return;
+			}
+
 			playVideo();
 		}
 
 		public void nextFrame() {
-			doDelay = false;
-			mediaReader.readPacket();
-			doDelay = true;
+			showNextFrame(false);
 		}
 
 		public void pausePlayback() {
@@ -218,10 +234,16 @@ public class VideoPlayerController implements PlaybackListener {
 
 	private void createTabs(Map<String, File> videos) {
 		for (final Entry<String, File> video : videos.entrySet()) {
+			final PlaybackContext context;
+			try {
+				context = new PlaybackContext(video.getValue(), this);
+			} catch (final IOException e) {
+				logger.error("Skipping video {} for camera {}", video.getValue(), video.getKey(), e);
+				continue;
+			}
+
 			final Tab videoTab = new Tab(video.getKey());
 			videoTabPane.getTabs().add(videoTab);
-
-			final PlaybackContext context = new PlaybackContext(video.getValue(), this);
 			videoTab.setContent(context.getImageView());
 			contexts.put(video.getKey(), context);
 		}

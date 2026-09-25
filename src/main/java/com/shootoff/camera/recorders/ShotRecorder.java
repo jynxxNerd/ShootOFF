@@ -20,16 +20,14 @@ package com.shootoff.camera.recorders;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.util.function.LongSupplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.Closeable;
-import com.xuggle.mediatool.IMediaWriter;
-import com.xuggle.xuggler.IPixelFormat;
-import com.xuggle.xuggler.IVideoPicture;
-import com.xuggle.xuggler.video.ConverterFactory;
-import com.xuggle.xuggler.video.IConverter;
+import com.shootoff.camera.video.VideoWriter;
 
 public class ShotRecorder implements Closeable {
 	// The number of milliseconds before and after a shot to record
@@ -37,39 +35,36 @@ public class ShotRecorder implements Closeable {
 
 	private static final Logger logger = LoggerFactory.getLogger(ShotRecorder.class);
 
+	private final LongSupplier clock;
 	private final long startTime;
 	private final long timeOffset;
 	private final File relativeVideoFile;
 	private final File videoFile;
 	private final String cameraName;
-	private final IMediaWriter videoWriter;
-	private boolean isFirstShotFrame = true;
+	private final VideoWriter videoWriter;
 
-	public ShotRecorder(File relativeVideoFile, File videoFile, long cutDuration, IMediaWriter videoWriter,
-			String cameraName) {
+	public ShotRecorder(File relativeVideoFile, File videoFile, long cutDuration, VideoWriter videoWriter,
+			String cameraName, LongSupplier clock) {
 		this.relativeVideoFile = relativeVideoFile;
 		this.videoFile = videoFile;
 		this.videoWriter = videoWriter;
 		this.cameraName = cameraName;
+		this.clock = clock;
 
-		startTime = System.currentTimeMillis();
+		startTime = clock.getAsLong();
 		timeOffset = cutDuration;
 
 		logger.debug("Started recording shot video: {}, cut duration = {} ms", videoFile.getName(), cutDuration);
 	}
 
 	public void recordFrame(BufferedImage frame) {
-		final BufferedImage image = ConverterFactory.convertToType(frame, BufferedImage.TYPE_3BYTE_BGR);
-		final IConverter converter = ConverterFactory.createConverter(image, IPixelFormat.Type.YUV420P);
+		final long timestamp = (clock.getAsLong() - startTime) + timeOffset;
 
-		final long timestamp = (System.currentTimeMillis() - startTime) + timeOffset;
-
-		final IVideoPicture f = converter.toPicture(image, timestamp * 1000);
-		f.setKeyFrame(isFirstShotFrame);
-		f.setQuality(0);
-		isFirstShotFrame = false;
-
-		videoWriter.encodeVideo(0, f);
+		try {
+			videoWriter.write(frame, timestamp);
+		} catch (final IOException e) {
+			logger.error("Failed to record shot video frame to {}", videoFile.getPath(), e);
+		}
 	}
 
 	public File getRelativeVideoFile() {
@@ -85,7 +80,7 @@ public class ShotRecorder implements Closeable {
 	}
 
 	public boolean isComplete() {
-		return System.currentTimeMillis() - startTime > RECORD_LENGTH;
+		return clock.getAsLong() - startTime > RECORD_LENGTH;
 	}
 
 	@Override

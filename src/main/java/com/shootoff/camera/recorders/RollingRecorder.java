@@ -20,285 +20,269 @@ package com.shootoff.camera.recorders;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.LongSupplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.Closeable;
-import com.shootoff.camera.CameraManager;
-import com.xuggle.mediatool.IMediaReader;
-import com.xuggle.mediatool.IMediaWriter;
-import com.xuggle.mediatool.MediaListenerAdapter;
-import com.xuggle.mediatool.ToolFactory;
-import com.xuggle.mediatool.event.IVideoPictureEvent;
-import com.xuggle.xuggler.ICodec;
-import com.xuggle.xuggler.IPixelFormat;
-import com.xuggle.xuggler.IVideoPicture;
-import com.xuggle.xuggler.video.ConverterFactory;
-import com.xuggle.xuggler.video.IConverter;
+import com.shootoff.camera.video.BgrImages;
+import com.shootoff.camera.video.TimedFrame;
+import com.shootoff.camera.video.VideoReader;
+import com.shootoff.camera.video.VideoWriter;
 
 public class RollingRecorder implements Closeable {
 	private final Logger logger = LoggerFactory.getLogger(RollingRecorder.class);
 
-	private final ICodec.ID codec;
 	private final String extension;
 	private final String sessionName;
 	private final String cameraName;
+	private final int recordWidth;
+	private final int recordHeight;
+	private final LongSupplier clock;
 
 	private long startTime;
-	private long timestamp;
 	private long timeOffset = 0;
 	private File relativeVideoFile;
 	private File videoFile;
-	private IMediaWriter videoWriter;
+	private VideoWriter videoWriter;
 	private final Object videoWriterLock = new Object();
-	private boolean isFirstShotFrame = true;
-	private boolean forking = false;
-	private boolean recording = true;
+	private volatile boolean forking = false;
+	private volatile boolean recording = true;
 
-	private final List<IVideoPicture> bufferedFrames = new ArrayList<>();
+	// Frames that arrive while the video is being forked, stamped with the
+	// clock time they arrived at
+	private final List<TimedFrame> bufferedFrames = new ArrayList<>();
 
-	private final int recordWidth;
-	private final int recordHeight;
+	public RollingRecorder(String extension, String sessionName, String cameraName, int recordWidth,
+			int recordHeight) throws IOException {
+		this(extension, sessionName, cameraName, recordWidth, recordHeight, System::currentTimeMillis);
+	}
 
-	public RollingRecorder(ICodec.ID codec, String extension, String sessionName, String cameraName,
-			CameraManager cameraManager) {
-		this.codec = codec;
+	RollingRecorder(String extension, String sessionName, String cameraName, int recordWidth, int recordHeight,
+			LongSupplier clock) throws IOException {
 		this.extension = extension;
 		this.sessionName = sessionName;
 		this.cameraName = cameraName;
+		this.recordWidth = recordWidth;
+		this.recordHeight = recordHeight;
+		this.clock = clock;
 
-		recordWidth = cameraManager.getFeedWidth();
-		recordHeight = cameraManager.getFeedHeight();
-
-		startTime = System.currentTimeMillis();
-		relativeVideoFile = new File(
-				sessionName + File.separator + "rolling" + String.valueOf(System.nanoTime()) + extension);
-		videoFile = new File(System.getProperty("shootoff.sessions") + File.separator + relativeVideoFile.getPath());
-
-		videoWriter = ToolFactory.makeWriter(videoFile.getPath());
-		videoWriter.addVideoStream(0, 0, codec, recordWidth, recordHeight);
+		startTime = clock.getAsLong();
+		relativeVideoFile = newRelativeVideoFile(true);
+		videoFile = toSessionsFile(relativeVideoFile);
+		videoWriter = new VideoWriter(videoFile, recordWidth, recordHeight);
 
 		logger.debug("Started recording new rolling video: {}", videoFile.getName());
 	}
 
+	private File newRelativeVideoFile(boolean rolling) {
+		return new File(sessionName + File.separator + (rolling ? "rolling" : "") + System.nanoTime() + extension);
+	}
+
+	private static File toSessionsFile(File relativeVideoFile) {
+		return new File(System.getProperty("shootoff.sessions") + File.separator + relativeVideoFile.getPath());
+	}
+
 	public void recordFrame(BufferedImage frame) {
-		final BufferedImage image = ConverterFactory.convertToType(frame, BufferedImage.TYPE_3BYTE_BGR);
-		final IConverter converter = ConverterFactory.createConverter(image, IPixelFormat.Type.YUV420P);
+		if (!recording) return;
 
-		timestamp = (System.currentTimeMillis() - startTime) + timeOffset;
-
-		final IVideoPicture f = converter.toPicture(image, timestamp * 1000);
-		f.setKeyFrame(isFirstShotFrame);
-		f.setQuality(0);
+		final long now = clock.getAsLong();
 
 		if (forking) {
 			synchronized (bufferedFrames) {
-				bufferedFrames.add(f);
+				bufferedFrames.add(new TimedFrame(BgrImages.copy(frame), now * 1000));
 			}
-		} else {
-			isFirstShotFrame = false;
-
-			synchronized (videoWriterLock) {
-				if (recording)
-					videoWriter.encodeVideo(0, f);
-			}
-
-			if (timestamp >= ShotRecorder.RECORD_LENGTH * 3) {
-				logger.debug("Rolling video file {}, timestamp = {} ms", relativeVideoFile.getPath(), timestamp);
-				fork(false);
-			}
+			return;
 		}
-	}
 
-	private ForkContext fork(boolean keepOld) {
-		forking = true;
+		final long timestamp = (now - startTime) + timeOffset;
 
 		synchronized (videoWriterLock) {
-			if (videoWriter.isOpen())
-				videoWriter.close();
+			write(videoWriter, frame, timestamp);
 		}
 
-		File relativeVideoFile;
-		if (!keepOld) {
-			relativeVideoFile = new File(
-					sessionName + File.separator + "rolling" + String.valueOf(System.nanoTime()) + extension);
-		} else {
-			relativeVideoFile = new File(sessionName + File.separator + String.valueOf(System.nanoTime()) + extension);
-		}
+		if (timestamp >= ShotRecorder.RECORD_LENGTH * 3) {
+			logger.debug("Rolling video file {}, timestamp = {} ms", relativeVideoFile.getPath(), timestamp);
 
-		final File videoFile = new File(
-				System.getProperty("shootoff.sessions") + File.separator + relativeVideoFile.getPath());
-
-		final IMediaReader reader = ToolFactory.makeReader(this.videoFile.getPath());
-		reader.open();
-		final long startCutTimestamp = (reader.getContainer().getDuration() / 1000) - ShotRecorder.RECORD_LENGTH;
-		final Cutter cutter = new Cutter(videoFile, codec, startCutTimestamp, recordWidth, recordHeight);
-		reader.addListener(cutter);
-
-		logger.debug("Forking video file {} to {}, keepOld = {}, start cutting at = {} ms",
-				this.relativeVideoFile.getPath(), relativeVideoFile.getPath(), keepOld, startCutTimestamp);
-
-		while (reader.readPacket() == null)
-			;
-
-		final ForkContext context = new ForkContext(relativeVideoFile, videoFile, cutter.getLastTimestamp(),
-				cutter.getMediaWriter());
-
-		if (keepOld) {
-			// We aren't rolling this file because it got too big,
-			// the video is being forked (probably because there was
-			// a shot)
-			final File rollingRelativeVideoFile = new File(
-					sessionName + File.separator + "rolling" + String.valueOf(System.nanoTime()) + extension);
-			final File rollingVideoFile = new File(
-					System.getProperty("shootoff.sessions") + File.separator + rollingRelativeVideoFile.getPath());
-
-			final IMediaReader r = ToolFactory.makeReader(this.videoFile.getPath());
-			r.open();
-			final Cutter copy = new Cutter(rollingVideoFile, codec, 0, recordWidth, recordHeight);
-			r.addListener(copy);
-			while (r.readPacket() == null)
-				;
-
-			timeOffset = copy.getLastTimestamp();
-
-			if (!this.videoFile.delete()) {
-				logger.warn("Failed to delete expired rolling video file: {}, keepOld = {}", this.videoFile.getPath(),
-						keepOld);
-			}
-
-			synchronized (videoWriterLock) {
-				videoWriter = copy.getMediaWriter();
-			}
-			this.relativeVideoFile = rollingRelativeVideoFile;
-			this.videoFile = rollingVideoFile;
-		} else {
-			// Start adding new frames to the new video as it's the new
-			// canonical video file to peel end frames off of.
-			if (!this.videoFile.delete()) {
-				logger.warn("Failed to delete expired rolling video file: {}, keepOld = {}", this.videoFile.getPath(),
-						keepOld);
-			}
-			this.relativeVideoFile = relativeVideoFile;
-			this.videoFile = videoFile;
-			synchronized (videoWriterLock) {
-				videoWriter = cutter.getMediaWriter();
-			}
-			timeOffset = cutter.getLastTimestamp();
-		}
-
-		synchronized (bufferedFrames) {
-			final Iterator<IVideoPicture> it = bufferedFrames.iterator();
-
-			while (it.hasNext()) {
-				synchronized (videoWriterLock) {
-					videoWriter.encodeVideo(0, it.next());
-				}
-				it.remove();
+			try {
+				fork(false);
+			} catch (final IOException e) {
+				logger.error("Failed to roll video file {}; recording stopped", videoFile.getPath(), e);
+				recording = false;
 			}
 		}
-
-		startTime = System.currentTimeMillis();
-
-		forking = false;
-
-		return context;
 	}
 
-	public ShotRecorder fork() {
-		final ForkContext context = fork(true);
-		return new ShotRecorder(context.getRelativeVideoFile(), context.getVideoFile(), context.getLastTimestamp(),
-				context.getVideoWriter(), cameraName);
+	private void write(VideoWriter writer, BufferedImage frame, long timestamp) {
+		try {
+			writer.write(frame, timestamp);
+		} catch (final IOException e) {
+			logger.error("Failed to record frame to {}", videoFile.getPath(), e);
+		}
+	}
+
+	/**
+	 * Cut the last RECORD_LENGTH of the current video into a new file.
+	 *
+	 * @param keepOld
+	 *            true when forking for a shot: the cut becomes the shot video
+	 *            and rolling continues in a copy of the current video. false
+	 *            when rolling: the cut becomes the new rolling video.
+	 */
+	private ForkContext fork(boolean keepOld) throws IOException {
+		forking = true;
+
+		try {
+			synchronized (videoWriterLock) {
+				videoWriter.close();
+			}
+
+			final File forkRelativeVideoFile = newRelativeVideoFile(!keepOld);
+			final File forkVideoFile = toSessionsFile(forkRelativeVideoFile);
+
+			final Cut cut;
+			try (VideoReader reader = new VideoReader(videoFile)) {
+				final long startCutTimestamp = reader.getDurationMs() - ShotRecorder.RECORD_LENGTH;
+
+				logger.debug("Forking video file {} to {}, keepOld = {}, start cutting at = {} ms",
+						relativeVideoFile.getPath(), forkRelativeVideoFile.getPath(), keepOld, startCutTimestamp);
+
+				cut = cut(reader, forkVideoFile, startCutTimestamp);
+			}
+
+			final ForkContext context = new ForkContext(forkRelativeVideoFile, forkVideoFile, cut.lastTimestamp,
+					cut.writer);
+
+			final VideoWriter nextWriter;
+			if (keepOld) {
+				final File rollingRelativeVideoFile = newRelativeVideoFile(true);
+				final File rollingVideoFile = toSessionsFile(rollingRelativeVideoFile);
+
+				final Cut copy;
+				try (VideoReader reader = new VideoReader(videoFile)) {
+					copy = cut(reader, rollingVideoFile, -1);
+				}
+
+				deleteExpiredVideo();
+				relativeVideoFile = rollingRelativeVideoFile;
+				videoFile = rollingVideoFile;
+				timeOffset = copy.lastTimestamp;
+				nextWriter = copy.writer;
+			} else {
+				deleteExpiredVideo();
+				relativeVideoFile = forkRelativeVideoFile;
+				videoFile = forkVideoFile;
+				timeOffset = cut.lastTimestamp;
+				nextWriter = cut.writer;
+			}
+
+			synchronized (bufferedFrames) {
+				// Frames that arrived during the fork continue the new video's timeline
+				startTime = bufferedFrames.isEmpty() ? clock.getAsLong() : bufferedFrames.get(0).getTimestampMs();
+
+				for (final TimedFrame f : bufferedFrames)
+					write(nextWriter, f.getImage(), (f.getTimestampMs() - startTime) + timeOffset);
+
+				bufferedFrames.clear();
+			}
+
+			synchronized (videoWriterLock) {
+				videoWriter = nextWriter;
+			}
+
+			return context;
+		} finally {
+			forking = false;
+		}
+	}
+
+	private void deleteExpiredVideo() {
+		if (!videoFile.delete()) logger.warn("Failed to delete expired rolling video file: {}", videoFile.getPath());
+	}
+
+	/**
+	 * Copy the frames at or after startingTimestamp into a new video whose
+	 * timestamps start at 0. A negative startingTimestamp copies every frame
+	 * (the source has less than RECORD_LENGTH of footage). The returned writer
+	 * is left open.
+	 */
+	private Cut cut(VideoReader reader, File newVideoFile, long startingTimestamp /* ms */) throws IOException {
+		final VideoWriter writer = new VideoWriter(newVideoFile, recordWidth, recordHeight);
+
+		try {
+			long firstTimestamp = -1;
+			long lastTimestamp = 0;
+
+			Optional<TimedFrame> frame;
+			while ((frame = reader.next()).isPresent()) {
+				final long timestamp = frame.get().getTimestampMs();
+
+				if (startingTimestamp >= 0 && timestamp < startingTimestamp) continue;
+
+				if (firstTimestamp == -1) firstTimestamp = timestamp;
+
+				lastTimestamp = timestamp - firstTimestamp;
+				writer.write(frame.get().getImage(), lastTimestamp);
+			}
+
+			return new Cut(writer, lastTimestamp);
+		} catch (final IOException e) {
+			writer.close();
+			throw e;
+		}
+	}
+
+	public Optional<ShotRecorder> fork() {
+		if (!recording) return Optional.empty();
+
+		try {
+			final ForkContext context = fork(true);
+			return Optional.of(new ShotRecorder(context.relativeVideoFile, context.videoFile, context.lastTimestamp,
+					context.videoWriter, cameraName, clock));
+		} catch (final IOException e) {
+			logger.error("Failed to fork video file {} for a shot; recording stopped", videoFile.getPath(), e);
+			recording = false;
+			return Optional.empty();
+		}
+	}
+
+	private static class Cut {
+		private final VideoWriter writer;
+		private final long lastTimestamp;
+
+		private Cut(VideoWriter writer, long lastTimestamp) {
+			this.writer = writer;
+			this.lastTimestamp = lastTimestamp;
+		}
 	}
 
 	private static class ForkContext {
 		private final File relativeVideoFile;
 		private final File videoFile;
 		private final long lastTimestamp;
-		private final IMediaWriter videoWriter;
+		private final VideoWriter videoWriter;
 
-		public ForkContext(File relativeVideoFile, File videoFile, long lastTimestamp, IMediaWriter videoWriter) {
+		private ForkContext(File relativeVideoFile, File videoFile, long lastTimestamp, VideoWriter videoWriter) {
 			this.relativeVideoFile = relativeVideoFile;
 			this.videoFile = videoFile;
 			this.lastTimestamp = lastTimestamp;
 			this.videoWriter = videoWriter;
-		}
-
-		public File getRelativeVideoFile() {
-			return relativeVideoFile;
-		}
-
-		public File getVideoFile() {
-			return videoFile;
-		}
-
-		public long getLastTimestamp() {
-			return lastTimestamp;
-		}
-
-		public IMediaWriter getVideoWriter() {
-			return videoWriter;
-		}
-	}
-
-	/**
-	 * Cut the end of a video off into its own file starting at
-	 * startingTimestamp. For example, if you have a 15 second video and the
-	 * startingTimestamp is at 10 seconds, this will create a new video that has
-	 * the last 5 seconds of the original video.
-	 * 
-	 * @author phrack
-	 */
-	private static class Cutter extends MediaListenerAdapter {
-		private final IMediaWriter writer;
-		private final long startingTimestamp;
-		private long startTimestamp = -1;
-		private long lastTimestamp;
-
-		public Cutter(File newVideoFile, ICodec.ID codec, long startingTimestamp /* ms */, int recordWidth,
-				int recordHeight) {
-			this.startingTimestamp = startingTimestamp * 1000;
-			writer = ToolFactory.makeWriter(newVideoFile.getPath());
-			writer.addVideoStream(0, 0, codec, recordWidth, recordHeight);
-		}
-
-		@Override
-		public void onVideoPicture(IVideoPictureEvent event) {
-			// < 0 means the file we are rolling off of has < RECORD_LENGTH
-			// seconds of footage
-			if (event.getTimeStamp() >= startingTimestamp || startingTimestamp < 0) {
-				final IVideoPicture picture = event.getPicture();
-
-				if (startTimestamp == -1) {
-					startTimestamp = picture.getTimeStamp();
-				}
-
-				lastTimestamp = picture.getTimeStamp() - startTimestamp;
-				picture.setTimeStamp(lastTimestamp);
-
-				writer.encodeVideo(0, picture);
-			}
-		}
-
-		public IMediaWriter getMediaWriter() {
-			return writer;
-		}
-
-		public long getLastTimestamp() {
-			return lastTimestamp / 1000;
 		}
 	}
 
 	@Override
 	public void close() {
 		recording = false;
+
 		synchronized (videoWriterLock) {
 			videoWriter.close();
 		}
+
 		if (!videoFile.delete()) {
 			logger.warn("Failed to delete expired rolling video file on close: {}", videoFile.getPath());
 		}

@@ -508,6 +508,9 @@ public class CanvasManager implements CameraView {
 			for (final CameraManager cm : config.getRecordingManagers()) {
 				final ShotRecorder r = cm.getRevelantRecorder(shot);
 
+				// No recorder when forking the shot video failed
+				if (r == null) continue;
+
 				if (sb.length() > 0) {
 					sb.append(",");
 				}
@@ -517,7 +520,7 @@ public class CanvasManager implements CameraView {
 				sb.append(r.getRelativeVideoFile().getPath());
 			}
 
-			return Optional.of(sb.toString());
+			return sb.length() == 0 ? Optional.empty() : Optional.of(sb.toString());
 		}
 
 		return Optional.empty();

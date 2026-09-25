@@ -9,8 +9,6 @@ repositories {
     maven { url "https://raw.githubusercontent.com/DFKI-MLT/Maven-Repository/main/" }
     // gov.nist.math:Jampack (a MaryTTS dependency) is not on Maven Central
     maven { url "https://nexus.terrestris.de/repository/public/" }
-    // xuggle; removed together with Xuggle
-    maven { url "https://maven.dcm4che.org/" }
     // com.twmacinta:fast-md5 (a MaryTTS dependency)
     maven { url "https://nrgxnat.jfrog.io/artifactory/libs-release/" }
 }
@@ -40,7 +38,6 @@ dependencies {
     implementation 'de.dfki.mary:marytts-lang-en:5.2.1'
     implementation 'de.dfki.mary:voice-cmu-slt-hsmm:5.2.1'
 
-    implementation 'xuggle:xuggle-xuggler:5.4'
     // OpenCV 4 (the standard org.opencv.* API) from the JavaCPP presets.
     // Only Linux x86_64 natives are bundled for now.
     implementation 'org.bytedeco:javacpp:1.5.14'

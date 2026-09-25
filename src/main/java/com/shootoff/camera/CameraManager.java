@@ -22,6 +22,7 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,15 +53,9 @@ import com.shootoff.camera.shotdetection.FrameProcessingShotDetector;
 import com.shootoff.camera.shotdetection.JavaShotDetector;
 import com.shootoff.camera.shotdetection.ShotDetector;
 import com.shootoff.camera.shotdetection.ShotYieldingShotDetector;
+import com.shootoff.camera.video.VideoWriter;
 import com.shootoff.config.Configuration;
 import com.shootoff.util.TimerPool;
-import com.xuggle.mediatool.IMediaWriter;
-import com.xuggle.mediatool.ToolFactory;
-import com.xuggle.xuggler.ICodec;
-import com.xuggle.xuggler.IPixelFormat;
-import com.xuggle.xuggler.IVideoPicture;
-import com.xuggle.xuggler.video.ConverterFactory;
-import com.xuggle.xuggler.video.IConverter;
 
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Bounds;
@@ -113,8 +108,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	protected Optional<Integer> minimumShotDimension = Optional.empty();
 
 	protected boolean recordingStream = false;
-	protected boolean isFirstStreamFrame = true;
-	protected IMediaWriter videoWriterStream;
+	protected VideoWriter videoWriterStream;
 	protected long recordingStartTime;
 
 	protected boolean recordingShots = false;
@@ -383,11 +377,15 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 
 	public void startRecordingStream(File videoFile) {
 		if (logger.isDebugEnabled()) logger.debug("Writing Video Feed To: {}", videoFile.getAbsoluteFile());
-		videoWriterStream = ToolFactory.makeWriter(videoFile.getName());
-		videoWriterStream.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, getFeedWidth(), getFeedHeight());
-		recordingStartTime = System.currentTimeMillis();
-		isFirstStreamFrame = true;
 
+		try {
+			videoWriterStream = new VideoWriter(videoFile, getFeedWidth(), getFeedHeight());
+		} catch (final IOException e) {
+			logger.error("Could not start recording the video feed to {}", videoFile.getAbsolutePath(), e);
+			return;
+		}
+
+		recordingStartTime = System.currentTimeMillis();
 		recordingStream = true;
 	}
 
@@ -397,7 +395,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	}
 
 	public void notifyShot(final Shot shot) {
-		shotRecorders.put(shot, rollingRecorder.fork());
+		if (rollingRecorder != null) rollingRecorder.fork().ifPresent(recorder -> shotRecorders.put(shot, recorder));
 	}
 
 	public ShotRecorder getRevelantRecorder(Shot shot) {
@@ -429,8 +427,13 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 
 		setDetecting(false);
 
-		rollingRecorder = new RollingRecorder(ICodec.ID.CODEC_ID_MPEG4, ".mp4", sessionName, cameraName, this);
-		recordingShots = true;
+		try {
+			rollingRecorder = new RollingRecorder(".mp4", sessionName, cameraName, getFeedWidth(), getFeedHeight());
+			recordingShots = true;
+		} catch (final IOException e) {
+			logger.error("Could not start recording shots for camera {}", cameraName, e);
+			setDetecting(true);
+		}
 	}
 
 	public void stopRecordingShots() {
@@ -479,18 +482,21 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	private ScheduledFuture<?> motionDiagnosticFuture = null;
 
 	private boolean recordCalibratedArea = false;
-	private IMediaWriter videoWriterCalibratedArea;
+	private VideoWriter videoWriterCalibratedArea;
 	private long recordingCalibratedAreaStartTime;
-	private boolean isFirstCalibratedAreaFrame;
 	private boolean recordingCalibratedArea;
 
 	public void startRecordingCalibratedArea(File videoFile, int width, int height) {
 		if (logger.isDebugEnabled()) logger.debug("Writing Video Feed To: {}", videoFile.getAbsoluteFile());
-		videoWriterCalibratedArea = ToolFactory.makeWriter(videoFile.getName());
-		videoWriterCalibratedArea.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, width, height);
-		recordingCalibratedAreaStartTime = System.currentTimeMillis();
-		isFirstCalibratedAreaFrame = true;
 
+		try {
+			videoWriterCalibratedArea = new VideoWriter(videoFile, width, height);
+		} catch (final IOException e) {
+			logger.error("Could not start recording the calibrated area to {}", videoFile.getAbsolutePath(), e);
+			return;
+		}
+
+		recordingCalibratedAreaStartTime = System.currentTimeMillis();
 		recordingCalibratedArea = true;
 	}
 
@@ -580,16 +586,11 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		}
 
 		if (recordingStream) {
-			final BufferedImage image = ConverterFactory.convertToType(currentImage, BufferedImage.TYPE_3BYTE_BGR);
-			final IConverter converter = ConverterFactory.createConverter(image, IPixelFormat.Type.YUV420P);
-
-			final IVideoPicture frame = converter.toPicture(image,
-					(System.currentTimeMillis() - recordingStartTime) * 1000);
-			frame.setKeyFrame(isFirstStreamFrame);
-			frame.setQuality(0);
-			isFirstStreamFrame = false;
-
-			videoWriterStream.encodeVideo(0, frame);
+			try {
+				videoWriterStream.write(currentImage, System.currentTimeMillis() - recordingStartTime);
+			} catch (final IOException e) {
+				logger.error("Failed to record video feed frame", e);
+			}
 		}
 
 		if (cropFeedToProjection && projectionBounds.isPresent()) {
@@ -636,17 +637,12 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 			}
 			
 			if (recordingCalibratedArea) {
-				final BufferedImage image = ConverterFactory.convertToType(Camera.matToBufferedImage(submatFrameBGR),
-						BufferedImage.TYPE_3BYTE_BGR);
-				final IConverter converter = ConverterFactory.createConverter(image, IPixelFormat.Type.YUV420P);
-
-				final IVideoPicture frame = converter.toPicture(image,
-						(System.currentTimeMillis() - recordingCalibratedAreaStartTime) * 1000);
-				frame.setKeyFrame(isFirstCalibratedAreaFrame);
-				frame.setQuality(0);
-				isFirstCalibratedAreaFrame = false;
-
-				videoWriterCalibratedArea.encodeVideo(0, frame);
+				try {
+					videoWriterCalibratedArea.write(Camera.matToBufferedImage(submatFrameBGR),
+							System.currentTimeMillis() - recordingCalibratedAreaStartTime);
+				} catch (final IOException e) {
+					logger.error("Failed to record calibrated area frame", e);
+				}
 			}
 
 			if (debuggerListener.isPresent()) {
