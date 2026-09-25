@@ -235,7 +235,9 @@ public class TestPerspectiveManager {
 
 		pm.calculateUnknown();
 
-		// Expected values re-measured for OpenCV 4 (corner refinement differs from 2.4 by a few px); see Task 7 report
+		// Expected value re-measured: this pattern is only found via the findChessboardCornersSB
+		// fallback (OpenCV 4's classic detector misses it), whose corners differ slightly from
+		// what the classic detector would have produced; see Task 7 report
 		assertEquals(6900, pm.getCameraDistance());
 	}
 	

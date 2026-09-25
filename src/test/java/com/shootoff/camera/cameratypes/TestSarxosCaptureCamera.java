@@ -3,6 +3,8 @@ package com.shootoff.camera.cameratypes;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import java.awt.Dimension;
+
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.opencv.opencv_java;
 import org.junit.BeforeClass;
@@ -28,5 +30,21 @@ public class TestSarxosCaptureCamera {
 		SarxosCaptureCamera.applyCaptureSettings(capture);
 
 		assertFalse(capture.isOpened());
+	}
+
+	@Test
+	public void testSetViewSizeOnUnopenedCameraDoesNotThrowAndGetViewSizeStaysSafe() {
+		// SarxosCaptureCamera("name", index) creates a real, unopened VideoCapture without
+		// requiring a webcam to be attached, unlike the no-arg "for testing" constructor.
+		final SarxosCaptureCamera camera = new SarxosCaptureCamera("Test Camera", 0);
+
+		// CameraManager/CheckableImageListCell call setViewSize before open(); this must not
+		// throw even though the underlying VideoCapture rejects every property when unopened.
+		camera.setViewSize(new Dimension(640, 480));
+
+		final Dimension viewSize = camera.getViewSize();
+
+		assertEquals(0.0, viewSize.getWidth(), 0.0);
+		assertEquals(0.0, viewSize.getHeight(), 0.0);
 	}
 }

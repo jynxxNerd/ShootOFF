@@ -50,6 +50,11 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	private final AtomicBoolean closing = new AtomicBoolean(false);
 
+	// setViewSize is called before open() by CameraManager/CheckableImageListCell, and
+	// VideoCapture.set ignores every property on an unopened capture, so the requested size is
+	// stashed here and (re)applied once the camera is actually open.
+	private Optional<Dimension> requestedViewSize = Optional.empty();
+
 	// For testing
 	protected SarxosCaptureCamera() {
 		camera = null;
@@ -123,6 +128,14 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		if (open) {
 			applyCaptureSettings(camera);
+
+			// setViewSize normally runs before open(), when VideoCapture.set is a no-op; apply
+			// whatever size was requested now that the capture is actually open.
+			if (requestedViewSize.isPresent()) applyViewSize(camera, requestedViewSize.get());
+
+			// Logged after resolution is applied so this reports what's actually negotiated.
+			logCaptureSettings(camera);
+
 			CameraFactory.openCamerasAdd(this);
 		}
 
@@ -138,7 +151,14 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		// Set the max FPS to 60. If we don't set this it defaults
 		// to 30, which unnecessarily hampers higher end cameras
 		capture.set(Videoio.CAP_PROP_FPS, 60);
+	}
 
+	static void applyViewSize(final VideoCapture capture, final Dimension size) {
+		capture.set(Videoio.CAP_PROP_FRAME_WIDTH, size.getWidth());
+		capture.set(Videoio.CAP_PROP_FRAME_HEIGHT, size.getHeight());
+	}
+
+	static void logCaptureSettings(final VideoCapture capture) {
 		logger.info("Camera capture negotiated {}x{} {} at {} FPS", (int) capture.get(Videoio.CAP_PROP_FRAME_WIDTH),
 				(int) capture.get(Videoio.CAP_PROP_FRAME_HEIGHT), fourccToString(capture.get(Videoio.CAP_PROP_FOURCC)),
 				capture.get(Videoio.CAP_PROP_FPS));
@@ -184,8 +204,12 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	@Override
 	public void setViewSize(final Dimension size) {
-		camera.set(Videoio.CAP_PROP_FRAME_WIDTH, size.getWidth());
-		camera.set(Videoio.CAP_PROP_FRAME_HEIGHT, size.getHeight());
+		requestedViewSize = Optional.of(size);
+
+		// Callers (CameraManager, CheckableImageListCell) call this before open(), when
+		// VideoCapture.set is a no-op; open() applies the stashed size once the camera is open.
+		// If the camera is already open, apply it immediately instead of waiting for a reopen.
+		if (isOpen()) applyViewSize(camera, size);
 	}
 
 	@Override
