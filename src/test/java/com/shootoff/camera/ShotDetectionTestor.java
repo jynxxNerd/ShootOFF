@@ -32,7 +32,7 @@ public class ShotDetectionTestor implements VideoFinishedListener {
 		Configuration.disableErrorReporting();
 		TrainingExerciseBase.silence(true);
 
-		nu.pattern.OpenCV.loadShared();
+		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
 		// Disable all loggers because our output has gotten verbose
 		// enough that Travis-CI kills us. Comment out the lines below

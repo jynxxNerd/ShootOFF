@@ -26,7 +26,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import org.opencv.core.Mat;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -167,7 +167,7 @@ public class PixelCluster extends HashSet<Pixel> {
 			String filename = String.format("shot-colors-%d-%d.png", (int) centerPixelX, (int) centerPixelY);
 			final File file = new File(filename);
 			filename = file.toString();
-			Highgui.imwrite(filename, testMat);
+			Imgcodecs.imwrite(filename, testMat);
 		}
 
 		return colorDistance / pixelCount;

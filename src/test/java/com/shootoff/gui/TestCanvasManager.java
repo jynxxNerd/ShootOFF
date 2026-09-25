@@ -41,7 +41,7 @@ public class TestCanvasManager {
 	public void setUp() throws ConfigurationException {
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 
-		nu.pattern.OpenCV.loadShared();
+		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
 		config = new Configuration(new String[0]);
 		CamerasSupervisor cs = new CamerasSupervisor(config);

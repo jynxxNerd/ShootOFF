@@ -25,8 +25,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opencv.core.Mat;
-import org.opencv.highgui.Highgui;
-import org.opencv.highgui.VideoCapture;
+import org.opencv.videoio.VideoCapture;
+import org.opencv.videoio.Videoio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +38,7 @@ import com.shootoff.camera.Frame;
 import com.shootoff.camera.shotdetection.JavaShotDetector;
 import com.shootoff.camera.shotdetection.NativeShotDetector;
 import com.shootoff.camera.shotdetection.ShotDetector;
+import com.shootoff.util.SystemInfo;
 
 public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private static final Logger logger = LoggerFactory.getLogger(SarxosCaptureCamera.class);
@@ -116,17 +117,37 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		closing.set(false);
 
-		final boolean open = camera.open(cameraIndex);
+		// V4L2 is the only backend that can negotiate MJPG on Linux
+		final boolean open = SystemInfo.isLinux() ? camera.open(cameraIndex, Videoio.CAP_V4L2)
+				: camera.open(cameraIndex);
 
 		if (open) {
-			// Set the max FPS to 60. If we don't set this it defaults
-			// to 30, which unnecessarily hampers higher end cameras
-			camera.set(5, 60);
-
+			applyCaptureSettings(camera);
 			CameraFactory.openCamerasAdd(this);
 		}
 
 		return open;
+	}
+
+	static void applyCaptureSettings(final VideoCapture capture) {
+		// Uncompressed YUYV at high resolutions exceeds USB 2.0 bandwidth, which
+		// holds many webcams to a few FPS. MJPG avoids that. Cameras that do not
+		// support MJPG keep their default format.
+		capture.set(Videoio.CAP_PROP_FOURCC, org.opencv.videoio.VideoWriter.fourcc('M', 'J', 'P', 'G'));
+
+		// Set the max FPS to 60. If we don't set this it defaults
+		// to 30, which unnecessarily hampers higher end cameras
+		capture.set(Videoio.CAP_PROP_FPS, 60);
+
+		logger.info("Camera capture negotiated {}x{} {} at {} FPS", (int) capture.get(Videoio.CAP_PROP_FRAME_WIDTH),
+				(int) capture.get(Videoio.CAP_PROP_FRAME_HEIGHT), fourccToString(capture.get(Videoio.CAP_PROP_FOURCC)),
+				capture.get(Videoio.CAP_PROP_FPS));
+	}
+
+	static String fourccToString(final double fourcc) {
+		final int code = (int) fourcc;
+		return new String(new char[] { (char) (code & 0xFF), (char) ((code >> 8) & 0xFF),
+				(char) ((code >> 16) & 0xFF), (char) ((code >> 24) & 0xFF) });
 	}
 
 	@Override
@@ -163,18 +184,18 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	@Override
 	public void setViewSize(final Dimension size) {
-		camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, size.getWidth());
-		camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, size.getHeight());
+		camera.set(Videoio.CAP_PROP_FRAME_WIDTH, size.getWidth());
+		camera.set(Videoio.CAP_PROP_FRAME_HEIGHT, size.getHeight());
 	}
 
 	@Override
 	public Dimension getViewSize() {
-		return new Dimension((int) camera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH),
-				(int) camera.get(Highgui.CV_CAP_PROP_FRAME_HEIGHT));
+		return new Dimension((int) camera.get(Videoio.CAP_PROP_FRAME_WIDTH),
+				(int) camera.get(Videoio.CAP_PROP_FRAME_HEIGHT));
 	}
 
 	public void launchCameraSettings() {
-		camera.set(Highgui.CV_CAP_PROP_SETTINGS, 1);
+		camera.set(Videoio.CAP_PROP_SETTINGS, 1);
 	}
 
 	@Override

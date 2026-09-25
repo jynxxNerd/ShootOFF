@@ -32,7 +32,6 @@ dependencies {
     implementation 'com.nativelibs4java:bridj:0.7.0'
     implementation 'com.github.sarxos:webcam-capture:0.3.12'
     implementation 'com.github.sarxos:webcam-capture-driver-ipcam:0.3.12'
-    implementation 'com.github.sarxos:webcam-capture-driver-v4l4j:0.3.12'
 
     implementation 'commons-cli:commons-cli:1.11.0'
 
@@ -42,7 +41,14 @@ dependencies {
     implementation 'de.dfki.mary:voice-cmu-slt-hsmm:5.2.1'
 
     implementation 'xuggle:xuggle-xuggler:5.4'
-    implementation 'org.openpnp:opencv:2.4.13-0'
+    // OpenCV 4 (the standard org.opencv.* API) from the JavaCPP presets.
+    // Only Linux x86_64 natives are bundled for now.
+    implementation 'org.bytedeco:javacpp:1.5.14'
+    implementation 'org.bytedeco:javacpp:1.5.14:linux-x86_64'
+    implementation 'org.bytedeco:opencv:4.14.0-1.5.14'
+    implementation 'org.bytedeco:opencv:4.14.0-1.5.14:linux-x86_64'
+    implementation 'org.bytedeco:openblas:0.3.34-1.5.14'
+    implementation 'org.bytedeco:openblas:0.3.34-1.5.14:linux-x86_64'
     implementation('com.github.oshi:oshi-core:6.12.0') {
         exclude group: 'org.slf4j'
     }

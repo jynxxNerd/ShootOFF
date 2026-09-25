@@ -36,6 +36,8 @@ import java.util.Properties;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import org.bytedeco.javacpp.Loader;
+import org.bytedeco.opencv.opencv_java;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +94,6 @@ public class Main extends Application {
 
 	private static final String VERSION_METADATA_NAME = "shootoff-version.xml";
 	private static Optional<String> version = Optional.empty();
-	private static boolean shouldShowV4lWarning = false;
 
 	protected static class ResourcesInfo {
 		private final String version;
@@ -549,8 +550,6 @@ public class Main extends Application {
 		TextToSpeech.say("");
 
 		if (config.isFirstRun()) {
-			if (shouldShowV4lWarning) showV4lWarning();
-
 			config.setUseErrorReporting(showFirstRunMessage());
 
 			config.setFirstRun(false);
@@ -605,19 +604,6 @@ public class Main extends Application {
 		}
 	}
 
-	private void showV4lWarning() {
-		final Alert v4lWarning = new Alert(AlertType.WARNING);
-		v4lWarning.setTitle("v4lcompat May Be Required");
-		v4lWarning.setHeaderText("If you have camera problems, you may need to preload v4lcompat");
-		v4lWarning.setContentText("You are running Linux but ShootOFF was not successful in determining "
-				+ "if your webcam(s) require v4lcompat. If you have any trouble using your cameras, preload "
-				+ "v4lcompat.so with the following command:\n\n"
-				+ "export LD_PRELOAD=path_to_v4lcompat; java -jar ShootOFF.jar\n\n"
-				+ "You can use the following command to find where vl41compat.so is on your system:\n\n"
-				+ "find /usr/lib -name \"v4l1compat.so\"");
-		v4lWarning.showAndWait();
-	}
-
 	private boolean showFirstRunMessage() {
 		final Label hardwareMessageLabel = new Label("Fetching hardware status to determine how well ShootOFF\n"
 				+ "will run on this machine. This may take a moment...");
@@ -663,13 +649,6 @@ public class Main extends Application {
 		cameraAlert.setResizable(true);
 		cameraAlert.setContentText("ShootOFF needs a webcam to function. Now closing...");
 		cameraAlert.showAndWait();
-		Main.forceClose(-1);
-	}
-
-	public static void closeNoV4lCompat(File v4lCompat) {
-		logger.error("This system uses Video4Linux, but v4lcompat is not preloaded. "
-				+ "Run the following command then run ShootOFF again: " + "export LD_PRELOAD=\"" + v4lCompat.getPath()
-				+ "\"");
 		Main.forceClose(-1);
 	}
 
@@ -744,38 +723,12 @@ public class Main extends Application {
 		return version;
 	}
 
-	@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
 	public static void main(String[] args) {
+		Loader.load(opencv_java.class);
+
 		// Check the comment at the top of the Camera class
 		// for more information about this hack
-		if (SystemInfo.isMacOsX()) {
-			nu.pattern.OpenCV.loadShared();
-			CameraFactory.getDefault();
-		} else if (SystemInfo.isLinux()) {
-			// Need to ensure v4l1compat is preloaded if it exists otherwise
-			// OpenCV won't work
-			final File v4lCompat = new File("/usr/lib/libv4l/v4l1compat.so");
-
-			if (v4lCompat.exists()) {
-				final String preload = System.getenv("LD_PRELOAD");
-
-				if (preload == null || !preload.contains(v4lCompat.getPath())) {
-					closeNoV4lCompat(v4lCompat);
-				}
-			} else {
-				// The over-exuberance here is because a lot of people miss this
-				// message
-				logger.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-						+ "This system is running Linux, and likely therefore also v4l. "
-						+ "If ShootOFF fails to run or has camera problems, it's likely because you need "
-						+ "to preload v4l1compat using: "
-						+ "export LD_PRELOAD=path_to_v4l1compat; java -jar ShootOFF.jar\n"
-						+ "!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-				shouldShowV4lWarning = true;
-			}
-		}
-
-		nu.pattern.OpenCV.loadShared();
+		if (SystemInfo.isMacOsX()) CameraFactory.getDefault();
 
 		// Read ShootOFF's version number
 		final Properties prop = new Properties();

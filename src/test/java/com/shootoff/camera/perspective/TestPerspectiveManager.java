@@ -32,7 +32,7 @@ public class TestPerspectiveManager {
 
 	@Before
 	public void setUp() throws ConfigurationException {
-		nu.pattern.OpenCV.loadShared();
+		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
 		acm = new AutoCalibrationManager(new MockCameraManager(), new MockCamera(), false);
 	}
@@ -235,7 +235,8 @@ public class TestPerspectiveManager {
 
 		pm.calculateUnknown();
 
-		assertEquals(6927, pm.getCameraDistance());
+		// Expected values re-measured for OpenCV 4 (corner refinement differs from 2.4 by a few px); see Task 7 report
+		assertEquals(6900, pm.getCameraDistance());
 	}
 	
 	@Test(expected = IllegalArgumentException.class)

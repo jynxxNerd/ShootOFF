@@ -12,7 +12,7 @@ public class TestDeduplicationProcessor {
 
 	@Test
 	public void testReset() throws ConfigurationException {
-		nu.pattern.OpenCV.loadShared();
+		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
 		DeduplicationProcessor deduplicationProcessor = new DeduplicationProcessor(new MockCameraManager());
 

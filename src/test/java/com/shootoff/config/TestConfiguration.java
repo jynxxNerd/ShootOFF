@@ -18,7 +18,7 @@ public class TestConfiguration {
 		// This is required because testWriteConfigFile loads a 
 		// configuration file after writing it, which causes
 		// cameras to be enumerated then opened with OpenCV
-		nu.pattern.OpenCV.loadShared();
+		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 		String[] emptyArgs = new String[0];
