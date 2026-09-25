@@ -49,6 +49,13 @@ dependencies {
     implementation 'org.bytedeco:opencv:4.14.0-1.5.14:linux-x86_64'
     implementation 'org.bytedeco:openblas:0.3.34-1.5.14'
     implementation 'org.bytedeco:openblas:0.3.34-1.5.14:linux-x86_64'
+    implementation('org.bytedeco:javacv:1.5.14') {
+        // Only the OpenCV and FFmpeg presets are used
+        ['flycapture', 'libdc1394', 'libfreenect', 'libfreenect2', 'librealsense', 'librealsense2',
+         'videoinput', 'artoolkitplus', 'leptonica', 'tesseract'].each { exclude group: 'org.bytedeco', module: it }
+    }
+    implementation 'org.bytedeco:ffmpeg:8.1.2-1.5.14'
+    implementation 'org.bytedeco:ffmpeg:8.1.2-1.5.14:linux-x86_64'
     implementation('com.github.oshi:oshi-core:6.12.0') {
         exclude group: 'org.slf4j'
     }
