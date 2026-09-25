@@ -724,11 +724,16 @@ public class Main extends Application {
 	}
 
 	public static void main(String[] args) {
-		// Force the JavaFX toolkit (GTK 3) to initialize before OpenCV's native
-		// library, which pulls in GTK 2 via its highgui module. OpenJFX no longer
-		// supports GTK 2, and glass refuses to start if GTK 2 is already loaded
-		// in the process, so JavaFX must claim GTK first.
-		new javafx.embed.swing.JFXPanel();
+		// On Linux, force the JavaFX toolkit (GTK 3) to initialize before
+		// OpenCV's native library, which pulls in GTK 2 via its highgui
+		// module. OpenJFX no longer supports GTK 2, and glass refuses to
+		// start if GTK 2 is already loaded in the process, so JavaFX must
+		// claim GTK first. This is scoped to Linux only: it's the only
+		// platform where OpenCV loads GTK, and starting JavaFX (which also
+		// starts AWT) this early would break the Mac webcam hack below,
+		// which requires those webcam-capture calls to run on the main
+		// thread before any JavaFX thread starts.
+		if (SystemInfo.isLinux()) Platform.startup(() -> {});
 
 		Loader.load(opencv_java.class);
 
