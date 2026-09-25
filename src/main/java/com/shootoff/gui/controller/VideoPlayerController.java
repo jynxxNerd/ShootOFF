@@ -251,11 +251,15 @@ public class VideoPlayerController implements PlaybackListener {
 
 	@FXML
 	public void nextButtonClicked(ActionEvent event) {
+		if (currentContext == null) return;
+
 		currentContext.nextFrame();
 	}
 
 	@FXML
 	public void togglePlaybackButtonClicked(ActionEvent event) {
+		if (currentContext == null) return;
+
 		currentContext.togglePlayback();
 
 		if (currentContext.isPlaying()) {

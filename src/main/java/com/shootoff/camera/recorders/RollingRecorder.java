@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongSupplier;
 
 import org.slf4j.Logger;
@@ -45,14 +46,21 @@ public class RollingRecorder implements Closeable {
 	private final int recordHeight;
 	private final LongSupplier clock;
 
+	// Serializes fork(boolean) and close() against each other: a rolling fork
+	// (tryLock, skipped if a fork is already running) and a shot fork/close
+	// (lock, waits for any in-flight fork) never run at the same time.
+	private final ReentrantLock forkLock = new ReentrantLock();
+
+	// Guards every field below, including bufferedFrames' contents.
+	private final Object stateLock = new Object();
+
 	private long startTime;
 	private long timeOffset = 0;
 	private File relativeVideoFile;
 	private File videoFile;
 	private VideoWriter videoWriter;
-	private final Object videoWriterLock = new Object();
-	private volatile boolean forking = false;
-	private volatile boolean recording = true;
+	private boolean forking = false;
+	private boolean recording = true;
 
 	// Frames that arrive while the video is being forked, stamped with the
 	// clock time they arrived at
@@ -89,31 +97,40 @@ public class RollingRecorder implements Closeable {
 	}
 
 	public void recordFrame(BufferedImage frame) {
-		if (!recording) return;
-
 		final long now = clock.getAsLong();
+		boolean needsRoll = false;
 
-		if (forking) {
-			synchronized (bufferedFrames) {
+		synchronized (stateLock) {
+			if (!recording) return;
+
+			if (forking) {
+				// A fork is cutting the current video; buffer this frame so it
+				// can be rebased onto the new video's timeline once the fork
+				// installs its writer.
 				bufferedFrames.add(new TimedFrame(BgrImages.copy(frame), now * 1000));
+				return;
 			}
-			return;
-		}
 
-		final long timestamp = (now - startTime) + timeOffset;
-
-		synchronized (videoWriterLock) {
+			final long timestamp = (now - startTime) + timeOffset;
 			write(videoWriter, frame, timestamp);
+
+			if (timestamp >= ShotRecorder.RECORD_LENGTH * 3) {
+				logger.debug("Rolling video file {}, timestamp = {} ms", relativeVideoFile.getPath(), timestamp);
+				needsRoll = true;
+			}
 		}
 
-		if (timestamp >= ShotRecorder.RECORD_LENGTH * 3) {
-			logger.debug("Rolling video file {}, timestamp = {} ms", relativeVideoFile.getPath(), timestamp);
+		if (!needsRoll) return;
 
+		// A shot fork (or another roll) may already be running; skip this
+		// roll rather than block the camera thread, the next frame re-checks.
+		if (forkLock.tryLock()) {
 			try {
 				fork(false);
 			} catch (final IOException e) {
-				logger.error("Failed to roll video file {}; recording stopped", videoFile.getPath(), e);
-				recording = false;
+				// fork() already logged the failure and stopped recording
+			} finally {
+				forkLock.unlock();
 			}
 		}
 	}
@@ -127,7 +144,8 @@ public class RollingRecorder implements Closeable {
 	}
 
 	/**
-	 * Cut the last RECORD_LENGTH of the current video into a new file.
+	 * Cut the last RECORD_LENGTH of the current video into a new file. Must be
+	 * called while holding forkLock.
 	 *
 	 * @param keepOld
 	 *            true when forking for a shot: the cut becomes the shot video
@@ -135,53 +153,81 @@ public class RollingRecorder implements Closeable {
 	 *            when rolling: the cut becomes the new rolling video.
 	 */
 	private ForkContext fork(boolean keepOld) throws IOException {
-		forking = true;
+		final File currentVideoFile;
+		final File currentRelativeVideoFile;
+
+		synchronized (stateLock) {
+			if (!recording) throw new IOException("Recording has already stopped");
+
+			forking = true;
+			videoWriter.close();
+			currentVideoFile = videoFile;
+			currentRelativeVideoFile = relativeVideoFile;
+		}
+
+		// The slow cut/copy work below runs with no lock held so the camera
+		// thread can keep buffering frames instead of blocking.
+		VideoWriter cutWriter = null;
+		File cutVideoFile = null;
+		VideoWriter copyWriter = null;
+		File copyVideoFile = null;
 
 		try {
-			synchronized (videoWriterLock) {
-				videoWriter.close();
-			}
-
 			final File forkRelativeVideoFile = newRelativeVideoFile(!keepOld);
 			final File forkVideoFile = toSessionsFile(forkRelativeVideoFile);
+			cutVideoFile = forkVideoFile;
 
 			final Cut cut;
-			try (VideoReader reader = new VideoReader(videoFile)) {
+			try (VideoReader reader = new VideoReader(currentVideoFile)) {
 				final long startCutTimestamp = reader.getDurationMs() - ShotRecorder.RECORD_LENGTH;
 
 				logger.debug("Forking video file {} to {}, keepOld = {}, start cutting at = {} ms",
-						relativeVideoFile.getPath(), forkRelativeVideoFile.getPath(), keepOld, startCutTimestamp);
+						currentRelativeVideoFile.getPath(), forkRelativeVideoFile.getPath(), keepOld,
+						startCutTimestamp);
 
 				cut = cut(reader, forkVideoFile, startCutTimestamp);
 			}
+			cutWriter = cut.writer;
 
 			final ForkContext context = new ForkContext(forkRelativeVideoFile, forkVideoFile, cut.lastTimestamp,
 					cut.writer);
 
+			final File nextRelativeVideoFile;
+			final File nextVideoFile;
+			final long nextTimeOffset;
 			final VideoWriter nextWriter;
+
 			if (keepOld) {
 				final File rollingRelativeVideoFile = newRelativeVideoFile(true);
 				final File rollingVideoFile = toSessionsFile(rollingRelativeVideoFile);
+				copyVideoFile = rollingVideoFile;
 
 				final Cut copy;
-				try (VideoReader reader = new VideoReader(videoFile)) {
+				try (VideoReader reader = new VideoReader(currentVideoFile)) {
 					copy = cut(reader, rollingVideoFile, -1);
 				}
+				copyWriter = copy.writer;
 
-				deleteExpiredVideo();
-				relativeVideoFile = rollingRelativeVideoFile;
-				videoFile = rollingVideoFile;
-				timeOffset = copy.lastTimestamp;
+				nextRelativeVideoFile = rollingRelativeVideoFile;
+				nextVideoFile = rollingVideoFile;
+				nextTimeOffset = copy.lastTimestamp;
 				nextWriter = copy.writer;
 			} else {
-				deleteExpiredVideo();
-				relativeVideoFile = forkRelativeVideoFile;
-				videoFile = forkVideoFile;
-				timeOffset = cut.lastTimestamp;
+				nextRelativeVideoFile = forkRelativeVideoFile;
+				nextVideoFile = forkVideoFile;
+				nextTimeOffset = cut.lastTimestamp;
 				nextWriter = cut.writer;
 			}
 
-			synchronized (bufferedFrames) {
+			if (!currentVideoFile.delete()) {
+				logger.warn("Failed to delete expired rolling video file: {}", currentVideoFile.getPath());
+			}
+
+			synchronized (stateLock) {
+				relativeVideoFile = nextRelativeVideoFile;
+				videoFile = nextVideoFile;
+				timeOffset = nextTimeOffset;
+
 				// Frames that arrived during the fork continue the new video's timeline
 				startTime = bufferedFrames.isEmpty() ? clock.getAsLong() : bufferedFrames.get(0).getTimestampMs();
 
@@ -189,20 +235,31 @@ public class RollingRecorder implements Closeable {
 					write(nextWriter, f.getImage(), (f.getTimestampMs() - startTime) + timeOffset);
 
 				bufferedFrames.clear();
-			}
 
-			synchronized (videoWriterLock) {
 				videoWriter = nextWriter;
+				forking = false;
 			}
 
 			return context;
-		} finally {
-			forking = false;
-		}
-	}
+		} catch (final IOException e) {
+			if (cutWriter != null) cutWriter.close();
+			if (copyWriter != null) copyWriter.close();
 
-	private void deleteExpiredVideo() {
-		if (!videoFile.delete()) logger.warn("Failed to delete expired rolling video file: {}", videoFile.getPath());
+			if (cutVideoFile != null && !cutVideoFile.delete())
+				logger.warn("Failed to delete partial fork video file: {}", cutVideoFile.getPath());
+			if (copyVideoFile != null && !copyVideoFile.delete())
+				logger.warn("Failed to delete partial fork video file: {}", copyVideoFile.getPath());
+
+			synchronized (stateLock) {
+				bufferedFrames.clear();
+				recording = false;
+				forking = false;
+			}
+
+			logger.error("Failed to fork video file {}; recording stopped", currentVideoFile.getPath(), e);
+
+			throw e;
+		}
 	}
 
 	/**
@@ -238,16 +295,21 @@ public class RollingRecorder implements Closeable {
 	}
 
 	public Optional<ShotRecorder> fork() {
-		if (!recording) return Optional.empty();
+		forkLock.lock();
 
 		try {
+			synchronized (stateLock) {
+				if (!recording) return Optional.empty();
+			}
+
 			final ForkContext context = fork(true);
 			return Optional.of(new ShotRecorder(context.relativeVideoFile, context.videoFile, context.lastTimestamp,
 					context.videoWriter, cameraName, clock));
 		} catch (final IOException e) {
-			logger.error("Failed to fork video file {} for a shot; recording stopped", videoFile.getPath(), e);
-			recording = false;
+			// fork() already logged the failure and stopped recording
 			return Optional.empty();
+		} finally {
+			forkLock.unlock();
 		}
 	}
 
@@ -277,14 +339,23 @@ public class RollingRecorder implements Closeable {
 
 	@Override
 	public void close() {
-		recording = false;
+		// Wait for any in-flight fork (roll or shot) to finish so we never
+		// close/delete a video file a fork is still reading or writing.
+		forkLock.lock();
 
-		synchronized (videoWriterLock) {
-			videoWriter.close();
-		}
+		try {
+			synchronized (stateLock) {
+				recording = false;
+				videoWriter.close();
 
-		if (!videoFile.delete()) {
-			logger.warn("Failed to delete expired rolling video file on close: {}", videoFile.getPath());
+				if (!videoFile.delete()) {
+					logger.warn("Failed to delete expired rolling video file on close: {}", videoFile.getPath());
+				}
+
+				bufferedFrames.clear();
+			}
+		} finally {
+			forkLock.unlock();
 		}
 	}
 }

@@ -375,23 +375,28 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		return projectionBounds;
 	}
 
-	public void startRecordingStream(File videoFile) {
+	public boolean startRecordingStream(File videoFile) {
 		if (logger.isDebugEnabled()) logger.debug("Writing Video Feed To: {}", videoFile.getAbsoluteFile());
 
 		try {
 			videoWriterStream = new VideoWriter(videoFile, getFeedWidth(), getFeedHeight());
 		} catch (final IOException e) {
 			logger.error("Could not start recording the video feed to {}", videoFile.getAbsolutePath(), e);
-			return;
+			return false;
 		}
 
 		recordingStartTime = System.currentTimeMillis();
 		recordingStream = true;
+
+		return true;
 	}
 
 	public void stopRecordingStream() {
+		if (!recordingStream || videoWriterStream == null) return;
+
 		recordingStream = false;
 		videoWriterStream.close();
+		videoWriterStream = null;
 	}
 
 	public void notifyShot(final Shot shot) {
@@ -501,8 +506,11 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	}
 
 	public void stopRecordingCalibratedArea() {
+		if (!recordingCalibratedArea || videoWriterCalibratedArea == null) return;
+
 		recordingCalibratedArea = false;
 		videoWriterCalibratedArea.close();
+		videoWriterCalibratedArea = null;
 	}
 
 	@Override

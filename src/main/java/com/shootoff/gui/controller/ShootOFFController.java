@@ -735,11 +735,12 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 						.getCameraManager(cameraTabPane.getSelectionModel().getSelectedIndex());
 
 				if (recordMenuItem.getText().equals("Start Recording")) {
-					recordMenuItem.setText("Stop Recording");
-
 					final String tabName = cameraTabPane.getSelectionModel().getSelectedItem().getText();
 					final String videoName = tabName + LocalDateTime.now().toString().replaceAll(":", ".") + ".mp4";
-					cameraManager.startRecordingStream(new File(videoName));
+
+					if (cameraManager.startRecordingStream(new File(videoName))) {
+						recordMenuItem.setText("Stop Recording");
+					}
 				} else {
 					recordMenuItem.setText("Start Recording");
 					cameraManager.stopRecordingStream();
