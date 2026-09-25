@@ -74,8 +74,6 @@ import javafx.stage.Stage;
 public class Main extends Application {
 	private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
-	private static final int MINIMUM_CPU_SCORE_EXCELLENT = 4000;
-	private static final int MINIMUM_CPU_SCORE_PASSABLE = 3000;
 	private static final long MINIMUM_RAM_EXCELLENT = 11712; // MB
 	private static final long MINIMUM_RAM_PASSABLE = 4096; // MB
 
@@ -594,19 +592,6 @@ public class Main extends Application {
 		}
 	}
 
-	private void setHardwareMessage(Label hardwareMessageLabel, int cpuScore) {
-		if (cpuScore < MINIMUM_CPU_SCORE_PASSABLE) {
-			hardwareMessageLabel.setText(POOR_HARDWARE_MESSAGE);
-			hardwareMessageLabel.setTextFill(Color.RED);
-		} else if (cpuScore < MINIMUM_CPU_SCORE_EXCELLENT) {
-			hardwareMessageLabel.setText(PASSABLE_HARDWARE_MESSAGE);
-			hardwareMessageLabel.setTextFill(Color.GOLD);
-		} else {
-			hardwareMessageLabel.setText(EXCELLENT_HARDWARE_MESSAGE);
-			hardwareMessageLabel.setTextFill(Color.DARKGREEN);
-		}
-	}
-
 	private void setHardwareMessage(Label hardwareMessageLabel, long installedRam) {
 		if (installedRam < MINIMUM_RAM_PASSABLE) {
 			hardwareMessageLabel.setText(POOR_HARDWARE_MESSAGE);
@@ -639,19 +624,11 @@ public class Main extends Application {
 
 		new Thread(() -> {
 			final String cpuName = HardwareData.getCpuName();
-			final Optional<Integer> cpuScore = HardwareData.getCpuScore();
 			final long installedRam = HardwareData.getMegabytesOfRam();
 
-			if (cpuScore.isPresent()) {
-				if (logger.isDebugEnabled()) logger.debug("Processor: {}, Processor Score: {}, installed RAM: {} MB",
-						cpuName, cpuScore.get(), installedRam);
+			if (logger.isDebugEnabled()) logger.debug("Processor: {}, installed RAM: {} MB", cpuName, installedRam);
 
-				Platform.runLater(() -> setHardwareMessage(hardwareMessageLabel, cpuScore.get()));
-			} else {
-				if (logger.isDebugEnabled()) logger.debug("Processor: {}, installed RAM: {} MB", cpuName, installedRam);
-
-				Platform.runLater(() -> setHardwareMessage(hardwareMessageLabel, installedRam));
-			}
+			Platform.runLater(() -> setHardwareMessage(hardwareMessageLabel, installedRam));
 		}).start();
 
 		final Alert shootoffWelcome = new Alert(AlertType.INFORMATION);
