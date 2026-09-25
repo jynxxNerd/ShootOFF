@@ -23,9 +23,8 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.URLConnection;
 import java.nio.file.Path;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -52,31 +51,34 @@ public class Plugin {
 	public Plugin(final Path jarPath) throws ParserConfigurationException, SAXException, IOException {
 		this.jarPath = jarPath;
 
-		loader = AccessController.doPrivileged((PrivilegedAction<URLClassLoader>) () -> {
-			try {
-				return new URLClassLoader(new URL[] { jarPath.toUri().toURL() },
-						Thread.currentThread().getContextClassLoader());
-			} catch (final MalformedURLException e) {
-				logger.error("Malformed jarPath", e);
-			}
-			return null;
-		});
-
-		if (loader == null) {
+		try {
+			loader = new URLClassLoader(new URL[] { jarPath.toUri().toURL() },
+					Thread.currentThread().getContextClassLoader());
+		} catch (final MalformedURLException e) {
 			throw new IllegalArgumentException(
-					String.format("The jarPath %s does not represent a valid ShootOFF plugin", jarPath));
+					String.format("The jarPath %s does not represent a valid ShootOFF plugin", jarPath), e);
 		}
 
-		final InputStream pluginSettings = loader.getResourceAsStream("shootoff.xml");
+		// findResource only searches this plugin's jar. getResourceAsStream
+		// would search ShootOFF's classpath first and could find another
+		// plugin descriptor.
+		final URL pluginSettingsUrl = loader.findResource("shootoff.xml");
 
-		if (pluginSettings == null) {
+		if (pluginSettingsUrl == null) {
 			throw new IllegalArgumentException(
 					String.format("The jarPath %s does not represent a valid ShootOFF plugin", jarPath));
 		}
 
 		final SAXParser saxParser = SAXParserFactory.newInstance().newSAXParser();
 		final PluginSettingsXMLHandler handler = new PluginSettingsXMLHandler();
-		saxParser.parse(pluginSettings, handler);
+
+		// Don't cache the jar connection, otherwise the jar stays open and
+		// can't be replaced or deleted while ShootOFF runs
+		final URLConnection connection = pluginSettingsUrl.openConnection();
+		connection.setUseCaches(false);
+		try (InputStream pluginSettings = connection.getInputStream()) {
+			saxParser.parse(pluginSettings, handler);
+		}
 
 		if (handler.getExercise() == null) {
 			throw new IllegalArgumentException(
@@ -139,8 +141,8 @@ public class Plugin {
 				}
 
 				try {
-					exercise = (TrainingExercise) exerciseClass.newInstance();
-				} catch (InstantiationException | IllegalAccessException e) {
+					exercise = (TrainingExercise) exerciseClass.getDeclaredConstructor().newInstance();
+				} catch (final ReflectiveOperationException e) {
 					logger.error("Error instantiating configured exerciseClass", e);
 				}
 			}
