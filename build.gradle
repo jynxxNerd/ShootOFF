@@ -136,11 +136,6 @@ dependencies {
     // JSoup to get processor benchmark data
     implementation group: 'org.jsoup', name: 'jsoup', version: '1.+'
 
-    // Bluetooth libraries, QR code generator, and JSON serializer for headless mode
-    implementation 'net.sf.bluecove:bluecove:2.1.0'
-    // Assumption that headless mode will only be supported on Linux
-    implementation 'net.sf.bluecove:bluecove-gpl:2.1.0'
-    implementation 'com.google.zxing:core:3.3.0'
     implementation 'com.google.code.gson:gson:2.8.0'
 
     testImplementation group: 'junit', name: 'junit', version: '4.+'

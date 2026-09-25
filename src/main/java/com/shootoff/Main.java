@@ -45,7 +45,6 @@ import com.shootoff.camera.cameratypes.PS3EyeCamera;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.gui.controller.ShootOFFController;
-import com.shootoff.headless.HeadlessController;
 import com.shootoff.plugins.TextToSpeech;
 import com.shootoff.util.HardwareData;
 import com.shootoff.util.SystemInfo;
@@ -554,11 +553,7 @@ public class Main extends Application {
 		if (config.isFirstRun()) {
 			if (shouldShowV4lWarning) showV4lWarning();
 
-			if (config.isHeadless()) {
-				config.setUseErrorReporting(false);
-			} else {
-				config.setUseErrorReporting(showFirstRunMessage());
-			}
+			config.setUseErrorReporting(showFirstRunMessage());
 
 			config.setFirstRun(false);
 			try {
@@ -575,11 +570,7 @@ public class Main extends Application {
 			logger.info("Error reporting has been disabled.");
 		}
 
-		if (config.isHeadless()) {
-			new HeadlessController();
-		} else {
-			startGui(config);
-		}
+		startGui(config);
 	}
 
 	private void startGui(Configuration config) {

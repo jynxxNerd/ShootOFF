@@ -144,7 +144,6 @@ public class Configuration {
 	private boolean useMalfunctions = false;
 	private float malfunctionsProbability = (float) 10.0;
 	private boolean debugMode = false;
-	private boolean headless = false;
 	private Set<Camera> recordingCameras = new HashSet<>();
 	private final Set<CameraManager> recordingManagers = new HashSet<>();
 	private final Set<VideoPlayerController> videoPlayers = new HashSet<>();
@@ -522,7 +521,6 @@ public class Configuration {
 		final Options options = new Options();
 
 		options.addOption("d", "debug", false, "turn on debug log messages");
-		options.addOption("h", "headless", false, "run without the main GUI and immediately open the projector arena");
 		options.addOption("m", "marker-radius", true, "sets the radius of shot markers in pixels [1,20]");
 		options.addOption("c", "ignore-laser-color", true,
 				"sets the color of laser that should be ignored by ShootOFF (green "
@@ -537,8 +535,6 @@ public class Configuration {
 			final CommandLine cmd = parser.parse(options, args);
 
 			if (cmd.hasOption("d")) setDebugMode(true);
-
-			if (cmd.hasOption("h")) headless = true;
 
 			if (cmd.hasOption("m")) setMarkerRadius(Integer.parseInt(cmd.getOptionValue("m")));
 
@@ -974,10 +970,6 @@ public class Configuration {
 
 	public boolean inDebugMode() {
 		return debugMode;
-	}
-
-	public boolean isHeadless() {
-		return headless;
 	}
 
 	public Optional<SessionRecorder> getSessionRecorder() {

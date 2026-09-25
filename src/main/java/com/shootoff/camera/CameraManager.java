@@ -592,12 +592,10 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 			videoWriterStream.encodeVideo(0, frame);
 		}
 
-		if (!config.isHeadless()) {
-			if (cropFeedToProjection && projectionBounds.isPresent()) {
-				cameraView.updateBackground(currentImage, projectionBounds);
-			} else {
-				cameraView.updateBackground(currentImage, Optional.empty());
-			}
+		if (cropFeedToProjection && projectionBounds.isPresent()) {
+			cameraView.updateBackground(currentImage, projectionBounds);
+		} else {
+			cameraView.updateBackground(currentImage, Optional.empty());
 		}
 
 		return true;

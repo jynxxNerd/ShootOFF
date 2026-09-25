@@ -118,11 +118,7 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 		this.arenaStage = arenaStage;
 		this.trainingExerciseContainer = trainingExerciseContainer;
 
-		if (config.isHeadless()) {
-			canvasManager = new CanvasManager(arenaCanvasGroup, resetter, "arena", shotTimerModel);
-		} else {
-			canvasManager = new MirroredCanvasManager(arenaCanvasGroup, resetter, "arena", shotTimerModel, this);
-		}
+		canvasManager = new MirroredCanvasManager(arenaCanvasGroup, resetter, "arena", shotTimerModel, this);
 
 		setPrefSize(640, 480);
 
@@ -249,11 +245,7 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 
 		Optional<Screen> projector = Optional.empty();
 
-		if (config.isHeadless()) {
-			logger.debug("Headless, assuming smallest display is projector");
-
-			projector = findSmallestScreen();
-		} else if (Screen.getScreens().size() == 2) {
+		if (Screen.getScreens().size() == 2) {
 			logger.debug("Two screens present");
 
 			homeScreen = getStageHomeScreen(shootOffStage);
