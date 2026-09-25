@@ -724,6 +724,12 @@ public class Main extends Application {
 	}
 
 	public static void main(String[] args) {
+		// Force the JavaFX toolkit (GTK 3) to initialize before OpenCV's native
+		// library, which pulls in GTK 2 via its highgui module. OpenJFX no longer
+		// supports GTK 2, and glass refuses to start if GTK 2 is already loaded
+		// in the process, so JavaFX must claim GTK first.
+		new javafx.embed.swing.JFXPanel();
+
 		Loader.load(opencv_java.class);
 
 		// Check the comment at the top of the Camera class

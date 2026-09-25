@@ -7,8 +7,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -88,14 +86,6 @@ public class TestDuelingTree {
 		dt.init(config, new CamerasSupervisor(config), null, null, new ProjectorArenaPane(config, arenaCanvas));
 
 		config.setExercise(dt);
-
-		// Set the wait to zero
-		Field delayConstant = dt.getClass().getDeclaredField("NEW_ROUND_DELAY");
-		delayConstant.setAccessible(true);
-		Field modifiersField = Field.class.getDeclaredField("modifiers");
-		modifiersField.setAccessible(true);
-		modifiersField.setInt(delayConstant, delayConstant.getModifiers() & ~Modifier.FINAL);
-		delayConstant.setInt(dt, 0);
 	}
 
 	@After

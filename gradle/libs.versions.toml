@@ -1,0 +1,43 @@
+[versions]
+javafx = "21.0.12"
+javacpp = "1.5.14"
+opencv = "4.14.0-1.5.14"
+ffmpeg = "8.1.2-1.5.14"
+openblas = "0.3.34-1.5.14"
+marytts = "5.2.1"
+webcam-capture = "0.3.12"
+logback = "1.5.38"
+slf4j = "2.0.20"
+junit = "5.14.4"
+
+[libraries]
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+spotbugs-annotations = "com.github.spotbugs:spotbugs-annotations:4.10.4"
+bridj = "com.nativelibs4java:bridj:0.7.0"
+webcam-capture = { module = "com.github.sarxos:webcam-capture", version.ref = "webcam-capture" }
+webcam-capture-driver-ipcam = { module = "com.github.sarxos:webcam-capture-driver-ipcam", version.ref = "webcam-capture" }
+commons-cli = "commons-cli:commons-cli:1.11.0"
+marytts-runtime = { module = "de.dfki.mary:marytts-runtime", version.ref = "marytts" }
+marytts-lang-en = { module = "de.dfki.mary:marytts-lang-en", version.ref = "marytts" }
+marytts-voice = { module = "de.dfki.mary:voice-cmu-slt-hsmm", version.ref = "marytts" }
+javacv = { module = "org.bytedeco:javacv", version.ref = "javacpp" }
+javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
+opencv = { module = "org.bytedeco:opencv", version.ref = "opencv" }
+ffmpeg = { module = "org.bytedeco:ffmpeg", version.ref = "ffmpeg" }
+openblas = { module = "org.bytedeco:openblas", version.ref = "openblas" }
+oshi-core = "com.github.oshi:oshi-core:6.12.0"
+gson = "com.google.code.gson:gson:2.13.2"
+jna = "net.java.dev.jna:jna:5.19.1"
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit4 = "junit:junit:4.13.2"
+hamcrest-core = "org.hamcrest:hamcrest-core:1.3"
+
+[bundles]
+marytts = ["marytts-runtime", "marytts-lang-en", "marytts-voice"]
+
+[plugins]
+javafx = { id = "org.openjfx.javafxplugin", version = "0.1.0" }
