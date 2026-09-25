@@ -128,7 +128,9 @@ public class RollingRecorder implements Closeable {
 			try {
 				fork(false);
 			} catch (final IOException e) {
-				// fork() already logged the failure and stopped recording
+				// Either fork() logged a real failure and stopped recording,
+				// or recording had already stopped for some other reason
+				// (nothing new to log here either way).
 			} finally {
 				forkLock.unlock();
 			}
@@ -224,24 +226,34 @@ public class RollingRecorder implements Closeable {
 			}
 
 			synchronized (stateLock) {
-				relativeVideoFile = nextRelativeVideoFile;
-				videoFile = nextVideoFile;
-				timeOffset = nextTimeOffset;
-
-				// Frames that arrived during the fork continue the new video's timeline
-				startTime = bufferedFrames.isEmpty() ? clock.getAsLong() : bufferedFrames.get(0).getTimestampMs();
+				// Frames that arrived during the fork continue the new video's
+				// timeline. Compute everything that can still fail (the clock
+				// read) before mutating any field, so a failure here leaves
+				// this instance exactly as it was before this fork attempt;
+				// the fields are only committed once nothing more can throw.
+				final long nextStartTime = bufferedFrames.isEmpty() ? clock.getAsLong()
+						: bufferedFrames.get(0).getTimestampMs();
 
 				for (final TimedFrame f : bufferedFrames)
-					write(nextWriter, f.getImage(), (f.getTimestampMs() - startTime) + timeOffset);
+					write(nextWriter, f.getImage(), (f.getTimestampMs() - nextStartTime) + nextTimeOffset);
 
 				bufferedFrames.clear();
 
+				relativeVideoFile = nextRelativeVideoFile;
+				videoFile = nextVideoFile;
+				timeOffset = nextTimeOffset;
+				startTime = nextStartTime;
 				videoWriter = nextWriter;
 				forking = false;
 			}
 
 			return context;
-		} catch (final IOException e) {
+		} catch (final IOException | RuntimeException | Error t) {
+			// Run the same cleanup for any failure in the unlocked section
+			// above (including a RuntimeException/Error, e.g. an OOM during
+			// the cut), not just IOException: otherwise forking would stay
+			// true forever, cutWriter/copyWriter would leak, and recordFrame
+			// would buffer frames without limit.
 			if (cutWriter != null) cutWriter.close();
 			if (copyWriter != null) copyWriter.close();
 
@@ -256,9 +268,9 @@ public class RollingRecorder implements Closeable {
 				forking = false;
 			}
 
-			logger.error("Failed to fork video file {}; recording stopped", currentVideoFile.getPath(), e);
+			logger.error("Failed to fork video file {}; recording stopped", currentVideoFile.getPath(), t);
 
-			throw e;
+			throw t;
 		}
 	}
 
@@ -306,7 +318,9 @@ public class RollingRecorder implements Closeable {
 			return Optional.of(new ShotRecorder(context.relativeVideoFile, context.videoFile, context.lastTimestamp,
 					context.videoWriter, cameraName, clock));
 		} catch (final IOException e) {
-			// fork() already logged the failure and stopped recording
+			// Either fork() logged a real failure and stopped recording, or
+			// recording had already stopped for some other reason (nothing
+			// new to log here either way).
 			return Optional.empty();
 		} finally {
 			forkLock.unlock();

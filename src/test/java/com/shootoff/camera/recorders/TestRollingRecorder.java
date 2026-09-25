@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -259,5 +261,44 @@ public class TestRollingRecorder {
 		} else {
 			assertEquals(Arrays.toString(remaining), 0, remaining.length);
 		}
+	}
+
+	@Test(timeout = 30_000)
+	public void testForkCleansUpOnRuntimeExceptionDuringTheUnlockedPhase() throws IOException {
+		// The clock is the one seam fork() calls into after the real cut/copy
+		// work below has already created open writers and real files:
+		// throwing from it exercises the same cleanup path a converter
+		// failure or an OOM mid-cut would, without mocking VideoWriter/Reader.
+		final AtomicBoolean clockShouldThrow = new AtomicBoolean(false);
+		final LongSupplier throwingClock = () -> {
+			if (clockShouldThrow.get()) throw new RuntimeException("Simulated clock failure");
+			return now.get();
+		};
+
+		final RollingRecorder rolling = new RollingRecorder(".mp4", "test", "cam", WIDTH, HEIGHT, throwingClock);
+		record(rolling, Optional.empty(), 200); // 6.6 s, gives fork() real cutting work to do
+
+		clockShouldThrow.set(true);
+
+		try {
+			rolling.fork();
+			fail("fork() should have propagated the RuntimeException instead of swallowing it");
+		} catch (final RuntimeException e) {
+			assertEquals("Simulated clock failure", e.getMessage());
+		}
+
+		// The original rolling file is already gone by this point (fork()
+		// deletes it once the cut/copy succeeds), and the cut/copy writers
+		// and files created for this failed fork attempt must not leak
+		// either: nothing is left on disk.
+		final String[] remaining = sessionFolder.list();
+		assertEquals(Arrays.toString(remaining), 0, remaining.length);
+
+		// forking/recording must both be cleared, not left stuck on forever:
+		// a frame recorded now (with a normal, non-throwing clock call) must
+		// be dropped immediately (recording stopped), not appended to an
+		// ever-growing in-memory buffer.
+		clockShouldThrow.set(false);
+		rolling.recordFrame(frame(999));
 	}
 }

@@ -107,8 +107,8 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 
 	protected Optional<Integer> minimumShotDimension = Optional.empty();
 
-	protected boolean recordingStream = false;
-	protected VideoWriter videoWriterStream;
+	protected volatile boolean recordingStream = false;
+	protected volatile VideoWriter videoWriterStream;
 	protected long recordingStartTime;
 
 	protected boolean recordingShots = false;
@@ -487,9 +487,9 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	private ScheduledFuture<?> motionDiagnosticFuture = null;
 
 	private boolean recordCalibratedArea = false;
-	private VideoWriter videoWriterCalibratedArea;
+	private volatile VideoWriter videoWriterCalibratedArea;
 	private long recordingCalibratedAreaStartTime;
-	private boolean recordingCalibratedArea;
+	private volatile boolean recordingCalibratedArea;
 
 	public void startRecordingCalibratedArea(File videoFile, int width, int height) {
 		if (logger.isDebugEnabled()) logger.debug("Writing Video Feed To: {}", videoFile.getAbsoluteFile());
@@ -594,10 +594,14 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		}
 
 		if (recordingStream) {
-			try {
-				videoWriterStream.write(currentImage, System.currentTimeMillis() - recordingStartTime);
-			} catch (final IOException e) {
-				logger.error("Failed to record video feed frame", e);
+			final VideoWriter writer = videoWriterStream;
+
+			if (writer != null) {
+				try {
+					writer.write(currentImage, System.currentTimeMillis() - recordingStartTime);
+				} catch (final IOException e) {
+					logger.error("Failed to record video feed frame", e);
+				}
 			}
 		}
 
@@ -645,11 +649,15 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 			}
 			
 			if (recordingCalibratedArea) {
-				try {
-					videoWriterCalibratedArea.write(Camera.matToBufferedImage(submatFrameBGR),
-							System.currentTimeMillis() - recordingCalibratedAreaStartTime);
-				} catch (final IOException e) {
-					logger.error("Failed to record calibrated area frame", e);
+				final VideoWriter writer = videoWriterCalibratedArea;
+
+				if (writer != null) {
+					try {
+						writer.write(Camera.matToBufferedImage(submatFrameBGR),
+								System.currentTimeMillis() - recordingCalibratedAreaStartTime);
+					} catch (final IOException e) {
+						logger.error("Failed to record calibrated area frame", e);
+					}
 				}
 			}
 
