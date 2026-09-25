@@ -34,7 +34,7 @@ import com.shootoff.gui.CameraConfigListener;
 import com.shootoff.gui.controller.PreferencesController;
 import com.shootoff.targets.CameraViews;
 
-import com.shootoff.util.SwingFXUtils;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.SnapshotParameters;

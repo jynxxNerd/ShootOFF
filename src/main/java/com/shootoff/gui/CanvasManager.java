@@ -67,7 +67,7 @@ import com.shootoff.targets.io.TargetIO.TargetComponents;
 
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
-import com.shootoff.util.SwingFXUtils;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.geometry.Pos;
