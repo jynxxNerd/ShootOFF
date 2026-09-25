@@ -33,7 +33,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import org.openimaj.util.parallel.GlobalExecutorPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -358,7 +357,6 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		}
 
 		TimerPool.close();
-		GlobalExecutorPool.getPool().shutdownNow();
 
 		if (!config.getVideoPlayers().isEmpty()) {
 			for (final VideoPlayerController videoPlayer : config.getVideoPlayers()) {

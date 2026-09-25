@@ -11,7 +11,7 @@ repositories {
     maven { url "https://nexus.terrestris.de/repository/public/" }
     // xuggle; removed together with Xuggle
     maven { url "https://maven.dcm4che.org/" }
-    // com.twmacinta:fast-md5 (an OpenIMAJ dependency); removed together with OpenIMAJ
+    // com.twmacinta:fast-md5 (a MaryTTS dependency)
     maven { url "https://nrgxnat.jfrog.io/artifactory/libs-release/" }
 }
 
@@ -42,10 +42,6 @@ dependencies {
     implementation 'de.dfki.mary:voice-cmu-slt-hsmm:5.2.1'
 
     implementation 'xuggle:xuggle-xuggler:5.4'
-    implementation('org.openimaj:core:1.3.10') {
-        // Transitive dependency that is not needed and no longer exists in any repository
-        exclude group: 'vigna.dsi.unimi.it'
-    }
     implementation 'org.openpnp:opencv:2.4.13-0'
     implementation('com.github.oshi:oshi-core:6.12.0') {
         exclude group: 'org.slf4j'

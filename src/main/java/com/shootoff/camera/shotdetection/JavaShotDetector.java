@@ -23,13 +23,11 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import org.opencv.core.Mat;
 import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
-import org.openimaj.util.function.Operation;
-import org.openimaj.util.parallel.GlobalExecutorPool;
-import org.openimaj.util.parallel.Parallel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,12 +101,6 @@ public final class JavaShotDetector extends FrameProcessingShotDetector {
 
 	public JavaShotDetector(final CameraManager cameraManager, final CameraView cameraView) {
 		super(cameraManager, cameraView);
-
-		GlobalExecutorPool.getPool().setRejectedExecutionHandler((r, p) -> {
-			if (!p.isShutdown()) {
-				logger.error("Shot detection thread was rejected but GlobalExecutorPool was not shutdown");
-			}
-		});
 
 		this.cameraManager = cameraManager;
 
@@ -356,38 +348,35 @@ public final class JavaShotDetector extends FrameProcessingShotDetector {
 
 		// In this loop we accomplish both MovingAverage updates AND threshold
 		// pixel detection
-		Parallel.forIndex(0, (SECTOR_ROWS * SECTOR_COLUMNS), 1, new Operation<Integer>() {
-			@Override
-			public void perform(Integer sector) {
-				final int sectorX = sector.intValue() % SECTOR_COLUMNS;
-				final int sectorY = sector.intValue() / SECTOR_ROWS;
+		IntStream.range(0, SECTOR_ROWS * SECTOR_COLUMNS).parallel().forEach(sector -> {
+			final int sectorX = sector % SECTOR_COLUMNS;
+			final int sectorY = sector / SECTOR_ROWS;
 
-				if (!cameraManager.isSectorOn(sectorX, sectorY)) return;
+			if (!cameraManager.isSectorOn(sectorX, sectorY)) return;
 
-				final int startX = subWidth * sectorX;
-				final int startY = subHeight * sectorY;
+			final int startX = subWidth * sectorX;
+			final int startY = subHeight * sectorY;
 
-				for (int y = startY; y < startY + subHeight; y++) {
-					final int yOffset = y * cols;
-					for (int x = startX; x < startX + subWidth; x++) {
-						// If the thread is interrupted it's likely because the
-						// thread pool
-						// is being shutdown with shutdownNow. Thus cancel
-						// searching
-						// for a shot in the current frame.
-						if (Thread.currentThread().isInterrupted()) {
-							logger.trace("Shot detection sieve interrupted");
-							return;
-						}
-
-						final int currentH = workingFramePrimitive[(yOffset + x) * channels] & 0xFF;
-						final int currentS = workingFramePrimitive[(yOffset + x) * channels + 1] & 0xFF;
-						final int currentV = workingFramePrimitive[(yOffset + x) * channels + 2] & 0xFF;
-
-						final Pixel pixel = updateFilter(currentH, currentS, currentV, x, y, detectShots);
-
-						if (pixel != null) thresholdPixels.add(pixel);
+			for (int y = startY; y < startY + subHeight; y++) {
+				final int yOffset = y * cols;
+				for (int x = startX; x < startX + subWidth; x++) {
+					// If the thread is interrupted it's likely because the
+					// thread pool
+					// is being shutdown with shutdownNow. Thus cancel
+					// searching
+					// for a shot in the current frame.
+					if (Thread.currentThread().isInterrupted()) {
+						logger.trace("Shot detection sieve interrupted");
+						return;
 					}
+
+					final int currentH = workingFramePrimitive[(yOffset + x) * channels] & 0xFF;
+					final int currentS = workingFramePrimitive[(yOffset + x) * channels + 1] & 0xFF;
+					final int currentV = workingFramePrimitive[(yOffset + x) * channels + 2] & 0xFF;
+
+					final Pixel pixel = updateFilter(currentH, currentS, currentV, x, y, detectShots);
+
+					if (pixel != null) thresholdPixels.add(pixel);
 				}
 			}
 		});
