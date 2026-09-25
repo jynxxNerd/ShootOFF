@@ -183,3 +183,23 @@ Each step is one or more commits on `modernize/java21` and leaves `test` green a
 ## 9. Out of scope (sub-project 2 or later)
 
 CI, `jpackage` installers, multi-OS native bundles, GitHub releases, README/docs refresh, browser-based remote control, fixing absolute paths written into the tracked `shootoff.properties`, JPMS modularization.
+
+## 10. Verification results
+
+### 2026-09-25 (partial; projector checks pending)
+
+Camera: Logitech C270 (046d:0825), branch `modernize/java21` at `055ca629`, launched with `./gradlew run --args="-d"`.
+
+| Check | Result |
+|---|---|
+| Negotiated capture format | `640x480 MJPG at 30.0 FPS` (log line from `SarxosCaptureCamera`) |
+| Measured FPS | ~15 FPS in the stream debugger; frame counter agrees (~3,450 frames in 212 s). Unchanged in brighter light, so C270 auto-exposure is probably not the cause. The cause (camera frame-interval/exposure priority vs. per-frame processing time) is not yet diagnosed. Well above `MIN_SHOT_DETECTION_FPS` (5); no low-FPS warning. |
+| Stability | 4.5 min with no disconnect on a different port. An earlier run on another hub port dropped off USB after ~30 s (kernel `error -71`); treated as a port/hub issue. |
+| Shot detection | Detector runs and accepts shots. Two red "shots" were false positives from a bright room light, alongside ShootOFF's bright-conditions warning (expected behavior in a lit room). A deliberate laser test in dim light is still pending. |
+| MJPG decode warnings | ~1 `Corrupt JPEG data: N extraneous bytes` message per frame. Known C270 MJPG quirk; frames decode normally. |
+| Projector arena calibration | Pending (needs projector) |
+| RandomTargetParDrill end to end | Pending (needs projector). Plugin loading verified directly in Task 14 review. |
+| Session recording and playback | Pending |
+| RandomShoot TTS | Pending |
+
+Follow-ups noted: diagnose 15 vs 30 FPS (install `v4l-utils`; check `--get-parm` and exposure controls); ShootOFF never recovers from a camera that disconnects mid-session and logs two warnings per frame until restart (pre-existing behavior).
