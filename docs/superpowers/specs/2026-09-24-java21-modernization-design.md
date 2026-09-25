@@ -47,7 +47,7 @@
   - `installDist` produces `build/install/shootoff/` with `bin/shootoff`, `lib/`, and the resource directories `targets/`, `sounds/`, `courses/`, `exercises/` and `shootoff.properties`. The generated Unix start script is customized to `cd "$APP_HOME"` before launching, because ShootOFF and plugins resolve relative paths (e.g. `sounds/beep.wav`) against the working directory.
 - **`maven-publish`:** publish `com.shootoff:shootoff:5.0.0-SNAPSHOT` to `mavenLocal` so plugins can compile against it.
 - **Version:** `src/main/resources/version.properties` becomes `5.0.0-SNAPSHOT` (major bump: Java 21 required, headless removed).
-- **Removed from the build:** all ant-javafx tasks (`fxJar`, `fxSignedJar`, `fxWebstartSignedJar`, `fxRelease`, `fxJarWritableResources`, `msiRelease`), all GitHub release and gh-pages tasks, `updateJars`, the `buildscript` block (gpars, github-api), the `eclipse` plugin, and repositories other than Maven Central and the DFKI MaryTTS repo.
+- **Removed from the build:** all ant-javafx tasks (`fxJar`, `fxSignedJar`, `fxWebstartSignedJar`, `fxRelease`, `fxJarWritableResources`, `msiRelease`), all GitHub release and gh-pages tasks, `updateJars`, the `buildscript` block (gpars, github-api), the `eclipse` plugin, and repositories other than Maven Central, the DFKI repo, and `nexus.terrestris.de`. MaryTTS 5.2.1 itself is on Maven Central, but its dependencies `de.dfki.lt.jtok:jtok-core` (DFKI only) and `gov.nist.math:Jampack:1.0` (terrestris only) are not. Both extra repositories are content-filtered to those artifacts.
 - **Repository hygiene:** commit the Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`). `.gitignore` ignores `*.jar`, so add a `!gradle/wrapper/gradle-wrapper.jar` exception (`build/` and `log/` are already ignored).
 - **Unchanged:** `eyeCam32.dll`/`eyeCam64.dll` stay in the repo and are copied into the distribution as today.
 
@@ -66,7 +66,7 @@
 
 ### 4.2 Recording and playback: Xuggle → JavaCV FFmpeg
 
-- `RollingRecorder`, `ShotRecorder` → `org.bytedeco.javacv.FFmpegFrameRecorder` (H.264 in `.mp4`, as today).
+- `RollingRecorder`, `ShotRecorder` → `org.bytedeco.javacv.FFmpegFrameRecorder`, writing MPEG-4 Part 2 in `.mp4` (what the shot recorder already used). The stream and calibrated-area debug recordings move from H.264 to MPEG-4 as well: the stock JavaCV FFmpeg build has no H.264 encoder without the GPL variant.
 - `VideoPlayerController`, test `MockCamera` → `org.bytedeco.javacv.FFmpegFrameGrabber`.
 - `Camera`, `CameraManager` Xuggle type references are replaced accordingly.
 - Remove the `xuggle:xuggle-xuggler` dependency.
