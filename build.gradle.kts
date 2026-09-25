@@ -2,6 +2,8 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     java
+    application
+    `maven-publish`
     alias(libs.plugins.javafx)
 }
 
@@ -90,5 +92,50 @@ tasks.test {
     useJUnitPlatform()
     testLogging {
         exceptionFormat = TestExceptionFormat.FULL
+    }
+}
+
+application {
+    mainClass = "com.shootoff.Launcher"
+}
+
+tasks.named<JavaExec>("run") {
+    // ShootOFF and its plugins resolve targets/, sounds/, courses/ and
+    // exercises/ against the working directory
+    workingDir = projectDir
+}
+
+distributions {
+    main {
+        contents {
+            from(projectDir) {
+                include("targets/**", "sounds/**", "courses/**", "shootoff.properties", "LICENSE",
+                    "eyeCam32.dll", "eyeCam64.dll")
+            }
+        }
+    }
+}
+
+tasks.startScripts {
+    // Run from the install folder so relative resource paths resolve there
+    // no matter where the script is launched from
+    doLast {
+        val unixExec = "exec \"\$JAVACMD\" \"\$@\""
+        val unix = unixScript.readText()
+        check(unixExec in unix) { "Unexpected Unix start script layout" }
+        unixScript.writeText(unix.replace(unixExec, "cd \"\$APP_HOME\" || exit\n$unixExec"))
+
+        val windowsExec = "@rem Execute "
+        val windows = windowsScript.readText()
+        check(windowsExec in windows) { "Unexpected Windows start script layout" }
+        windowsScript.writeText(windows.replace(windowsExec, "cd /d \"%APP_HOME%\"\r\n\r\n$windowsExec"))
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+        }
     }
 }
