@@ -34,7 +34,7 @@ JavaFX is currently woven into ShootOFF's core:
 
 1. The build has modules `core`, `plugin-api` and `javafx-app`. `core` and `plugin-api` have no JavaFX dependency, and a test enforces it.
 2. `./gradlew run` launches the JavaFX app, and it behaves as today.
-3. The full test suite passes: all existing tests, relocated into their modules, plus the new tests in §6.
+3. The full test suite passes: all existing tests, relocated into their modules, plus the new tests in §8.
 4. RandomTargetParDrill, rewritten against `plugin-api` in its own repository, loads and plays in the JavaFX app with its current behavior: random placement, cues and sounds, par timing, the hit-factor summary with personal bests, and the shot replay on the summary target.
 5. Existing session files (XML and JSON) still load and replay. Session file formats are unchanged.
 6. Old-style plugins built on `TrainingExerciseBase` / `ProjectorTrainingExerciseBase` still load and run in the JavaFX app.
@@ -44,7 +44,7 @@ JavaFX is currently woven into ShootOFF's core:
 | Module | Language | Contents | Depends on |
 |---|---|---|---|
 | `core` | Java | Camera and OpenCV, shot detection, recorders, sessions and session I/O, configuration, courses, plugin loading, calibration and perspective math, **target model and hit-testing**, core geometry types | — (no UI) |
-| `plugin-api` | Java | Exercise API: `Exercise`, `ExerciseHost` and handles, `ExerciseMetadata`, `FakeExerciseHost` (test fixture, published as a separate artifact or source set) | `core` |
+| `plugin-api` | Java | Exercise API: `Exercise`, `ExerciseHost` and handles, `ExerciseMetadata`, `FakeExerciseHost` (in the Gradle `java-test-fixtures` source set, published as `plugin-api`'s test-fixtures variant so plugin builds can use it with `testImplementation(testFixtures("com.shootoff:plugin-api:…"))`) | `core` |
 | `javafx-app` | Java | Everything under today's `gui/**`, FXML, `Main`/`Launcher`, `TargetView` and `DisplayShot` markers, the **legacy** exercise base classes and the ten built-in exercises, `JavaFxExerciseHost` | `core`, `plugin-api` |
 | `compose-app` | Kotlin | Sub-project 1b; not created in 1a | `core`, `plugin-api` |
 
@@ -117,7 +117,7 @@ public interface Exercise {
 | Sound | `playSound(String resourceOrFile)`; `playSounds(List<String>)`; `say(String text)` (TTS) |
 | Time | `Cancellable schedule(Runnable task, Duration delay)`; `Cancellable scheduleRepeating(Runnable task, Duration initialDelay, Duration period)` |
 | Resources | `Optional<InputStream> resource(String path)` (from the exercise's jar); `Path dataDirectory()` (a writable folder per exercise, e.g. for personal bests) |
-| Settings shared with the app | `double parTime()` / `onParTimeChanged(...)` and delayed-start interval equivalents, where the existing UI already provides these controls |
+| Settings shared with the app | Par time and delayed start come from the app's existing controls: `double parTime()`, `onParTimeChanged(DoubleConsumer)`, `DelayRange delayedStart()` (min/max seconds), `onDelayedStartChanged(Consumer<DelayRange>)`. The controls are shown only while an exercise has registered a listener for them |
 
 **Threading.**
 - Host methods may be called from any thread; each UI marshals onto its own UI thread.
