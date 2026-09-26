@@ -33,6 +33,7 @@ import com.shootoff.courses.Course;
 import com.shootoff.courses.CourseTarget;
 import com.shootoff.courses.io.CourseIO;
 import com.shootoff.geom.Size;
+import com.shootoff.gui.LocatedImage;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.targets.Target;
 import com.shootoff.targets.io.TargetIO;
@@ -185,7 +186,9 @@ public class ArenaCoursesSlide extends Slide implements ItemSelectionListener<Fi
 			final Group courseGroup = new Group();
 			final Course c = course.get();
 
-			if (c.getBackground().isPresent()) {
+			final Optional<LocatedImage> backgroundImage = c.getBackground().flatMap(ProjectorArenaPane::toLocatedImage);
+
+			if (backgroundImage.isPresent()) {
 				final Size courseDimensions;
 
 				if (c.getResolution().isPresent()) {
@@ -194,8 +197,7 @@ public class ArenaCoursesSlide extends Slide implements ItemSelectionListener<Fi
 					courseDimensions = new Size(arenaPane.getWidth(), arenaPane.getWidth());
 				}
 
-				final ImageView backgroundImageView = new ImageView(
-						ProjectorArenaPane.toLocatedImage(c.getBackground().get()));
+				final ImageView backgroundImageView = new ImageView(backgroundImage.get());
 				backgroundImageView.setFitWidth(courseDimensions.getWidth());
 				backgroundImageView.setFitHeight(courseDimensions.getHeight());
 				backgroundImageView.setSmooth(true);

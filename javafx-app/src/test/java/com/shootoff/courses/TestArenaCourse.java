@@ -1,6 +1,7 @@
 package com.shootoff.courses;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -21,6 +22,7 @@ import com.shootoff.gui.JavaFXThreadingRule;
 import com.shootoff.gui.LocatedImage;
 import com.shootoff.gui.MockCanvasManager;
 import com.shootoff.gui.controller.MockProjectorArenaController;
+import com.shootoff.gui.pane.ProjectorArenaPane;
 import com.shootoff.targets.Target;
 
 public class TestArenaCourse {
@@ -109,5 +111,33 @@ public class TestArenaCourse {
 		assertEquals(1, added.size());
 		assertEquals(1, notices.size());
 		assertTrue(notices.get(0), notices.get(0).contains("no_such_target.target"));
+	}
+
+	@Test
+	public void courseWithAMissingResourceBackgroundStillApplies() {
+		final List<Target> added = arenaPane.setCourse(new Course(
+				Optional.of(new CourseBackground("/backgrounds/no_such_background.png", true)),
+				List.of(new CourseTarget(new File("targets/Reset.target"), 10, 100, 10, 1)),
+				Optional.of(new Size(arenaPane.getWidth(), arenaPane.getHeight()))));
+
+		assertEquals(1, added.size());
+		assertFalse(arenaPane.getArenaBackground().isPresent());
+	}
+
+	@Test
+	public void missingResourceBackgroundHasNoImage() {
+		assertFalse(ProjectorArenaPane
+				.toLocatedImage(new CourseBackground("/backgrounds/no_such_background.png", true)).isPresent());
+		assertTrue(ProjectorArenaPane.toLocatedImage(new CourseBackground(BACKGROUND_URL, true)).isPresent());
+	}
+
+	@Test
+	public void backgroundOnlyAnExerciseCanLoadIsNotSavedInACourse() {
+		// An exercise jar's own resource, e.g. RandomTargetParDrill's /backgrounds/blackBG.png: ShootOFF
+		// can't load it back from its own class path
+		arenaPane.setArenaBackground(new LocatedImage(TestArenaCourse.class.getResourceAsStream(BACKGROUND_URL),
+				"/backgrounds/no_such_background.png"));
+
+		assertFalse(arenaPane.getCourse().getBackground().isPresent());
 	}
 }

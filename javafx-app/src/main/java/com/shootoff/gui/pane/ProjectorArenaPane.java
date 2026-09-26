@@ -19,6 +19,7 @@
 package com.shootoff.gui.pane;
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -412,7 +413,13 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 	 */
 	public Course getCourse() {
 		final Optional<CourseBackground> courseBackground = background
-				.map(b -> new CourseBackground(b.getURL(), b.isResource()));
+				.map(b -> new CourseBackground(b.getURL(), b.isResource()))
+				.filter(b -> {
+					// A background from an exercise jar can't be loaded back from ShootOFF's class path
+					if (!b.isResource() || ProjectorArenaPane.class.getResource(b.url()) != null) return true;
+					logger.warn("Not saving arena background {} in the course: it isn't a ShootOFF resource", b.url());
+					return false;
+				});
 
 		final List<CourseTarget> targets = new ArrayList<>();
 		for (final Target t : canvasManager.getTargets()) {
@@ -435,9 +442,7 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 	 * @return the course's targets now on the arena
 	 */
 	public List<Target> setCourse(final Course course) {
-		if (course.getBackground().isPresent()) {
-			setArenaBackground(toLocatedImage(course.getBackground().get()));
-		}
+		course.getBackground().flatMap(ProjectorArenaPane::toLocatedImage).ifPresent(this::setArenaBackground);
 
 		canvasManager.clearTargets();
 
@@ -485,15 +490,22 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 	}
 
 	/**
-	 * @return the image for a course's background
+	 * @return the image for a course's background, or empty if it is a resource ShootOFF can't find
 	 */
-	public static LocatedImage toLocatedImage(CourseBackground courseBackground) {
+	public static Optional<LocatedImage> toLocatedImage(CourseBackground courseBackground) {
 		if (courseBackground.isResource()) {
-			return new LocatedImage(ProjectorArenaPane.class.getResourceAsStream(courseBackground.url()),
-					courseBackground.url());
+			final InputStream is = ProjectorArenaPane.class.getResourceAsStream(courseBackground.url());
+
+			if (is == null) {
+				logger.warn("Course background resource {} not found; the course is shown without it",
+						courseBackground.url());
+				return Optional.empty();
+			}
+
+			return Optional.of(new LocatedImage(is, courseBackground.url()));
 		}
 
-		return new LocatedImage(courseBackground.url());
+		return Optional.of(new LocatedImage(courseBackground.url()));
 	}
 
 	public void canvasKeyPressed(KeyEvent event) {
