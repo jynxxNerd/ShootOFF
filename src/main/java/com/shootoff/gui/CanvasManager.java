@@ -57,6 +57,7 @@ import com.shootoff.gui.targets.TargetCommands;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.TrainingExerciseBase;
+import com.shootoff.session.SessionRecorder;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RegionType;
@@ -70,6 +71,8 @@ import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
+import javafx.geometry.Dimension2D;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -112,6 +115,10 @@ public class CanvasManager implements CameraView {
 	private Optional<ContextMenu> contextMenu = Optional.empty();
 	private Optional<TargetView> selectedTarget = Optional.empty();
 	private boolean showShots = true;
+
+	// False for a canvas that mirrors another canvas that already records session events,
+	// so each target is recorded once
+	private boolean recordsSessionEvents = true;
 	private boolean hadMalfunction = false;
 	private boolean hadReload = false;
 
@@ -816,10 +823,6 @@ public class CanvasManager implements CameraView {
 			final Optional<Target> target = Optional
 					.of(addTarget(targetFile, tc.getTargetGroup(), tc.getTargetTags(), true));
 
-			if (config.getSessionRecorder().isPresent() && target.isPresent()) {
-				config.getSessionRecorder().get().recordTargetAdded(cameraName, target.get());
-			}
-
 			return target;
 		}
 
@@ -855,6 +858,15 @@ public class CanvasManager implements CameraView {
 
 		targets.add(newTarget);
 
+		if (recordsSessionEvents && config.getSessionRecorder().isPresent()) {
+			final SessionRecorder recorder = config.getSessionRecorder().get();
+			recorder.recordTargetAdded(cameraName, newTarget);
+			final Point2D position = newTarget.getPosition();
+			recorder.recordTargetMoved(cameraName, newTarget, (int) position.getX(), (int) position.getY());
+			final Dimension2D dimension = newTarget.getDimension();
+			recorder.recordTargetResized(cameraName, newTarget, dimension.getWidth(), dimension.getHeight());
+		}
+
 		// If this is a mirrored canvas, only alert exercises of target updates
 		// from the arena window, not the tab. There is no arena tab if we are in
 		// headless mode, thus there is also no MirroredCanvasManager. Always
@@ -879,7 +891,7 @@ public class CanvasManager implements CameraView {
 			Platform.runLater(removeTargetAction);
 		}
 
-		if (config.getSessionRecorder().isPresent()) {
+		if (recordsSessionEvents && config.getSessionRecorder().isPresent()) {
 			config.getSessionRecorder().get().recordTargetRemoved(cameraName, target);
 		}
 
@@ -901,6 +913,14 @@ public class CanvasManager implements CameraView {
 		for (final Target t : new ArrayList<>(targets)) {
 			removeTarget(t);
 		}
+	}
+
+	public void setRecordsSessionEvents(boolean recordsSessionEvents) {
+		this.recordsSessionEvents = recordsSessionEvents;
+	}
+
+	public boolean recordsSessionEvents() {
+		return recordsSessionEvents;
 	}
 
 	public List<Target> getTargets() {

@@ -133,6 +133,9 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetRemoved(String cameraName, Target target) {
+		// A target that isn't registered on a canvas has no index to replay against
+		if (target.getTargetIndex() < 0) return;
+
 		if (!ignoreTargetCheck.get()) checkTarget(cameraName, target);
 
 		getCameraEvents(cameraName).add(
@@ -162,6 +165,9 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetResized(String cameraName, Target target, double newWidth, double newHeight) {
+		// A target that isn't registered on a canvas has no index to replay against
+		if (target.getTargetIndex() < 0) return;
+
 		if (!ignoreTargetCheck.get()) checkTarget(cameraName, target);
 
 		// Remove all resize events immediately before this one
@@ -172,6 +178,9 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetMoved(String cameraName, Target target, int newX, int newY) {
+		// A target that isn't registered on a canvas has no index to replay against
+		if (target.getTargetIndex() < 0) return;
+
 		if (!ignoreTargetCheck.get()) checkTarget(cameraName, target);
 
 		// Remove all move events immediately before this one

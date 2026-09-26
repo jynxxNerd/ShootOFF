@@ -377,4 +377,17 @@ public class TestSessionRecorder {
 		assertEquals(12, ((TargetResizedEvent) events.get(TARGET_RESIZED_INDEX)).getNewWidth(), 1);
 		assertEquals(45, ((TargetResizedEvent) events.get(TARGET_RESIZED_INDEX)).getNewHeight(), 1);
 	}
+
+	@Test
+	public void testUnregisteredTargetEventsAreIgnored() throws ConfigurationException {
+		final MockCanvasManager otherCanvas = new MockCanvasManager(new Configuration(new String[0]));
+		final TargetView unregistered = new TargetView(new File("unregistered.target"), new Group(),
+				new HashMap<String, String>(), otherCanvas, false);
+
+		sessionRecorder.recordTargetMoved(cameraName, unregistered, 1, 2);
+		sessionRecorder.recordTargetResized(cameraName, unregistered, 3, 4);
+		sessionRecorder.recordTargetRemoved(cameraName, unregistered);
+
+		assertTrue(sessionRecorder.getCameraEvents(cameraName).isEmpty());
+	}
 }

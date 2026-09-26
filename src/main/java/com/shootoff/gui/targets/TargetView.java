@@ -163,6 +163,13 @@ public class TargetView implements Target {
 		return targetGroup;
 	}
 
+	// Only the canvas that records session events records this target, and only once the
+	// target is registered on it (index -1 means it isn't yet)
+	private boolean shouldRecordSessionEvents() {
+		return config.isPresent() && config.get().getSessionRecorder().isPresent() && parent.isPresent()
+				&& parent.get().recordsSessionEvents() && getTargetIndex() >= 0;
+	}
+
 	@Override
 	public int getTargetIndex() {
 		if (parent.isPresent())
@@ -222,7 +229,7 @@ public class TargetView implements Target {
 		targetGroup.setLayoutX(x);
 		targetGroup.setLayoutY(y);
 
-		if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+		if (shouldRecordSessionEvents()) {
 			config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this, (int) targetGroup.getLayoutX(),
 					(int) targetGroup.getLayoutY());
 		}
@@ -668,7 +675,7 @@ public class TargetView implements Target {
 					targetGroup.setLayoutY(targetGroup.getLayoutY() + (deltaY * targetGroup.getScaleY()));
 				}
 
-				if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+				if (shouldRecordSessionEvents()) {
 					config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
 							(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
 				}
@@ -808,12 +815,12 @@ public class TargetView implements Target {
 				}
 			}
 
-			if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+			if (shouldRecordSessionEvents()) {
 				config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
 						(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
 			}
 
-			if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+			if (shouldRecordSessionEvents()) {
 				config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
 						targetGroup.getBoundsInParent().getWidth(), targetGroup.getBoundsInParent().getHeight());
 			}
@@ -873,7 +880,7 @@ public class TargetView implements Target {
 
 					targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - scaleDelta));
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
 								targetGroup.getBoundsInParent().getWidth(),
 								targetGroup.getBoundsInParent().getHeight());
@@ -886,7 +893,7 @@ public class TargetView implements Target {
 						targetGroup.setLayoutX(targetGroup.getLayoutX() - MOVEMENT_DELTA);
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
 								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
 					}
@@ -906,7 +913,7 @@ public class TargetView implements Target {
 						targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - scaleDelta));
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
 								targetGroup.getBoundsInParent().getWidth(),
 								targetGroup.getBoundsInParent().getHeight());
@@ -919,7 +926,7 @@ public class TargetView implements Target {
 						targetGroup.setLayoutX(targetGroup.getLayoutX() + MOVEMENT_DELTA);
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
 								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
 					}
@@ -943,7 +950,7 @@ public class TargetView implements Target {
 						targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - widthDelta));
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
 								targetGroup.getBoundsInParent().getWidth(),
 								targetGroup.getBoundsInParent().getHeight());
@@ -956,7 +963,7 @@ public class TargetView implements Target {
 						targetGroup.setLayoutY(targetGroup.getLayoutY() - MOVEMENT_DELTA);
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
 								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
 					}
@@ -984,7 +991,7 @@ public class TargetView implements Target {
 						}
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
 								targetGroup.getBoundsInParent().getWidth(),
 								targetGroup.getBoundsInParent().getHeight());
@@ -997,7 +1004,7 @@ public class TargetView implements Target {
 						targetGroup.setLayoutY(targetGroup.getLayoutY() + MOVEMENT_DELTA);
 					}
 
-					if (config.isPresent() && config.get().getSessionRecorder().isPresent()) {
+					if (shouldRecordSessionEvents()) {
 						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
 								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
 					}

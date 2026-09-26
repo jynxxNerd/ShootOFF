@@ -182,6 +182,9 @@ public class ProjectorSlide extends Slide implements CalibrationConfigurator {
 
 		projectorCanvasManager.setMirroredManager(tabCanvasManager);
 		tabCanvasManager.setMirroredManager(projectorCanvasManager);
+		// The arena tab mirrors the projector canvas; only the projector canvas records session
+		// events, otherwise every arena target is recorded twice
+		tabCanvasManager.setRecordsSessionEvents(false);
 		projectorCanvasManager.updateBackground(null, Optional.empty());
 		// This camera manager must be set to enable click-to-shoot for
 		// the arena tab
