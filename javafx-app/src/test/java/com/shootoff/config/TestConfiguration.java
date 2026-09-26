@@ -4,9 +4,13 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import javafx.scene.paint.Color;
 
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -328,5 +332,37 @@ public class TestConfiguration {
 		defaultConfig.updatePOIAdjustment(-1, -1);
 		assertEquals(1.0f, defaultConfig.getPOIAdjustmentX().get(), .1f);
 		assertEquals(1.0f, defaultConfig.getPOIAdjustmentY().get(), .1f);
+	}
+
+	@Test
+	public void testUnwritableConfigNotifiesUser() throws IOException, ConfigurationException {
+		Assume.assumeFalse("root can write read-only files", "root".equals(System.getProperty("user.name")));
+
+		final File props = File.createTempFile("unwritable", ".properties");
+		final List<String> titles = new ArrayList<>();
+		Configuration.setUserNotifier((title, header, message) -> titles.add(title));
+		try {
+			final Configuration config = new Configuration(props.getPath(), new String[0]);
+			assertTrue(props.setWritable(false));
+
+			assertFalse(config.writeConfigurationFile());
+			assertEquals(List.of("Cannot Persist Preferences"), titles);
+		} finally {
+			Configuration.setUserNotifier(null);
+			props.setWritable(true);
+			props.delete();
+		}
+	}
+
+	@Test
+	public void testMalformedIpCamUrlNotifiesUser() {
+		final List<String> titles = new ArrayList<>();
+		Configuration.setUserNotifier((title, header, message) -> titles.add(title));
+		try {
+			assertFalse(defaultConfig.registerIpCam("bad", "not a url", Optional.empty(), Optional.empty()).isPresent());
+			assertEquals(List.of("Malformed URL"), titles);
+		} finally {
+			Configuration.setUserNotifier(null);
+		}
 	}
 }

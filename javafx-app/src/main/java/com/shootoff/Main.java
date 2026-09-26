@@ -46,6 +46,7 @@ import com.shootoff.camera.cameratypes.OptiTrackCamera;
 import com.shootoff.camera.cameratypes.PS3EyeCamera;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
+import com.shootoff.gui.AlertUserNotifier;
 import com.shootoff.gui.controller.ShootOFFController;
 import com.shootoff.plugins.TextToSpeech;
 import com.shootoff.util.HardwareData;
@@ -535,6 +536,8 @@ public class Main extends Application {
 
 	public void runShootOFF() {
 		final String[] args = getParameters().getRaw().toArray(new String[getParameters().getRaw().size()]);
+		Configuration.setUserNotifier(new AlertUserNotifier());
+
 		Configuration config;
 		try {
 			config = new Configuration(System.getProperty("shootoff.home") + File.separator + "shootoff.properties",

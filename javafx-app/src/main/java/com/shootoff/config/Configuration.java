@@ -61,6 +61,7 @@ import com.shootoff.gui.controller.VideoPlayerController;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.engine.Plugin;
 import com.shootoff.session.SessionRecorder;
+import com.shootoff.util.UserNotifier;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -69,8 +70,6 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.ConsoleAppender;
 import javafx.geometry.Point2D;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.paint.Color;
 
 /**
@@ -175,6 +174,19 @@ public class Configuration {
 	private int poiAdjustmentCount = 0;
 
 	private static Configuration config = null;
+
+	private static volatile UserNotifier userNotifier = UserNotifier.LOGGING;
+
+	/**
+	 * Sets who tells the user about configuration problems (an unwritable preferences file, a bad
+	 * IP camera URL). Without a UI they are only logged.
+	 *
+	 * @param notifier
+	 *            the notifier to use, or <tt>null</tt> to only log
+	 */
+	public static void setUserNotifier(UserNotifier notifier) {
+		userNotifier = notifier != null ? notifier : UserNotifier.LOGGING;
+	}
 
 	public static Configuration getConfig() {
 		return config;
@@ -411,16 +423,12 @@ public class Configuration {
 		validateConfiguration();
 
 		if (!new File(configName).canWrite()) {
-			final Alert writeAlert = new Alert(AlertType.ERROR);
-			writeAlert.setTitle("Cannot Persist Preferences");
-			writeAlert.setHeaderText("Configuration File Unwritable!");
-			writeAlert.setResizable(true);
-			writeAlert.setContentText("The file " + configName + " is not writable, thus your preferences"
-					+ " cannot be saved. This is likely the case because you placed ShootOFF in a location"
-					+ " that only the administrator can write to, but ShootOFF is not running as an"
-					+ " administrator. Please either move ShootOFF to a different location or grant write"
-					+ " privileges to the file.");
-			writeAlert.showAndWait();
+			userNotifier.showError("Cannot Persist Preferences", "Configuration File Unwritable!",
+					"The file " + configName + " is not writable, thus your preferences"
+							+ " cannot be saved. This is likely the case because you placed ShootOFF in a location"
+							+ " that only the administrator can write to, but ShootOFF is not running as an"
+							+ " administrator. Please either move ShootOFF to a different location or grant write"
+							+ " privileges to the file.");
 
 			return false;
 		}
@@ -654,31 +662,18 @@ public class Configuration {
 
 			return Optional.of(cam);
 		} catch (MalformedURLException | URISyntaxException ue) {
-			final Alert ipcamURLAlert = new Alert(AlertType.ERROR);
-			ipcamURLAlert.setTitle("Malformed URL");
-			ipcamURLAlert.setHeaderText("IPCam URL is Malformed!");
-			ipcamURLAlert.setResizable(true);
-			ipcamURLAlert.setContentText("IPCam URL is not valid: \n\n" + ue.getMessage());
-			ipcamURLAlert.showAndWait();
+			userNotifier.showError("Malformed URL", "IPCam URL is Malformed!",
+					"IPCam URL is not valid: \n\n" + ue.getMessage());
 		} catch (final UnknownHostException uhe) {
-			final Alert ipcamHostAlert = new Alert(AlertType.ERROR);
-			ipcamHostAlert.setTitle("Unknown Host");
-			ipcamHostAlert.setHeaderText("IPCam URL Unknown!");
-			ipcamHostAlert.setResizable(true);
-			ipcamHostAlert.setContentText("The IPCam at " + cameraURL
-					+ " cannot be resolved. Ensure the URL is correct "
-					+ "and that you are either connected to the internet or on the same network as the camera.");
-			ipcamHostAlert.showAndWait();
+			userNotifier.showError("Unknown Host", "IPCam URL Unknown!",
+					"The IPCam at " + cameraURL + " cannot be resolved. Ensure the URL is correct "
+							+ "and that you are either connected to the internet or on the same network as the camera.");
 		} catch (final TimeoutException te) {
-			final Alert ipcamTimeoutAlert = new Alert(AlertType.ERROR);
-			ipcamTimeoutAlert.setTitle("IPCam Timeout");
-			ipcamTimeoutAlert.setHeaderText("Connection to IPCam Reached Timeout!");
-			ipcamTimeoutAlert.setResizable(true);
-			ipcamTimeoutAlert.setContentText("Could not communicate with the IP at " + cameraURL
-					+ ". Please check the following:\n\n" + "-The IPCam URL is correct\n"
-					+ "-You are connected to the Internet (for external cameras)\n"
-					+ "-You are connected to the same network as the camera (for local cameras)");
-			ipcamTimeoutAlert.showAndWait();
+			userNotifier.showError("IPCam Timeout", "Connection to IPCam Reached Timeout!",
+					"Could not communicate with the IP at " + cameraURL + ". Please check the following:\n\n"
+							+ "-The IPCam URL is correct\n"
+							+ "-You are connected to the Internet (for external cameras)\n"
+							+ "-You are connected to the same network as the camera (for local cameras)");
 		}
 
 		return Optional.empty();

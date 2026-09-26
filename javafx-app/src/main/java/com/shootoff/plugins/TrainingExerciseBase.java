@@ -19,7 +19,6 @@
 package com.shootoff.plugins;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,15 +28,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.LineEvent;
 import javax.sound.sampled.LineListener;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
-import javax.sound.sampled.UnsupportedAudioFileException;
 
 import javafx.scene.layout.*;
 import org.slf4j.Logger;
@@ -51,6 +42,7 @@ import com.shootoff.config.Configuration;
 import com.shootoff.gui.DelayedStartListener;
 import com.shootoff.gui.ParListener;
 import com.shootoff.gui.ShotEntry;
+import com.shootoff.sound.SoundPlayer;
 import com.shootoff.targets.Target;
 
 import javafx.application.Platform;
@@ -80,7 +72,6 @@ public abstract class TrainingExerciseBase {
 	private static final Logger logger = LoggerFactory.getLogger(TrainingExerciseBase.class);
 
 	protected Configuration config;
-	private static boolean isSilenced = false;
 
 	@SuppressWarnings("unused") private List<Target> targets;
 	private CamerasSupervisor camerasSupervisor;
@@ -147,7 +138,7 @@ public abstract class TrainingExerciseBase {
 	 *            printed to stdout, <tt>false</tt> for normal operation.
 	 */
 	public static void silence(boolean isSilenced) {
-		TrainingExerciseBase.isSilenced = isSilenced;
+		SoundPlayer.silence(isSilenced);
 	}
 
 	/**
@@ -464,133 +455,23 @@ public abstract class TrainingExerciseBase {
 	 * @since 1.1
 	 */
 	public static void playSound(final String soundFilePath) {
-		playSound(new File(soundFilePath));
+		SoundPlayer.play(soundFilePath);
 	}
 
 	public static void playSound(final File soundFile) {
-		playSound(soundFile, Optional.empty());
+		SoundPlayer.play(soundFile);
 	}
 
 	public static void playSound(final InputStream is) {
-		playSound(is, Optional.empty());
+		SoundPlayer.play(is);
 	}
 
 	public static void playSound(final InputStream is, Optional<LineListener> listener) {
-		if (isSilenced) {
-			System.out.println("Playing audio for modular exercise.");
-			return;
-		}
-
-		try {
-			final AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(is);
-			playSound(audioInputStream, listener);
-		} catch (UnsupportedAudioFileException | IOException e) {
-			logger.error("Error reading sound stream to play", e);
-		}
-	}
-
-	private static void playSound(File soundFile, Optional<LineListener> listener) {
-		if (isSilenced) {
-			System.out.println(soundFile.getPath());
-			return;
-		}
-
-		if (!soundFile.isAbsolute()) {
-			soundFile = new File(System.getProperty("shootoff.home") + File.separator + soundFile.getPath());
-		}
-
-		try {
-			final AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(soundFile);
-			playSound(audioInputStream, listener);
-		} catch (UnsupportedAudioFileException | IOException e) {
-			logger.error(String.format("Error reading sound file to play: soundFile = %s", soundFile), e);
-		}
-	}
-
-	private static void playSound(AudioInputStream audioInputStream, Optional<LineListener> listener) {
-		final AudioFormat format = audioInputStream.getFormat();
-		final DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-
-		SourceDataLine line = null;
-
-		try {
-			line = (SourceDataLine) AudioSystem.getLine(info);
-
-			line.open(format);
-			line.start();
-
-			if (listener.isPresent()) {
-				line.addLineListener(listener.get());
-			} else {
-				line.addLineListener((e) -> {
-					if (LineEvent.Type.STOP.equals(e.getType())) {
-						e.getLine().close();
-						try {
-							audioInputStream.close();
-						} catch (final Exception e1) {
-							logger.error("Error closing audio input stream", e1);
-						}
-					}
-				});
-			}
-
-			final SourceDataLine sourceLine = line;
-			new Thread(() -> {
-				int nBytesRead = 0;
-				final byte[] abData = new byte[1024];
-				while (nBytesRead != -1) {
-					try {
-						nBytesRead = audioInputStream.read(abData, 0, abData.length);
-					} catch (final IOException e) {
-						logger.error("Error playing sound clip", e);
-					}
-					if (nBytesRead >= 0) {
-						sourceLine.write(abData, 0, nBytesRead);
-					}
-				}
-
-				sourceLine.drain();
-				sourceLine.close();
-			}).start();
-		} catch (final LineUnavailableException e) {
-			if (line != null) line.close();
-			logger.error("Error playing sound clip", e);
-		}
+		SoundPlayer.play(is, listener);
 	}
 
 	public static void playSounds(final List<File> soundFiles) {
-		if (isSilenced) {
-			soundFiles.forEach(System.out::println);
-		} else {
-			final SoundQueue sq = new SoundQueue(soundFiles);
-			sq.play();
-		}
-	}
-
-	private static class SoundQueue implements LineListener {
-		private final List<File> soundFiles;
-		private int queueIndex = 0;
-
-		public SoundQueue(List<File> soundFiles) {
-			this.soundFiles = soundFiles;
-		}
-
-		public void play() {
-			playSound(soundFiles.get(queueIndex), Optional.of(this));
-		}
-
-		@Override
-		public void update(final LineEvent event) {
-			if (LineEvent.Type.STOP.equals(event.getType())) {
-				event.getLine().close();
-
-				queueIndex++;
-
-				if (queueIndex < soundFiles.size()) {
-					playSound(soundFiles.get(queueIndex), Optional.of(this));
-				}
-			}
-		}
+		SoundPlayer.playAll(soundFiles);
 	}
 
 	/**

@@ -23,7 +23,7 @@ import java.util.Random;
 
 import com.shootoff.camera.Shot;
 import com.shootoff.config.Configuration;
-import com.shootoff.plugins.TrainingExerciseBase;
+import com.shootoff.sound.SoundPlayer;
 
 public class MalfunctionsProcessor implements ShotProcessor {
 	private static boolean useTTS = true;
@@ -43,7 +43,7 @@ public class MalfunctionsProcessor implements ShotProcessor {
 	public boolean processShot(Shot shot) {
 		if (rand.nextFloat() < prob) {
 			if (useTTS)
-				TrainingExerciseBase.playSound(new File("sounds/voice/shootoff-malfunction.wav"));
+				SoundPlayer.play(new File("sounds/voice/shootoff-malfunction.wav"));
 			return false;
 		}
 

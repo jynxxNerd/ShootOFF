@@ -22,7 +22,7 @@ import java.io.File;
 
 import com.shootoff.camera.Shot;
 import com.shootoff.config.Configuration;
-import com.shootoff.plugins.TrainingExerciseBase;
+import com.shootoff.sound.SoundPlayer;
 
 public class VirtualMagazineProcessor implements ShotProcessor {
 	private final Configuration config;
@@ -47,7 +47,7 @@ public class VirtualMagazineProcessor implements ShotProcessor {
 		if (roundCount == 0) {
 			roundCount = config.getVirtualMagazineCapacity();
 			if (useTTS)
-				TrainingExerciseBase.playSound(new File("sounds/voice/shootoff-reload.wav"));
+				SoundPlayer.play(new File("sounds/voice/shootoff-reload.wav"));
 			return false;
 		}
 
