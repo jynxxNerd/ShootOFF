@@ -168,21 +168,54 @@ public interface Exercise {
 
 ## 7. Migration order
 
-Each step leaves the build and the full test suite green, and is committed separately.
+Revised 2026-09-26 after a full inventory of JavaFX coupling. What changed:
 
-1. Module skeletons: `settings.gradle.kts`, per-module builds, dependency split, root `run`/`test`/`installDist` wiring. All code initially in `javafx-app`, which is effectively today's project moved.
-2. Move the packages that are already JavaFX-free into `core` (util, recorders, session I/O, plugin engine, video), with their tests.
-3. Core geometry types and the `CameraListener` interface. Remove the JavaFX references from camera, config, session, calibration and perspective, then move those packages into `core`.
-4. Target model, parser and `HitTester` in `core`, plus the parity test (§8).
-5. Switch `javafx-app` rendering, hit-testing and sessions to the model. Delete the JavaFX target-building code.
-6. `plugin-api`: `Exercise`, `ExerciseHost`, `FakeExerciseHost`. Add v2 loading in `core`, `JavaFxExerciseHost` in `javafx-app`, and the boundary test.
-7. Publishing: `core`, `plugin-api`, `javafx-app` to `mavenLocal`.
-8. The RandomTargetParDrill port (§6) in its repository, on a `plugin-api-v2` branch.
-9. Owner hardware check (§8).
+- `Configuration` holds runtime state that depends on JavaFX (the current exercise, the session recorder, open video-player windows, `Alert` dialogs).
+- Sessions, courses and the plugin engine depend on the JavaFX `Target`.
+- Shot detection creates JavaFX shot markers (`DisplayShot` holds an `Ellipse`).
+
+Work happens in three plans. Each plan leaves the build and the full test suite green after every step, and each step is committed separately.
+
+**Plan 1: modules, and the camera pipeline into `core`.**
+
+1. Module skeletons: `settings.gradle.kts`, per-module builds, the dependency split, and root `run`/`test`/`installDist` wiring. All code starts in `javafx-app`, which is effectively today's project moved. `core` and `plugin-api` start empty.
+2. Neutral types in `core`:
+   - geometry: `Point`, `Size`, `Rect`
+   - `ShotColor`-based colors, replacing `javafx.scene.paint.Color` in shot and config logic
+   - `UserNotifier`, replacing `Alert` in non-UI code
+   - a sound player, replacing the `TrainingExerciseBase.playSound` calls from shot processors
+3. Split `Configuration`:
+   - A core **`Settings`** holds the persisted preferences and command-line options. It has no JavaFX and no references to exercises, sessions or UI. `Main.forceClose` becomes `System.exit`, and `CalibrationOption` moves out of `gui`.
+   - The runtime state stays in `javafx-app`: the current exercise, session recorder, recording managers, video players and dialogs.
+4. Decouple the camera pipeline:
+   - Shot detection emits plain `Shot` data; `DisplayShot`/`ArenaShot` markers are created in `javafx-app`.
+   - `CameraView` loses its JavaFX types (`Node`, `Label`, `Color`), and diagnostic messages return a handle interface.
+   - `CameraManager` returns `BufferedImage`, not a JavaFX `Image`.
+   - The PS3 Eye settings window moves to `javafx-app`.
+   - Calibration and perspective use core geometry.
+5. Move into `core`: `util`, `Closeable`/`ObservableCloseable`, the camera packages (`camera`, `cameratypes`, `shotdetection`, `autocalibration`, `perspective`, `recorders`, `processors`, `video`, and the data-only shot classes) and `Settings`, along with the tests that don't need GUI test fixtures.
+
+**Plan 2: target model, then sessions and courses into `core`.**
+
+1. Target model, parser and `HitTester` in `core`, plus the parity test (§8).
+2. Switch `javafx-app` rendering and hit-testing to the model, and delete the JavaFX target-building code.
+3. Sessions (`session`, `session.io`) are expressed in the model (target ids, `Shot` data) and move to `core`.
+4. Courses get a data model (targets and a background reference instead of a live `ProjectorArenaPane`), and `courses`/`courses.io` move to `core`. Applying a course to the arena stays in `javafx-app`.
+
+**Plan 3: plugin API, engine, and the drill.**
+
+1. `plugin-api`: `Exercise`, `ExerciseHost`, `FakeExerciseHost`.
+2. The plugin engine moves to `core`. Built-in exercises are supplied by the app, not hard-coded. v2 loading moves to `core`, and v1 loading moves to `javafx-app`.
+3. `JavaFxExerciseHost` and the boundary test.
+4. Publishing: `core`, `plugin-api` and `javafx-app` to `mavenLocal`.
+5. The RandomTargetParDrill port (§6) in its repository, on a `plugin-api-v2` branch.
+6. Owner hardware check (§8).
+
+**Tests during the migration.** Tests that need GUI test fixtures (`MockCanvasManager`, `TargetView`, `JavaFXThreadingRule`, the shot-detection video tests built on them, calibration tests) stay in `javafx-app`'s test tree even when the code they test has moved to `core`. They move once their fixtures have core equivalents. This isn't a regression: the test still runs against the same code.
 
 ## 8. Testing
 
-- **Existing tests.** All of them keep passing (currently 203), moved to the module whose code they test. The baseline comparison (`scripts/test_summary.py`) is updated to read every module's test results.
+- **Existing tests.** All of them keep passing (currently 203), moved to the module whose code they test, or kept in `javafx-app` while they depend on GUI test fixtures (§7). The baseline comparison (`scripts/test_summary.py`) is updated to read every module's test results.
 - **Boundary test.** No compiled class in `core` or `plugin-api` references `javafx.*`.
 - **Hit-testing parity.**
   - For every bundled `.target` file, over a grid of points across each target's bounds (and at several placements and scales), `HitTester` returns the same hit region as today's JavaFX implementation.
