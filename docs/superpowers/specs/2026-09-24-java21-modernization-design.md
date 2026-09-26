@@ -224,3 +224,7 @@ Follow-ups (outside this sub-project):
 - Session viewer robustness, and the recorder's -1 target indexes.
 - A fixed light source in frame (e.g. an LED) produces repeated false shots before calibration.
 - ShootOFF doesn't recover from a mid-session camera disconnect.
+
+### 2026-09-25 late: capture format by resolution
+
+MJPG made the C270 print a libjpeg "Corrupt JPEG data" warning on almost every frame, from native code. Commit `bf440038` now requests uncompressed YUYV at ≤640x480 (lossless frames for laser detection) and MJPG only above 640x480. Verified on the C270: `640x480 YUYV at 30.0 FPS` negotiated, 5,615 frames in 192 s (29.2 FPS), zero JPEG warnings, no exceptions.
