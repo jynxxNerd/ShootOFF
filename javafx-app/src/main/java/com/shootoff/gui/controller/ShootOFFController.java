@@ -47,6 +47,7 @@ import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.cameratypes.PS3EyeCamera;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.config.Configuration;
+import com.shootoff.exercise.Exercise;
 import com.shootoff.gui.CalibrationManager;
 import com.shootoff.gui.CameraConfigListener;
 import com.shootoff.gui.CanvasManager;
@@ -54,8 +55,13 @@ import com.shootoff.gui.ExerciseListener;
 import com.shootoff.gui.PS3EyeSettingsWindow;
 import com.shootoff.gui.Resetter;
 import com.shootoff.gui.ShotEntry;
+import com.shootoff.gui.exercise.ExerciseHostContext;
+import com.shootoff.gui.exercise.HostedExercise;
+import com.shootoff.gui.exercise.JavaFxExerciseHost;
+import com.shootoff.gui.exercise.SoundOutput;
 import com.shootoff.gui.pane.ExerciseSlide;
 import com.shootoff.gui.pane.FileSlide;
+import com.shootoff.gui.pane.ProjectorArenaPane;
 import com.shootoff.gui.pane.ProjectorSlide;
 import com.shootoff.gui.pane.ShotSectorPane;
 import com.shootoff.gui.pane.TargetSlide;
@@ -68,6 +74,7 @@ import com.shootoff.plugins.TrainingExerciseView;
 import com.shootoff.plugins.engine.ExerciseLoaders;
 import com.shootoff.plugins.engine.Plugin;
 import com.shootoff.plugins.engine.PluginEngine;
+import com.shootoff.plugins.engine.V2ExerciseEntry;
 import com.shootoff.targets.CameraViews;
 import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
@@ -969,6 +976,11 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 
 			if (exercise == null) return;
 
+			if (exercise instanceof HostedExercise hosted) {
+				startHostedExercise(hosted.getEntry());
+				return;
+			}
+
 			final Constructor<?> ctor = exercise.getClass().getConstructor(List.class);
 
 			final List<Target> knownTargets = new ArrayList<>();
@@ -1010,6 +1022,11 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		try {
 			config.setExercise(null);
 
+			if (exercise instanceof HostedExercise hosted) {
+				startHostedExercise(hosted.getEntry());
+				return;
+			}
+
 			final Constructor<?> ctor = exercise.getClass().getConstructor(List.class);
 			final TrainingExercise newExercise = (TrainingExercise) ctor
 					.newInstance(projectorSlide.getArenaPane().getCanvasManager().getTargets());
@@ -1039,6 +1056,49 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 			final ExerciseMetadata metadata = exercise.getInfo();
 			logger.error("Failed to start projector exercise " + metadata.getName() + " " + metadata.getVersion(), e);
 		}
+	}
+
+	// Starts a fresh instance of a v2 exercise on the arena, or on the first camera's feed
+	private void startHostedExercise(V2ExerciseEntry entry) {
+		final boolean projector = entry.isProjectorOnly();
+
+		if (projector && projectorSlide.getArenaPane() == null) {
+			logger.error("{} needs the projector arena", entry.metadata().getName());
+			return;
+		}
+
+		if (!projector && camerasSupervisor.getCameraViews().isEmpty()) {
+			logger.error("{} needs a camera feed", entry.metadata().getName());
+			return;
+		}
+
+		final Exercise exercise;
+		try {
+			exercise = entry.newInstance();
+		} catch (final ReflectiveOperationException e) {
+			logger.error("Failed to start exercise " + entry.metadata().getName() + " " + entry.metadata().getVersion(),
+					e);
+			return;
+		}
+
+		final List<CanvasManager> feeds = new ArrayList<>();
+		for (final CameraView view : camerasSupervisor.getCameraViews()) {
+			feeds.add((CanvasManager) view);
+		}
+		getArenaView().ifPresent(view -> feeds.add((CanvasManager) view));
+
+		final Optional<ProjectorArenaPane> arena = projector ? Optional.of(projectorSlide.getArenaPane())
+				: Optional.empty();
+		final CanvasManager canvas = arena.map(ProjectorArenaPane::getCanvasManager)
+				.orElseGet(() -> (CanvasManager) camerasSupervisor.getCameraView(0));
+
+		config.setPlugin(pluginEngine.getPlugin(entry.metadata()).orElse(null));
+
+		final HostedExercise running = new HostedExercise(entry,
+				new JavaFxExerciseHost(exercise, new ExerciseHostContext(config, camerasSupervisor, this, canvas, arena,
+						feeds, entry.exerciseClass().getClassLoader(), SoundOutput.speakers())));
+		config.setExercise(running);
+		running.init();
 	}
 
 	@Override

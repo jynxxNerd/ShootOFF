@@ -5,19 +5,27 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import com.shootoff.camera.Shot;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
+import com.shootoff.exercise.Exercise;
+import com.shootoff.exercise.ExerciseHost;
 import com.shootoff.gui.ExerciseListener;
 import com.shootoff.gui.JavaFXThreadingRule;
+import com.shootoff.plugins.ExerciseMetadata;
+import com.shootoff.plugins.ShootForScore;
 import com.shootoff.plugins.SteelChallenge;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.engine.LegacyExerciseEntry;
 import com.shootoff.plugins.engine.PluginEngine;
+import com.shootoff.plugins.engine.V2ExerciseEntry;
+import com.shootoff.targets.model.Hit;
 
 import javafx.scene.Node;
 import javafx.scene.control.ButtonBase;
@@ -77,5 +85,32 @@ public class TestExerciseSlide {
 
 		slide.unregisterExercise(steel);
 		assertFalse(menuNames().contains("Steel Challenge"));
+	}
+
+	public static final class V2Drill implements Exercise {
+		@Override
+		public ExerciseMetadata metadata() {
+			return new ExerciseMetadata("V2 Drill", "2.0", "ShootOFF tests", "A v2 drill", true);
+		}
+
+		@Override
+		public void start(ExerciseHost host) {}
+
+		@Override
+		public void onShot(Shot shot, Optional<Hit> hit) {}
+
+		@Override
+		public void onReset() {}
+
+		@Override
+		public void stop() {}
+	}
+
+	@Test
+	public void v2ExercisesAreListedWithV1Ones() {
+		slide.registerExercise(new LegacyExerciseEntry(new ShootForScore(), false));
+		slide.registerProjectorExercise(new V2ExerciseEntry(V2Drill.class, new V2Drill().metadata()));
+
+		assertTrue(menuNames().containsAll(List.of("Shoot for Score", "V2 Drill")));
 	}
 }

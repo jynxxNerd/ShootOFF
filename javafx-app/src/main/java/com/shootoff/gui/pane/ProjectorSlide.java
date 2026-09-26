@@ -30,7 +30,7 @@ import com.shootoff.config.CalibrationOption;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.MirroredCanvasManager;
 import com.shootoff.gui.Resetter;
-import com.shootoff.plugins.ProjectorTrainingExerciseBase;
+import com.shootoff.gui.exercise.HostedExercise;
 import com.shootoff.targets.CameraViews;
 
 import javafx.application.Platform;
@@ -240,7 +240,7 @@ public class ProjectorSlide extends Slide implements CalibrationConfigurator {
 			cameraViews.removeCameraView("Arena");
 
 			if (config.getExercise().isPresent()
-					&& config.getExercise().get() instanceof ProjectorTrainingExerciseBase) {
+					&& HostedExercise.isProjectorExercise(config.getExercise().get())) {
 				exerciseSlide.toggleProjectorExercises(true);
 			}
 

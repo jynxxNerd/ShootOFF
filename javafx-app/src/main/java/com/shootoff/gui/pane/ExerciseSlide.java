@@ -34,12 +34,13 @@ import com.shootoff.config.Configuration;
 import com.shootoff.gui.ExerciseListener;
 import com.shootoff.gui.controller.PluginManagerController;
 import com.shootoff.gui.controller.SessionViewerController;
+import com.shootoff.gui.exercise.HostedExercise;
 import com.shootoff.plugins.ExerciseMetadata;
-import com.shootoff.plugins.ProjectorTrainingExerciseBase;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.engine.ExerciseEntry;
 import com.shootoff.plugins.engine.LegacyExerciseEntry;
 import com.shootoff.plugins.engine.PluginListener;
+import com.shootoff.plugins.engine.V2ExerciseEntry;
 import com.shootoff.session.SessionRecorder;
 import com.shootoff.session.io.SessionIO;
 import com.shootoff.targets.Hit;
@@ -226,8 +227,9 @@ public class ExerciseSlide extends Slide implements PluginListener, ItemSelectio
 
 	private static Optional<TrainingExercise> menuItem(ExerciseEntry exercise) {
 		if (exercise instanceof LegacyExerciseEntry legacy) return Optional.of(legacy.prototype());
+		if (exercise instanceof V2ExerciseEntry v2) return Optional.of(new HostedExercise(v2));
 
-		logger.warn("{} is a v2 exercise; the JavaFX app can't run those yet", exercise.metadata());
+		logger.warn("{} is an exercise of a kind the JavaFX app can't run", exercise.metadata());
 		return Optional.empty();
 	}
 
@@ -267,7 +269,7 @@ public class ExerciseSlide extends Slide implements PluginListener, ItemSelectio
 	public void onItemClicked(TrainingExercise selectedExercise) {
 		if (selectedExercise.equals(noneExercise)) {
 			exerciseListener.setExercise(null);
-		} else if (selectedExercise instanceof ProjectorTrainingExerciseBase) {
+		} else if (HostedExercise.isProjectorExercise(selectedExercise)) {
 			exerciseListener.setProjectorExercise(selectedExercise);
 		} else {
 			exerciseListener.setExercise(selectedExercise);

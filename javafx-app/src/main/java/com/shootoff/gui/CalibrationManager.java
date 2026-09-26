@@ -37,9 +37,9 @@ import com.shootoff.camera.CameraView;
 import com.shootoff.camera.perspective.PerspectiveManager;
 import com.shootoff.config.CalibrationOption;
 import com.shootoff.config.Configuration;
+import com.shootoff.gui.exercise.HostedExercise;
 import com.shootoff.gui.pane.ProjectorArenaPane;
 import com.shootoff.gui.targets.TargetView;
-import com.shootoff.plugins.ProjectorTrainingExerciseBase;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.targets.CameraViews;
 import com.shootoff.targets.io.TargetIO;
@@ -107,7 +107,7 @@ public class CalibrationManager implements CameraCalibrationListener {
 		// Projector exercises can alter what is on the arena, thereby
 		// interfearing with calibration. Thus, if an projector exercise
 		// is set, we unset it for calibration, and reset it afterwards.
-		if (config.getExercise().isPresent() && config.getExercise().get() instanceof ProjectorTrainingExerciseBase) {
+		if (config.getExercise().isPresent() && HostedExercise.isProjectorExercise(config.getExercise().get())) {
 			savedExercise = config.getExercise();
 			exerciseListener.setExercise(null);
 		} else {
