@@ -222,8 +222,15 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 		if (restartDetection) context.cameras().setDetectingAll(true);
 
-		// Queued after every scene change the exercise made, so all of them are undone
-		Platform.runLater(this::tearDown);
+		// Queued after every scene change the exercise made, so all of them are undone. When
+		// already on the FX thread, run it now instead: a caller that stops an exercise and then
+		// touches the scene itself in the same FX call (for example enabling calibration) must see
+		// the teardown, including the background restore, as already done.
+		if (Platform.isFxApplicationThread()) {
+			tearDown();
+		} else {
+			Platform.runLater(this::tearDown);
+		}
 	}
 
 	private void tearDown() {

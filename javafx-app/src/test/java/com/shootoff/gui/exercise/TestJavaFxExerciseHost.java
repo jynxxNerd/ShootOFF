@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -50,6 +52,7 @@ import com.shootoff.exercise.TargetHandle;
 import com.shootoff.exercise.TextHandle;
 import com.shootoff.exercise.TextStyle;
 import com.shootoff.geom.Point;
+import com.shootoff.gui.LocatedImage;
 import com.shootoff.gui.MockCanvasManager;
 import com.shootoff.gui.ShotEntry;
 import com.shootoff.gui.TimingControlsPane;
@@ -536,6 +539,69 @@ class TestJavaFxExerciseHost {
 		fxSync();
 		assertEquals(List.of(arenaShot), exercise.shots);
 		assertEquals(Optional.empty(), arena.getArenaBackground());
+	}
+
+	private static LocatedImage image(String url) throws IOException {
+		final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		ImageIO.write(new BufferedImage(4, 4, BufferedImage.TYPE_INT_RGB), "png", bytes);
+		return new LocatedImage(new ByteArrayInputStream(bytes.toByteArray()), url);
+	}
+
+	// Reproduces CalibrationManager.enableCalibration() when the arena is already fullscreen:
+	// exerciseListener.setExercise(null) (which stops the running exercise) is immediately
+	// followed, on the same FX thread call, by enableAutoCalibration() saving the current
+	// background and showing the pattern.
+	@Test
+	void stopFinishesRestoringTheBackgroundBeforeReturningOnTheFxThread() throws Exception {
+		final MockCanvasManager arenaCanvas = onFx(() -> new MockCanvasManager(config));
+		final ProjectorArenaPane arena = onFx(() -> new ProjectorArenaPane(config, arenaCanvas));
+		final Optional<LocatedImage> originalBackground = onFx(arena::getArenaBackground);
+
+		final RecordingExercise drill = new RecordingExercise();
+		final JavaFxExerciseHost drillHost = new JavaFxExerciseHost(drill, context(arenaCanvas, Optional.of(arena)));
+		drillHost.start();
+		drillHost.setBackground("backgrounds/black.png");
+		fxSync();
+		assertEquals("/backgrounds/black.png", onFx(arena::getArenaBackground).get().getURL());
+
+		final LocatedImage pattern = image("/pattern.png");
+
+		onFx(() -> {
+			drillHost.stop();
+			// CalibrationManager.enableAutoCalibration(): save whatever the background is right
+			// now, then show the pattern -- both still on the FX thread, right after stop().
+			arena.saveCurrentBackground();
+			arena.setArenaBackground(pattern);
+			return null;
+		});
+
+		// Any FX work stop() queued must already be finished: the pattern must still be showing,
+		// not overwritten by a teardown that runs after this point.
+		fxSync();
+		assertEquals(pattern.getURL(), onFx(arena::getArenaBackground).get().getURL());
+		drill.await("stop");
+
+		// Calibration ends: CalibrationManager.stopCalibration() restores what it saved above.
+		onFx(() -> {
+			arena.restoreCurrentBackground();
+			return null;
+		});
+		fxSync();
+		assertEquals(originalBackground, onFx(arena::getArenaBackground));
+
+		// The drill restarts on a fresh host and is stopped again (off the FX thread, as
+		// destroy() usually runs): the arena must show the original pre-exercise background,
+		// not the black the drill leaves behind if its "previous" background was corrupted.
+		final RecordingExercise restartedDrill = new RecordingExercise();
+		final JavaFxExerciseHost restarted = new JavaFxExerciseHost(restartedDrill,
+				context(arenaCanvas, Optional.of(arena)));
+		restarted.start();
+		restarted.setBackground("backgrounds/black.png");
+		fxSync();
+		restarted.stop();
+		fxSync();
+
+		assertEquals(originalBackground, onFx(arena::getArenaBackground));
 	}
 
 	@Test
