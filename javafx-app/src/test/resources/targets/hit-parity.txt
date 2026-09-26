@@ -1,0 +1,1042 @@
+# Hit-parity expectations recorded from the JavaFX hit test by TestHitParity.
+# target|placement|row|region index hit at each grid column (-1 = miss). Never edit by hand.
+targets/AQT_Silhouette.target|0|0|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/AQT_Silhouette.target|0|1|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/AQT_Silhouette.target|0|2|-1 -1 -1 -1 -1 0 0 1 1 0 0 -1 -1 -1 -1 -1
+targets/AQT_Silhouette.target|0|3|-1 -1 -1 -1 0 0 1 1 1 1 0 0 -1 -1 -1 -1
+targets/AQT_Silhouette.target|0|4|-1 -1 -1 -1 0 0 1 1 1 1 0 0 -1 -1 -1 -1
+targets/AQT_Silhouette.target|0|5|-1 -1 0 0 0 1 1 1 2 1 1 0 0 0 -1 -1
+targets/AQT_Silhouette.target|0|6|-1 0 0 0 1 1 1 2 2 1 1 1 0 0 0 -1
+targets/AQT_Silhouette.target|0|7|-1 0 0 1 1 1 2 2 2 2 1 1 1 1 0 -1
+targets/AQT_Silhouette.target|0|8|0 0 1 1 1 2 2 2 2 2 2 2 1 1 0 0
+targets/AQT_Silhouette.target|0|9|0 0 1 1 2 2 2 2 2 2 2 2 1 1 0 0
+targets/AQT_Silhouette.target|0|10|0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0
+targets/AQT_Silhouette.target|0|11|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|0|12|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|0|13|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|0|14|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|0|15|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|1|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/AQT_Silhouette.target|1|1|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/AQT_Silhouette.target|1|2|-1 -1 -1 0 0 1 1 0 0 -1 -1 -1
+targets/AQT_Silhouette.target|1|3|-1 -1 -1 0 1 1 1 1 0 -1 -1 -1
+targets/AQT_Silhouette.target|1|4|-1 0 0 0 1 1 2 1 0 0 0 -1
+targets/AQT_Silhouette.target|1|5|-1 0 1 1 1 2 2 1 1 1 0 -1
+targets/AQT_Silhouette.target|1|6|0 0 1 2 2 2 2 2 2 1 0 0
+targets/AQT_Silhouette.target|1|7|0 0 1 2 2 2 2 2 2 1 0 0
+targets/AQT_Silhouette.target|1|8|0 0 1 1 1 1 1 1 1 1 0 0
+targets/AQT_Silhouette.target|1|9|0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|1|10|0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|1|11|0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|2|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/AQT_Silhouette.target|2|1|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/AQT_Silhouette.target|2|2|-1 -1 -1 0 0 1 1 1 0 -1 -1 -1
+targets/AQT_Silhouette.target|2|3|-1 -1 -1 0 1 1 1 1 0 -1 -1 -1
+targets/AQT_Silhouette.target|2|4|-1 0 0 0 1 2 2 1 1 0 0 -1
+targets/AQT_Silhouette.target|2|5|0 0 1 1 1 2 2 1 1 1 0 0
+targets/AQT_Silhouette.target|2|6|0 0 1 2 2 2 2 2 2 1 1 0
+targets/AQT_Silhouette.target|2|7|0 0 1 2 2 2 2 2 2 1 1 0
+targets/AQT_Silhouette.target|2|8|0 0 1 1 1 1 1 1 1 1 1 0
+targets/AQT_Silhouette.target|2|9|0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|2|10|0 0 0 0 0 0 0 0 0 0 0 0
+targets/AQT_Silhouette.target|2|11|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Chicken_Silhouette.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1 -1
+targets/Chicken_Silhouette.target|0|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Chicken_Silhouette.target|0|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0 -1
+targets/Chicken_Silhouette.target|0|4|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0 -1
+targets/Chicken_Silhouette.target|0|5|-1 0 0 0 0 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|0|6|-1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|0|7|-1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|0|8|-1 -1 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|0|9|-1 -1 -1 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|10|-1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|11|-1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|12|-1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|13|-1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|14|-1 -1 -1 0 0 0 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|1|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|1|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Chicken_Silhouette.target|1|2|-1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Chicken_Silhouette.target|1|3|-1 0 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Chicken_Silhouette.target|1|4|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Chicken_Silhouette.target|1|5|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Chicken_Silhouette.target|1|6|-1 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|1|7|-1 -1 0 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|1|8|-1 -1 -1 0 0 0 0 0 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|1|9|-1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|1|10|-1 -1 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|1|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|2|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|2|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Chicken_Silhouette.target|2|2|-1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0
+targets/Chicken_Silhouette.target|2|3|0 0 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Chicken_Silhouette.target|2|4|0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Chicken_Silhouette.target|2|5|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Chicken_Silhouette.target|2|6|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Chicken_Silhouette.target|2|7|-1 -1 0 0 0 0 0 0 0 -1 -1 -1
+targets/Chicken_Silhouette.target|2|8|-1 -1 -1 0 0 0 0 0 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|2|9|-1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|2|10|-1 -1 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Chicken_Silhouette.target|2|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|1|1 1 1 1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|2|-1 1 1 1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 4 4 4 -1
+targets/Duel_Tree.target|0|4|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 4 4 4 -1
+targets/Duel_Tree.target|0|5|-1 2 2 2 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|6|2 2 2 2 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|7|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 5 5 5 -1
+targets/Duel_Tree.target|0|8|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 5 5 5 5
+targets/Duel_Tree.target|0|9|-1 3 3 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|10|3 3 3 3 3 3 3 3 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|11|-1 3 3 3 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|12|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 6 6 6 6
+targets/Duel_Tree.target|0|13|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 6 6 6 -1
+targets/Duel_Tree.target|0|14|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|0|15|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|1|1 1 1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 4 4 -1
+targets/Duel_Tree.target|1|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 4 4 -1
+targets/Duel_Tree.target|1|4|2 2 2 2 2 2 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|5|-1 -1 -1 -1 -1 -1 -1 -1 -1 5 5 -1
+targets/Duel_Tree.target|1|6|-1 -1 -1 -1 -1 -1 -1 -1 -1 5 5 5
+targets/Duel_Tree.target|1|7|3 3 3 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|8|-1 3 3 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|9|-1 -1 -1 -1 -1 -1 6 6 6 6 6 6
+targets/Duel_Tree.target|1|10|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|1|11|-1 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|0|-1 1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|1|1 1 1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 4 4 4
+targets/Duel_Tree.target|2|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 4 4 4
+targets/Duel_Tree.target|2|4|2 2 2 2 2 2 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|5|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 5 -1
+targets/Duel_Tree.target|2|6|-1 -1 -1 -1 -1 -1 -1 -1 -1 5 5 5
+targets/Duel_Tree.target|2|7|3 3 3 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|8|-1 3 3 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|9|-1 -1 -1 -1 -1 -1 6 6 6 6 6 6
+targets/Duel_Tree.target|2|10|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Duel_Tree.target|2|11|-1 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 -1
+targets/IPSC.target|0|0|-1 -1 -1 -1 -1 1 1 1 1 1 1 -1 -1 -1 -1 -1
+targets/IPSC.target|0|1|-1 -1 -1 -1 0 1 1 2 2 1 1 0 -1 -1 -1 -1
+targets/IPSC.target|0|2|-1 -1 -1 0 1 1 2 2 2 1 1 1 0 -1 -1 -1
+targets/IPSC.target|0|3|-1 -1 0 0 1 1 2 2 2 2 1 1 0 0 -1 -1
+targets/IPSC.target|0|4|-1 0 0 1 1 1 2 2 2 2 1 1 1 0 0 -1
+targets/IPSC.target|0|5|0 0 0 1 1 2 2 2 2 2 2 1 1 0 0 0
+targets/IPSC.target|0|6|0 0 0 1 1 2 2 2 2 2 2 1 1 0 0 0
+targets/IPSC.target|0|7|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/IPSC.target|0|8|0 0 0 1 1 1 2 2 2 2 1 1 1 0 0 0
+targets/IPSC.target|0|9|0 0 0 1 1 1 1 2 2 1 1 1 1 0 0 0
+targets/IPSC.target|0|10|0 0 0 0 1 1 1 1 1 1 1 1 0 0 0 0
+targets/IPSC.target|0|11|-1 0 0 0 0 1 1 1 1 1 1 0 0 0 0 -1
+targets/IPSC.target|0|12|-1 -1 0 0 0 0 1 1 1 1 0 0 0 0 -1 -1
+targets/IPSC.target|0|13|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC.target|0|14|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC.target|0|15|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/IPSC.target|1|0|-1 -1 -1 -1 1 1 1 1 -1 -1 -1 -1
+targets/IPSC.target|1|1|-1 -1 -1 1 1 2 2 1 1 -1 -1 -1
+targets/IPSC.target|1|2|-1 -1 0 1 1 2 2 1 1 0 -1 -1
+targets/IPSC.target|1|3|-1 0 1 1 2 2 2 2 1 1 0 -1
+targets/IPSC.target|1|4|0 0 1 1 2 2 2 2 1 1 0 0
+targets/IPSC.target|1|5|0 0 1 1 2 2 2 2 1 1 0 0
+targets/IPSC.target|1|6|0 0 1 1 1 2 2 1 1 1 0 0
+targets/IPSC.target|1|7|0 0 1 1 1 1 1 1 1 0 0 0
+targets/IPSC.target|1|8|-1 0 0 0 1 1 1 1 0 0 0 -1
+targets/IPSC.target|1|9|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC.target|1|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC.target|1|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/IPSC.target|2|0|-1 -1 -1 -1 1 1 1 1 -1 -1 -1 -1
+targets/IPSC.target|2|1|-1 -1 -1 1 1 2 2 1 1 -1 -1 -1
+targets/IPSC.target|2|2|-1 -1 0 1 1 2 2 1 1 0 -1 -1
+targets/IPSC.target|2|3|-1 0 1 1 2 2 2 2 1 1 0 -1
+targets/IPSC.target|2|4|0 0 1 1 2 2 2 2 1 1 0 0
+targets/IPSC.target|2|5|0 0 1 1 2 2 2 2 1 1 0 0
+targets/IPSC.target|2|6|0 0 1 1 2 2 2 2 1 1 0 0
+targets/IPSC.target|2|7|0 0 1 1 1 1 1 1 1 1 0 0
+targets/IPSC.target|2|8|-1 0 0 0 1 1 1 1 0 0 0 0
+targets/IPSC.target|2|9|-1 -1 0 0 0 1 1 0 0 0 -1 -1
+targets/IPSC.target|2|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC.target|2|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|0|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|1|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Falling_Popper.target|0|2|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Falling_Popper.target|0|3|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Falling_Popper.target|0|4|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|5|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|6|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|7|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|8|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|9|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|10|-1 -1 -1 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|11|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|12|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|13|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|14|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|0|15|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|0|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|1|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Falling_Popper.target|1|2|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Falling_Popper.target|1|3|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|4|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|5|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|6|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|7|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|1|11|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|0|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|1|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Falling_Popper.target|2|2|0 0 0 0 0 0 0 0 0 0 0 0
+targets/IPSC_Classic_Falling_Popper.target|2|3|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|4|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|5|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|6|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|7|-1 -1 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Falling_Popper.target|2|11|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|0|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|1|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Popper.target|0|2|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Popper.target|0|3|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Popper.target|0|4|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|0|5|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|6|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|7|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|8|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|9|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|10|-1 -1 -1 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|11|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|12|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|13|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|14|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|0|15|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|0|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|1|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Popper.target|1|2|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Popper.target|1|3|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|1|4|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|1|5|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|1|6|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|7|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|1|11|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|2|0|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|2|1|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/IPSC_Classic_Popper.target|2|2|0 0 0 0 0 0 0 0 0 0 0 0
+targets/IPSC_Classic_Popper.target|2|3|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|2|4|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|2|5|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|2|6|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/IPSC_Classic_Popper.target|2|7|-1 -1 0 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|2|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|2|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|2|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/IPSC_Classic_Popper.target|2|11|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/ISSF.target|0|0|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/ISSF.target|0|1|-1 -1 -1 -1 0 0 1 1 1 1 1 0 -1 -1 -1 -1
+targets/ISSF.target|0|2|-1 -1 0 0 1 2 2 2 2 2 2 1 0 0 -1 -1
+targets/ISSF.target|0|3|-1 -1 0 1 2 3 3 4 4 3 3 2 1 1 -1 -1
+targets/ISSF.target|0|4|-1 0 1 2 3 4 5 5 5 5 4 3 2 1 0 -1
+targets/ISSF.target|0|5|-1 1 2 3 4 5 6 6 6 6 5 4 3 2 1 -1
+targets/ISSF.target|0|6|0 1 2 3 5 6 7 7 7 7 6 5 4 2 1 0
+targets/ISSF.target|0|7|0 1 3 4 5 6 7 9 9 7 6 5 4 3 1 0
+targets/ISSF.target|0|8|0 1 3 4 5 6 7 9 9 7 6 5 4 3 1 0
+targets/ISSF.target|0|9|0 1 2 3 5 6 7 7 7 7 6 5 4 2 1 0
+targets/ISSF.target|0|10|-1 1 2 3 4 5 6 6 6 6 5 4 3 2 1 -1
+targets/ISSF.target|0|11|-1 0 1 2 3 4 5 5 5 5 4 3 2 1 0 -1
+targets/ISSF.target|0|12|-1 -1 0 1 2 3 3 4 4 3 3 2 1 1 -1 -1
+targets/ISSF.target|0|13|-1 -1 0 0 1 2 2 2 2 2 2 1 1 0 -1 -1
+targets/ISSF.target|0|14|-1 -1 -1 -1 0 1 1 1 1 1 1 0 -1 -1 -1 -1
+targets/ISSF.target|0|15|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/ISSF.target|1|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/ISSF.target|1|1|-1 -1 0 1 1 2 2 1 1 0 -1 -1
+targets/ISSF.target|1|2|-1 0 1 2 3 3 3 3 2 1 0 -1
+targets/ISSF.target|1|3|-1 1 2 3 4 5 5 4 3 2 1 -1
+targets/ISSF.target|1|4|0 1 3 4 6 7 7 6 5 3 1 0
+targets/ISSF.target|1|5|0 2 3 5 7 8 8 7 5 4 2 0
+targets/ISSF.target|1|6|0 2 3 5 7 8 8 7 5 4 2 0
+targets/ISSF.target|1|7|0 1 3 4 6 7 7 6 4 3 2 0
+targets/ISSF.target|1|8|-1 1 2 3 4 5 5 4 3 2 1 -1
+targets/ISSF.target|1|9|-1 0 1 2 3 3 3 3 2 1 0 -1
+targets/ISSF.target|1|10|-1 -1 0 1 1 2 2 1 1 0 -1 -1
+targets/ISSF.target|1|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/ISSF.target|2|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/ISSF.target|2|1|-1 -1 0 1 1 2 2 1 1 0 -1 -1
+targets/ISSF.target|2|2|-1 0 1 2 3 3 3 3 2 1 0 -1
+targets/ISSF.target|2|3|-1 1 2 3 5 5 5 5 3 2 1 -1
+targets/ISSF.target|2|4|0 1 3 5 6 7 7 6 5 3 2 0
+targets/ISSF.target|2|5|0 2 4 5 7 8 8 7 5 4 2 0
+targets/ISSF.target|2|6|0 2 4 5 7 8 8 7 5 4 2 0
+targets/ISSF.target|2|7|0 2 3 5 6 7 7 6 5 3 2 0
+targets/ISSF.target|2|8|-1 1 2 3 4 5 5 4 4 2 1 -1
+targets/ISSF.target|2|9|-1 0 1 2 3 3 3 3 2 1 0 -1
+targets/ISSF.target|2|10|-1 -1 0 1 1 2 2 1 1 0 -1 -1
+targets/ISSF.target|2|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Musical_Target.target|0|0|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Musical_Target.target|0|1|-1 -1 -1 9 -1 11 12 13 14 15 -1 16 10 -1 -1 -1
+targets/Musical_Target.target|0|2|-1 -1 -1 9 -1 11 12 13 14 15 -1 16 10 -1 -1 -1
+targets/Musical_Target.target|0|3|-1 -1 0 9 -1 11 12 13 14 15 -1 16 10 0 -1 -1
+targets/Musical_Target.target|0|4|-1 -1 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1 -1
+targets/Musical_Target.target|0|5|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|0|6|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|0|7|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|0|8|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/Musical_Target.target|0|9|-1 0 8 7 7 6 5 5 4 4 1 2 2 3 0 -1
+targets/Musical_Target.target|0|10|-1 -1 8 7 7 6 5 5 4 4 1 2 2 3 -1 -1
+targets/Musical_Target.target|0|11|-1 -1 8 7 7 6 5 5 4 4 1 2 2 3 -1 -1
+targets/Musical_Target.target|0|12|-1 -1 8 7 7 6 5 5 4 4 1 2 2 3 -1 -1
+targets/Musical_Target.target|0|13|0 -1 8 7 7 6 5 5 4 4 -1 2 2 3 -1 0
+targets/Musical_Target.target|0|14|0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0
+targets/Musical_Target.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|1|0|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Musical_Target.target|1|1|-1 -1 9 11 12 13 14 15 16 10 -1 -1
+targets/Musical_Target.target|1|2|-1 -1 9 11 12 13 14 15 16 10 -1 -1
+targets/Musical_Target.target|1|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|1|4|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Musical_Target.target|1|5|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Musical_Target.target|1|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Musical_Target.target|1|7|-1 8 7 7 6 5 4 1 2 -1 3 -1
+targets/Musical_Target.target|1|8|-1 8 7 7 6 5 4 1 2 -1 3 -1
+targets/Musical_Target.target|1|9|0 8 7 7 6 5 4 1 2 -1 3 0
+targets/Musical_Target.target|1|10|0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0
+targets/Musical_Target.target|1|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|2|0|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Musical_Target.target|2|1|-1 -1 9 11 12 13 14 15 16 10 -1 -1
+targets/Musical_Target.target|2|2|-1 -1 9 11 12 13 14 15 16 10 -1 -1
+targets/Musical_Target.target|2|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Musical_Target.target|2|4|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Musical_Target.target|2|5|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Musical_Target.target|2|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Musical_Target.target|2|7|-1 8 7 -1 6 5 4 1 2 -1 3 -1
+targets/Musical_Target.target|2|8|-1 8 7 -1 6 5 4 1 2 -1 3 -1
+targets/Musical_Target.target|2|9|0 8 7 -1 6 5 4 1 2 -1 3 0
+targets/Musical_Target.target|2|10|0 0 -1 -1 -1 -1 -1 -1 -1 -1 0 0
+targets/Musical_Target.target|2|11|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/POI_Offset_Adjustment.target|0|0|1 1 0 0 0 0 0 0 0 0 0 0 0 0 3 3
+targets/POI_Offset_Adjustment.target|0|1|1 1 0 0 0 0 0 0 0 0 0 0 0 0 3 3
+targets/POI_Offset_Adjustment.target|0|2|1 1 0 0 0 0 0 0 0 0 0 0 0 0 3 3
+targets/POI_Offset_Adjustment.target|0|3|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|4|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|5|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|6|0 0 0 0 0 0 0 2 2 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|7|0 0 0 0 0 0 0 2 2 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|8|0 0 0 0 0 0 0 2 2 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|9|0 0 0 0 0 0 0 2 2 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|10|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|11|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|12|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|0|13|4 4 0 0 0 0 0 0 0 0 0 0 0 0 5 5
+targets/POI_Offset_Adjustment.target|0|14|4 4 0 0 0 0 0 0 0 0 0 0 0 0 5 5
+targets/POI_Offset_Adjustment.target|0|15|4 4 0 0 0 0 0 0 0 0 0 0 0 0 5 5
+targets/POI_Offset_Adjustment.target|1|0|1 1 0 0 0 0 0 0 0 0 0 3
+targets/POI_Offset_Adjustment.target|1|1|1 1 0 0 0 0 0 0 0 0 0 3
+targets/POI_Offset_Adjustment.target|1|2|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|3|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|4|0 0 0 0 0 2 2 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|5|0 0 0 0 0 2 2 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|6|0 0 0 0 0 2 2 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|7|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|8|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|9|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|1|10|4 4 0 0 0 0 0 0 0 0 0 5
+targets/POI_Offset_Adjustment.target|1|11|4 4 0 0 0 0 0 0 0 0 0 5
+targets/POI_Offset_Adjustment.target|2|0|1 0 0 0 0 0 0 0 0 0 0 3
+targets/POI_Offset_Adjustment.target|2|1|1 0 0 0 0 0 0 0 0 0 0 3
+targets/POI_Offset_Adjustment.target|2|2|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|3|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|4|0 0 0 0 0 2 2 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|5|0 0 0 0 0 2 2 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|6|0 0 0 0 0 2 2 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|7|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|8|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|9|0 0 0 0 0 0 0 0 0 0 0 0
+targets/POI_Offset_Adjustment.target|2|10|4 0 0 0 0 0 0 0 0 0 0 5
+targets/POI_Offset_Adjustment.target|2|11|4 0 0 0 0 0 0 0 0 0 0 5
+targets/Pepper_Popper.target|0|0|-1 -1 -1 -1 -1 1 1 1 1 1 1 -1 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|1|-1 -1 -1 -1 2 2 2 2 2 2 2 2 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|2|-1 -1 -1 -1 2 2 2 2 2 2 2 2 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|3|-1 -1 -1 -1 2 2 2 2 2 2 2 2 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|4|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|0|5|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|0|6|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|0|7|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pepper_Popper.target|0|8|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|0|9|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|10|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|11|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|12|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|13|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|14|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Pepper_Popper.target|0|15|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Pepper_Popper.target|1|0|-1 -1 -1 0 1 1 1 1 0 -1 -1 -1
+targets/Pepper_Popper.target|1|1|-1 -1 -1 2 2 2 2 2 2 -1 -1 -1
+targets/Pepper_Popper.target|1|2|-1 -1 -1 2 2 2 2 2 2 -1 -1 -1
+targets/Pepper_Popper.target|1|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|1|4|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|1|5|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|1|6|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|1|7|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|1|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|1|9|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|1|10|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|1|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|2|0|-1 -1 -1 1 1 1 1 1 0 -1 -1 -1
+targets/Pepper_Popper.target|2|1|-1 -1 -1 2 2 2 2 2 2 -1 -1 -1
+targets/Pepper_Popper.target|2|2|-1 -1 -1 2 2 2 2 2 2 -1 -1 -1
+targets/Pepper_Popper.target|2|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|2|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Pepper_Popper.target|2|5|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pepper_Popper.target|2|6|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|2|7|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|2|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|2|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pepper_Popper.target|2|10|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Pepper_Popper.target|2|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Pig_Silhouette.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|0|1|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|0|2|-1 -1 0 0 0 0 0 0 0 0 0 0 -1 0 -1 -1
+targets/Pig_Silhouette.target|0|3|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pig_Silhouette.target|0|4|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pig_Silhouette.target|0|5|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pig_Silhouette.target|0|6|0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pig_Silhouette.target|0|7|0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pig_Silhouette.target|0|8|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|0|9|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|0|10|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/Pig_Silhouette.target|0|11|-1 -1 -1 0 0 0 0 0 0 0 -1 -1 -1 0 0 -1
+targets/Pig_Silhouette.target|0|12|-1 -1 -1 0 0 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|0|13|-1 -1 -1 0 0 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|0|14|-1 -1 -1 0 0 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|0|15|-1 -1 0 0 0 0 -1 0 0 0 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|1|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|1|1|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Pig_Silhouette.target|1|2|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|1|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|1|4|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Pig_Silhouette.target|1|5|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|1|6|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|1|7|-1 0 0 0 0 0 0 0 0 0 0 0
+targets/Pig_Silhouette.target|1|8|-1 -1 0 0 0 0 0 0 0 -1 0 -1
+targets/Pig_Silhouette.target|1|9|-1 -1 0 0 -1 -1 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|1|10|-1 -1 0 0 -1 -1 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|1|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|2|0|-1 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|2|1|-1 -1 0 0 0 0 0 0 0 -1 -1 -1
+targets/Pig_Silhouette.target|2|2|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|2|3|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|2|4|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|2|5|0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|2|6|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Pig_Silhouette.target|2|7|-1 0 0 0 0 0 0 0 0 0 0 0
+targets/Pig_Silhouette.target|2|8|-1 -1 0 0 0 0 0 0 0 -1 0 0
+targets/Pig_Silhouette.target|2|9|-1 -1 0 0 -1 -1 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|2|10|-1 -1 0 0 -1 -1 0 -1 -1 -1 -1 -1
+targets/Pig_Silhouette.target|2|11|-1 0 0 0 -1 0 0 0 -1 -1 -1 -1
+targets/Plate_Rack.target|0|0|-1 1 1 -1 -1 -1 -1 3 3 -1 -1 -1 2 2 -1 -1
+targets/Plate_Rack.target|0|1|1 1 1 1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack.target|0|2|1 1 1 1 -1 -1 3 3 3 3 -1 -1 2 2 2 -1
+targets/Plate_Rack.target|0|3|1 1 1 1 -1 -1 3 3 3 3 -1 -1 2 2 2 -1
+targets/Plate_Rack.target|0|4|-1 1 1 -1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack.target|0|5|-1 1 1 -1 -1 -1 -1 3 -1 -1 -1 -1 -1 2 -1 -1
+targets/Plate_Rack.target|0|6|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/Plate_Rack.target|0|7|-1 -1 0 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 0 -1 -1
+targets/Plate_Rack.target|0|8|-1 -1 0 -1 -1 -1 -1 -1 -1 0 -1 -1 -1 0 -1 -1
+targets/Plate_Rack.target|0|9|-1 -1 0 -1 -1 0 -1 -1 -1 -1 0 -1 -1 0 -1 -1
+targets/Plate_Rack.target|0|10|-1 -1 0 -1 0 -1 -1 -1 -1 -1 -1 0 -1 0 -1 -1
+targets/Plate_Rack.target|0|11|-1 0 0 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1 -1 -1
+targets/Plate_Rack.target|0|12|-1 0 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1 -1
+targets/Plate_Rack.target|0|13|-1 0 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Plate_Rack.target|0|14|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack.target|0|15|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack.target|1|0|-1 1 -1 -1 -1 3 3 -1 -1 2 2 -1
+targets/Plate_Rack.target|1|1|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack.target|1|2|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack.target|1|3|-1 1 -1 -1 -1 3 3 -1 -1 2 2 -1
+targets/Plate_Rack.target|1|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Plate_Rack.target|1|5|-1 0 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Plate_Rack.target|1|6|-1 0 -1 -1 0 -1 -1 0 -1 -1 0 -1
+targets/Plate_Rack.target|1|7|-1 0 -1 0 -1 -1 -1 -1 0 -1 0 -1
+targets/Plate_Rack.target|1|8|-1 0 0 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack.target|1|9|-1 0 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack.target|1|10|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack.target|1|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack.target|2|0|-1 1 -1 -1 -1 3 3 -1 -1 2 2 -1
+targets/Plate_Rack.target|2|1|1 1 1 -1 3 3 3 -1 -1 2 2 2
+targets/Plate_Rack.target|2|2|1 1 1 -1 3 3 3 -1 -1 2 2 2
+targets/Plate_Rack.target|2|3|-1 1 -1 -1 -1 3 3 -1 -1 2 2 -1
+targets/Plate_Rack.target|2|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Plate_Rack.target|2|5|-1 0 -1 -1 -1 0 0 -1 -1 -1 0 -1
+targets/Plate_Rack.target|2|6|-1 0 -1 -1 0 -1 -1 0 -1 -1 0 -1
+targets/Plate_Rack.target|2|7|-1 0 -1 0 -1 -1 -1 -1 0 -1 0 -1
+targets/Plate_Rack.target|2|8|-1 0 0 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack.target|2|9|-1 0 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack.target|2|10|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack.target|2|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|0|0|-1 1 -1 -1 -1 -1 -1 3 -1 -1 -1 -1 -1 2 -1 -1
+targets/Plate_Rack_Silhouette.target|0|1|-1 1 -1 -1 -1 -1 -1 3 -1 -1 -1 -1 -1 2 -1 -1
+targets/Plate_Rack_Silhouette.target|0|2|1 1 1 1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack_Silhouette.target|0|3|1 1 1 1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack_Silhouette.target|0|4|1 1 1 1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack_Silhouette.target|0|5|1 1 1 1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack_Silhouette.target|0|6|1 1 1 -1 -1 -1 3 3 3 -1 -1 -1 2 2 2 -1
+targets/Plate_Rack_Silhouette.target|0|7|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Plate_Rack_Silhouette.target|0|8|-1 -1 0 -1 -1 -1 -1 0 0 -1 -1 -1 -1 0 -1 -1
+targets/Plate_Rack_Silhouette.target|0|9|-1 -1 0 -1 -1 -1 0 -1 -1 0 -1 -1 -1 0 -1 -1
+targets/Plate_Rack_Silhouette.target|0|10|-1 -1 0 -1 -1 0 -1 -1 -1 -1 0 -1 -1 0 -1 -1
+targets/Plate_Rack_Silhouette.target|0|11|-1 -1 0 -1 0 -1 -1 -1 -1 -1 -1 0 -1 0 -1 -1
+targets/Plate_Rack_Silhouette.target|0|12|-1 0 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Plate_Rack_Silhouette.target|0|13|-1 0 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Plate_Rack_Silhouette.target|0|14|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|0|15|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|1|0|-1 1 -1 -1 -1 3 -1 -1 -1 2 -1 -1
+targets/Plate_Rack_Silhouette.target|1|1|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|1|2|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|1|3|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|1|4|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|1|5|1 1 -1 -1 -1 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|1|6|-1 0 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Plate_Rack_Silhouette.target|1|7|-1 0 -1 -1 0 -1 -1 0 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|1|8|-1 0 -1 0 -1 -1 -1 -1 0 0 0 -1
+targets/Plate_Rack_Silhouette.target|1|9|-1 0 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack_Silhouette.target|1|10|-1 0 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|1|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|2|0|-1 1 -1 -1 -1 3 -1 -1 -1 -1 -1 -1
+targets/Plate_Rack_Silhouette.target|2|1|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|2|2|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|2|3|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|2|4|1 1 1 -1 3 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|2|5|1 1 -1 -1 -1 3 3 -1 -1 2 2 -1
+targets/Plate_Rack_Silhouette.target|2|6|-1 0 -1 -1 -1 0 0 -1 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|2|7|-1 0 -1 -1 0 -1 -1 0 -1 -1 0 -1
+targets/Plate_Rack_Silhouette.target|2|8|-1 0 -1 0 -1 -1 -1 -1 0 -1 0 -1
+targets/Plate_Rack_Silhouette.target|2|9|-1 0 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack_Silhouette.target|2|10|-1 0 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Plate_Rack_Silhouette.target|2|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 -1
+targets/Ram_Silhouette.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1 -1
+targets/Ram_Silhouette.target|0|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0 0 -1
+targets/Ram_Silhouette.target|0|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0 0 -1
+targets/Ram_Silhouette.target|0|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1 0 0 -1
+targets/Ram_Silhouette.target|0|4|-1 -1 -1 -1 0 -1 -1 -1 -1 -1 0 0 0 0 0 -1
+targets/Ram_Silhouette.target|0|5|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Ram_Silhouette.target|0|6|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Ram_Silhouette.target|0|7|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/Ram_Silhouette.target|0|8|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/Ram_Silhouette.target|0|9|0 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|0|10|0 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|0|11|-1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Ram_Silhouette.target|0|12|-1 0 0 -1 -1 0 -1 0 -1 0 0 -1 -1 -1 -1 -1
+targets/Ram_Silhouette.target|0|13|-1 0 0 -1 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 -1 -1
+targets/Ram_Silhouette.target|0|14|-1 0 -1 -1 -1 -1 -1 -1 -1 0 -1 -1 -1 -1 -1 -1
+targets/Ram_Silhouette.target|0|15|0 0 0 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|1|0|-1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Ram_Silhouette.target|1|1|-1 -1 -1 -1 -1 -1 -1 0 0 0 0 -1
+targets/Ram_Silhouette.target|1|2|-1 -1 -1 -1 -1 -1 -1 0 0 0 0 -1
+targets/Ram_Silhouette.target|1|3|-1 -1 0 0 0 -1 -1 0 0 0 0 -1
+targets/Ram_Silhouette.target|1|4|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Ram_Silhouette.target|1|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Ram_Silhouette.target|1|6|0 0 0 0 0 0 0 0 0 -1 0 0
+targets/Ram_Silhouette.target|1|7|0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Ram_Silhouette.target|1|8|-1 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Ram_Silhouette.target|1|9|-1 0 -1 -1 0 -1 -1 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|1|10|-1 0 -1 -1 -1 -1 -1 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|1|11|0 0 -1 -1 -1 -1 0 0 0 -1 -1 -1
+targets/Ram_Silhouette.target|2|0|-1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Ram_Silhouette.target|2|1|-1 -1 -1 -1 -1 -1 -1 0 0 0 0 -1
+targets/Ram_Silhouette.target|2|2|-1 -1 -1 -1 -1 -1 -1 0 0 -1 0 -1
+targets/Ram_Silhouette.target|2|3|-1 -1 0 0 -1 -1 -1 0 0 0 0 -1
+targets/Ram_Silhouette.target|2|4|-1 0 0 0 0 0 0 0 0 0 0 0
+targets/Ram_Silhouette.target|2|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Ram_Silhouette.target|2|6|0 0 0 0 0 0 0 0 0 -1 0 0
+targets/Ram_Silhouette.target|2|7|0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Ram_Silhouette.target|2|8|-1 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Ram_Silhouette.target|2|9|-1 0 -1 -1 0 -1 -1 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|2|10|-1 0 -1 -1 -1 -1 -1 0 -1 -1 -1 -1
+targets/Ram_Silhouette.target|2|11|0 0 -1 -1 -1 -1 0 0 0 -1 -1 -1
+targets/Reset.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Reset.target|0|1|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Reset.target|0|2|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Reset.target|0|3|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|0|4|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|0|5|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|0|6|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|0|7|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|0|8|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|0|9|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|0|10|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|0|11|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|0|12|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|0|13|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Reset.target|0|14|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Reset.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Reset.target|1|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Reset.target|1|1|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Reset.target|1|2|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|1|3|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|1|4|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|1|5|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|1|6|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|1|7|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|1|8|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|1|9|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|1|10|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Reset.target|1|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Reset.target|2|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Reset.target|2|1|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Reset.target|2|2|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|2|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|2|4|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|2|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Reset.target|2|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/Reset.target|2|7|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|2|8|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Reset.target|2|9|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Reset.target|2|10|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Reset.target|2|11|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|0|0|-1 0 0 0 -1 -1 -1 -1 -1 -1 -1 -1 4 4 4 -1
+targets/SimpleBullseye_five_small.target|0|1|0 0 0 0 0 -1 -1 -1 -1 -1 -1 4 4 4 4 -1
+targets/SimpleBullseye_five_small.target|0|2|0 0 0 0 0 -1 -1 -1 -1 -1 -1 4 4 4 4 4
+targets/SimpleBullseye_five_small.target|0|3|0 0 0 0 0 -1 -1 -1 -1 -1 -1 4 4 4 4 4
+targets/SimpleBullseye_five_small.target|0|4|-1 0 0 0 0 -1 -1 -1 -1 -1 -1 4 4 4 4 -1
+targets/SimpleBullseye_five_small.target|0|5|-1 -1 0 0 -1 -1 -1 2 2 -1 -1 -1 4 4 -1 -1
+targets/SimpleBullseye_five_small.target|0|6|-1 -1 -1 -1 -1 -1 2 2 2 2 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|0|7|-1 -1 -1 -1 -1 2 2 2 2 2 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|0|8|-1 -1 -1 -1 -1 2 2 2 2 2 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|0|9|-1 -1 -1 -1 -1 -1 2 2 2 2 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|0|10|-1 -1 1 -1 -1 -1 -1 2 2 -1 -1 -1 -1 3 -1 -1
+targets/SimpleBullseye_five_small.target|0|11|-1 1 1 1 1 -1 -1 -1 -1 -1 -1 3 3 3 3 -1
+targets/SimpleBullseye_five_small.target|0|12|1 1 1 1 1 -1 -1 -1 -1 -1 -1 3 3 3 3 3
+targets/SimpleBullseye_five_small.target|0|13|1 1 1 1 1 -1 -1 -1 -1 -1 -1 3 3 3 3 3
+targets/SimpleBullseye_five_small.target|0|14|1 1 1 1 1 -1 -1 -1 -1 -1 -1 3 3 3 3 3
+targets/SimpleBullseye_five_small.target|0|15|-1 1 1 1 -1 -1 -1 -1 -1 -1 -1 -1 3 3 3 -1
+targets/SimpleBullseye_five_small.target|1|0|-1 0 0 -1 -1 -1 -1 -1 -1 4 4 -1
+targets/SimpleBullseye_five_small.target|1|1|0 0 0 0 -1 -1 -1 -1 4 4 4 4
+targets/SimpleBullseye_five_small.target|1|2|0 0 0 0 -1 -1 -1 -1 4 4 4 4
+targets/SimpleBullseye_five_small.target|1|3|-1 0 0 -1 -1 -1 -1 -1 -1 4 4 -1
+targets/SimpleBullseye_five_small.target|1|4|-1 -1 -1 -1 -1 2 2 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|1|5|-1 -1 -1 -1 2 2 2 2 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|1|6|-1 -1 -1 -1 2 2 2 2 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|1|7|-1 -1 -1 -1 -1 2 2 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|1|8|-1 1 1 -1 -1 -1 -1 -1 -1 3 3 -1
+targets/SimpleBullseye_five_small.target|1|9|1 1 1 1 -1 -1 -1 -1 3 3 3 3
+targets/SimpleBullseye_five_small.target|1|10|1 1 1 1 -1 -1 -1 -1 3 3 3 3
+targets/SimpleBullseye_five_small.target|1|11|-1 1 1 -1 -1 -1 -1 -1 -1 3 3 -1
+targets/SimpleBullseye_five_small.target|2|0|-1 0 0 -1 -1 -1 -1 -1 -1 4 4 -1
+targets/SimpleBullseye_five_small.target|2|1|0 0 0 0 -1 -1 -1 -1 4 4 4 4
+targets/SimpleBullseye_five_small.target|2|2|0 0 0 0 -1 -1 -1 -1 4 4 4 4
+targets/SimpleBullseye_five_small.target|2|3|0 0 0 -1 -1 -1 -1 -1 -1 4 4 4
+targets/SimpleBullseye_five_small.target|2|4|-1 -1 -1 -1 -1 2 2 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|2|5|-1 -1 -1 -1 2 2 2 2 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|2|6|-1 -1 -1 -1 2 2 2 2 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|2|7|-1 -1 -1 -1 2 2 2 -1 -1 -1 -1 -1
+targets/SimpleBullseye_five_small.target|2|8|-1 1 1 -1 -1 -1 -1 -1 -1 3 3 -1
+targets/SimpleBullseye_five_small.target|2|9|1 1 1 1 -1 -1 -1 -1 3 3 3 3
+targets/SimpleBullseye_five_small.target|2|10|1 1 1 1 -1 -1 -1 -1 3 3 3 3
+targets/SimpleBullseye_five_small.target|2|11|-1 1 1 -1 -1 -1 -1 -1 -1 3 3 -1
+targets/SimpleBullseye_score.target|0|0|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|0|1|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|0|2|-1 -1 0 0 0 1 1 1 1 1 1 0 0 0 -1 -1
+targets/SimpleBullseye_score.target|0|3|-1 -1 0 1 1 2 2 2 2 2 2 1 1 0 -1 -1
+targets/SimpleBullseye_score.target|0|4|-1 0 0 1 2 2 2 3 3 2 2 2 1 0 0 -1
+targets/SimpleBullseye_score.target|0|5|-1 0 1 1 2 3 3 3 3 3 3 2 1 1 0 -1
+targets/SimpleBullseye_score.target|0|6|0 0 1 2 2 3 4 4 4 4 3 2 2 1 0 0
+targets/SimpleBullseye_score.target|0|7|0 0 1 2 3 3 4 5 5 4 3 3 2 1 0 0
+targets/SimpleBullseye_score.target|0|8|0 0 1 2 3 3 4 5 5 4 3 3 2 1 0 0
+targets/SimpleBullseye_score.target|0|9|0 0 1 2 2 3 4 4 4 4 3 2 2 1 0 0
+targets/SimpleBullseye_score.target|0|10|-1 0 1 1 2 2 3 3 3 3 2 2 1 1 0 -1
+targets/SimpleBullseye_score.target|0|11|-1 0 0 1 2 2 2 2 2 2 2 2 1 0 0 -1
+targets/SimpleBullseye_score.target|0|12|-1 -1 0 0 1 1 2 2 2 2 1 1 0 0 -1 -1
+targets/SimpleBullseye_score.target|0|13|-1 -1 0 0 0 1 1 1 1 1 1 0 0 0 -1 -1
+targets/SimpleBullseye_score.target|0|14|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|0|15|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|1|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|1|1|-1 -1 0 0 1 1 1 1 0 0 -1 -1
+targets/SimpleBullseye_score.target|1|2|-1 0 0 1 2 2 2 2 1 0 0 -1
+targets/SimpleBullseye_score.target|1|3|-1 0 1 2 2 3 3 2 2 1 0 -1
+targets/SimpleBullseye_score.target|1|4|0 0 1 2 3 4 4 3 2 1 0 0
+targets/SimpleBullseye_score.target|1|5|0 1 2 3 4 5 5 4 3 2 1 0
+targets/SimpleBullseye_score.target|1|6|0 1 2 3 4 4 4 4 3 2 1 0
+targets/SimpleBullseye_score.target|1|7|0 0 1 2 3 4 4 3 2 1 0 0
+targets/SimpleBullseye_score.target|1|8|-1 0 1 2 2 3 3 2 2 1 0 -1
+targets/SimpleBullseye_score.target|1|9|-1 0 0 1 1 2 2 1 1 0 0 -1
+targets/SimpleBullseye_score.target|1|10|-1 -1 0 0 0 1 1 0 0 0 -1 -1
+targets/SimpleBullseye_score.target|1|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|2|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/SimpleBullseye_score.target|2|1|-1 -1 0 0 1 1 1 1 0 0 -1 -1
+targets/SimpleBullseye_score.target|2|2|-1 0 0 1 2 2 2 2 1 0 0 -1
+targets/SimpleBullseye_score.target|2|3|-1 0 1 2 2 3 3 2 2 1 0 -1
+targets/SimpleBullseye_score.target|2|4|0 1 2 2 3 4 4 3 2 2 1 0
+targets/SimpleBullseye_score.target|2|5|0 1 2 3 4 5 5 4 3 2 1 0
+targets/SimpleBullseye_score.target|2|6|0 1 2 3 4 4 4 4 3 2 1 0
+targets/SimpleBullseye_score.target|2|7|0 0 1 2 3 4 4 3 2 1 1 0
+targets/SimpleBullseye_score.target|2|8|-1 0 1 2 2 3 3 2 2 1 0 -1
+targets/SimpleBullseye_score.target|2|9|-1 0 0 1 1 2 2 1 1 0 0 -1
+targets/SimpleBullseye_score.target|2|10|-1 -1 0 0 0 1 1 0 0 0 -1 -1
+targets/SimpleBullseye_score.target|2|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|1|-1 -1 -1 -1 -1 1 1 1 1 1 1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|2|-1 -1 1 1 1 1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Circle.target|0|3|-1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Circle.target|0|4|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Circle.target|0|5|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Circle.target|0|6|-1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Circle.target|0|7|-1 -1 1 1 1 1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Circle.target|0|8|-1 -1 -1 -1 1 1 1 1 1 1 1 1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|9|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|10|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|11|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|12|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|13|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|14|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|1|-1 -1 -1 1 1 1 1 1 1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|2|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Circle.target|1|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Circle.target|1|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Circle.target|1|5|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Circle.target|1|6|-1 -1 -1 1 1 1 1 1 1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|1|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|1|-1 -1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Circle.target|2|2|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Circle.target|2|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Circle.target|2|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Circle.target|2|5|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Circle.target|2|6|-1 -1 -1 1 1 1 1 1 1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Circle.target|2|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|1|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|2|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|3|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|4|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|5|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|6|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|7|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|0|8|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|9|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|10|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|11|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|12|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|13|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|14|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|1|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|1|2|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|1|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|1|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|1|5|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|1|6|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|1|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|1|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|2|2|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|2|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|2|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|2|5|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Rectangle.target|2|6|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Rectangle.target|2|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|1|-1 -1 -1 -1 -1 1 1 1 1 1 1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|2|-1 -1 1 1 1 1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|3|-1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|4|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Circle.target|0|5|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Circle.target|0|6|-1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|7|-1 -1 1 1 1 1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|8|-1 -1 -1 -1 1 1 1 1 1 1 1 1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|9|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|10|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|11|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|12|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|13|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|14|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|1|-1 -1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|2|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Circle.target|1|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Circle.target|1|5|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|6|-1 -1 -1 1 1 1 1 1 1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|1|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|1|-1 -1 1 1 1 1 1 1 1 1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|2|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Circle.target|2|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Circle.target|2|5|-1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|6|-1 -1 -1 1 1 1 1 1 1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Circle.target|2|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|1|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|2|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|3|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|4|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|5|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|6|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|7|1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|0|8|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|9|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|10|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|11|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|12|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|13|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|14|-1 -1 -1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|0|15|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|1|1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|2|1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|3|1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|4|1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|5|1 1 1 1 1 1 1 1 1 1 1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|6|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|1|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|0|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|1|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|2|2|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|2|3|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|2|4|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|2|5|1 1 1 1 1 1 1 1 1 1 1 1
+targets/Steel_Challenge_Stop_Rectangle.target|2|6|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|7|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|8|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|9|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|10|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Steel_Challenge_Stop_Rectangle.target|2|11|-1 -1 -1 -1 -1 0 0 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|0|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|1|-1 -1 -1 -1 -1 0 5 5 5 4 0 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|2|-1 -1 -1 -1 -1 0 4 4 4 4 -1 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|3|-1 1 1 2 2 2 3 3 3 3 2 2 1 1 0 -1
+targets/Swedish_Soldier.target|0|4|-1 1 1 2 2 2 3 3 3 3 2 2 1 1 0 -1
+targets/Swedish_Soldier.target|0|5|-1 1 1 2 2 2 3 3 3 3 2 2 1 1 0 -1
+targets/Swedish_Soldier.target|0|6|-1 1 1 2 2 2 3 3 3 3 2 2 1 1 0 -1
+targets/Swedish_Soldier.target|0|7|0 1 1 1 1 2 2 2 2 2 2 1 1 1 0 0
+targets/Swedish_Soldier.target|0|8|0 0 1 1 1 1 1 1 1 1 1 1 1 0 0 -1
+targets/Swedish_Soldier.target|0|9|-1 -1 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|0|10|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|0|11|-1 -1 -1 -1 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|0|12|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|13|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|14|-1 -1 -1 -1 -1 0 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|0|15|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|1|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Swedish_Soldier.target|1|1|-1 -1 -1 -1 4 5 5 0 -1 -1 -1 -1
+targets/Swedish_Soldier.target|1|2|-1 1 1 2 2 2 2 2 2 1 0 -1
+targets/Swedish_Soldier.target|1|3|-1 1 1 2 3 3 3 2 2 1 1 0
+targets/Swedish_Soldier.target|1|4|0 1 1 2 3 3 3 2 2 1 1 -1
+targets/Swedish_Soldier.target|1|5|0 1 1 2 2 2 2 2 1 1 1 0
+targets/Swedish_Soldier.target|1|6|0 0 1 1 1 1 1 1 1 1 0 -1
+targets/Swedish_Soldier.target|1|7|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Swedish_Soldier.target|1|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|1|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|1|10|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|1|11|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|2|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/Swedish_Soldier.target|2|1|-1 -1 -1 -1 4 5 5 4 -1 -1 -1 -1
+targets/Swedish_Soldier.target|2|2|-1 1 1 2 2 2 2 2 2 1 0 -1
+targets/Swedish_Soldier.target|2|3|-1 1 1 2 3 3 3 3 2 1 1 0
+targets/Swedish_Soldier.target|2|4|0 1 1 2 3 3 3 3 2 1 1 0
+targets/Swedish_Soldier.target|2|5|0 1 1 2 2 2 2 2 1 1 1 0
+targets/Swedish_Soldier.target|2|6|0 0 1 1 1 1 1 1 1 1 0 -1
+targets/Swedish_Soldier.target|2|7|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Swedish_Soldier.target|2|8|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|2|9|-1 -1 -1 0 0 0 0 0 0 -1 -1 -1
+targets/Swedish_Soldier.target|2|10|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Swedish_Soldier.target|2|11|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Turkey_Silhouette.target|0|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Turkey_Silhouette.target|0|3|-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 -1
+targets/Turkey_Silhouette.target|0|4|-1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|0|5|-1 -1 -1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|0|6|-1 -1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|0|7|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|0|8|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|0|9|0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Turkey_Silhouette.target|0|10|-1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|11|-1 -1 -1 -1 -1 0 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|12|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|13|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|14|-1 -1 -1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|0|15|-1 -1 -1 -1 0 0 0 0 0 0 0 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|1|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Turkey_Silhouette.target|1|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Turkey_Silhouette.target|1|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Turkey_Silhouette.target|1|3|-1 -1 -1 -1 -1 -1 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|1|4|-1 -1 -1 0 0 0 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|1|5|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|1|6|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|1|7|-1 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/Turkey_Silhouette.target|1|8|-1 -1 -1 0 0 0 0 0 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|1|9|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|1|10|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|1|11|-1 -1 -1 0 0 0 0 0 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|2|0|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Turkey_Silhouette.target|2|1|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0
+targets/Turkey_Silhouette.target|2|2|-1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 -1
+targets/Turkey_Silhouette.target|2|3|-1 -1 -1 -1 -1 0 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|2|4|-1 -1 -1 0 0 0 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|2|5|-1 -1 0 0 0 0 0 0 0 0 0 -1
+targets/Turkey_Silhouette.target|2|6|-1 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|2|7|0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/Turkey_Silhouette.target|2|8|-1 -1 -1 0 0 0 0 0 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|2|9|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|2|10|-1 -1 -1 -1 0 0 0 -1 -1 -1 -1 -1
+targets/Turkey_Silhouette.target|2|11|-1 -1 -1 0 0 0 0 0 -1 -1 -1 -1
+targets/USPSA.target|0|0|-1 -1 -1 -1 -1 3 3 3 3 3 -1 -1 -1 -1 -1 -1
+targets/USPSA.target|0|1|-1 -1 -1 -1 -1 3 4 4 4 4 -1 -1 -1 -1 -1 -1
+targets/USPSA.target|0|2|-1 -1 -1 -1 -1 3 3 3 3 3 -1 -1 -1 -1 -1 -1
+targets/USPSA.target|0|3|-1 -1 0 0 0 1 1 1 1 1 1 0 0 0 -1 -1
+targets/USPSA.target|0|4|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/USPSA.target|0|5|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/USPSA.target|0|6|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/USPSA.target|0|7|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/USPSA.target|0|8|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/USPSA.target|0|9|0 0 0 1 1 2 2 2 2 2 1 1 1 0 0 0
+targets/USPSA.target|0|10|0 0 0 1 1 1 1 1 1 1 1 1 1 0 0 0
+targets/USPSA.target|0|11|0 0 0 0 1 1 1 1 1 1 1 1 0 0 0 0
+targets/USPSA.target|0|12|0 0 0 0 1 1 1 1 1 1 1 0 0 0 0 0
+targets/USPSA.target|0|13|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/USPSA.target|0|14|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/USPSA.target|0|15|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/USPSA.target|1|0|-1 -1 -1 -1 3 3 3 3 -1 -1 -1 -1
+targets/USPSA.target|1|1|-1 -1 -1 -1 3 3 3 3 -1 -1 -1 -1
+targets/USPSA.target|1|2|-1 -1 -1 -1 3 3 3 3 -1 -1 -1 -1
+targets/USPSA.target|1|3|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|1|4|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|1|5|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|1|6|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|1|7|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|1|8|0 0 0 1 1 1 1 1 1 0 0 0
+targets/USPSA.target|1|9|0 0 0 1 1 1 1 1 0 0 0 0
+targets/USPSA.target|1|10|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/USPSA.target|1|11|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/USPSA.target|2|0|-1 -1 -1 -1 3 4 4 3 -1 -1 -1 -1
+targets/USPSA.target|2|1|-1 -1 -1 -1 3 3 3 3 -1 -1 -1 -1
+targets/USPSA.target|2|2|-1 -1 -1 -1 3 3 3 3 -1 -1 -1 -1
+targets/USPSA.target|2|3|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|2|4|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|2|5|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|2|6|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|2|7|0 0 1 1 2 2 2 2 1 1 0 0
+targets/USPSA.target|2|8|0 0 0 1 1 1 1 1 1 0 0 0
+targets/USPSA.target|2|9|0 0 0 1 1 1 1 1 1 0 0 0
+targets/USPSA.target|2|10|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/USPSA.target|2|11|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|0|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|1|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|2|-1 -1 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|3|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|4|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|5|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|6|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|0|7|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|0|8|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|0|9|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|0|10|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|11|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|12|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|13|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|14|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|0|15|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|1|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|2|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|1|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|1|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|1|7|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|1|8|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|9|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|10|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|1|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|1|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|2|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|2|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|2|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|2|7|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/dont_shoot.target|2|8|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|9|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|10|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/dont_shoot.target|2|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|0|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|1|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|2|-1 -1 0 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|3|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|4|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|0|5|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|0|6|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|0|7|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|0|8|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|0|9|0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|0|10|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|0|11|-1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|0|12|-1 -1 0 0 0 0 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|13|-1 -1 -1 0 0 0 0 0 0 0 0 0 0 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|14|-1 -1 -1 -1 0 0 0 0 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|0|15|-1 -1 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|1|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|1|1|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/shoot.target|1|2|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|1|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|1|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|1|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|1|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|1|7|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|1|8|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|1|9|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|1|10|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/shoot.target|1|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|2|0|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
+targets/shoot_dont_shoot/shoot.target|2|1|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/shoot.target|2|2|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|2|3|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|2|4|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|2|5|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|2|6|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|2|7|0 0 0 0 0 0 0 0 0 0 0 0
+targets/shoot_dont_shoot/shoot.target|2|8|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|2|9|-1 0 0 0 0 0 0 0 0 0 0 -1
+targets/shoot_dont_shoot/shoot.target|2|10|-1 -1 0 0 0 0 0 0 0 0 -1 -1
+targets/shoot_dont_shoot/shoot.target|2|11|-1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1
