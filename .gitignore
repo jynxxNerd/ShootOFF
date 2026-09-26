@@ -87,3 +87,4 @@ fabric.properties
 # Ignore ShootOFF Folders
 sessions/
 log/
+RandomTargetParDrill-bests.properties
