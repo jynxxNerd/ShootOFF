@@ -32,7 +32,7 @@ import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.gui.CalibrationConfigurator;
-import com.shootoff.gui.CalibrationOption;
+import com.shootoff.config.CalibrationOption;
 import com.shootoff.gui.CameraConfigListener;
 import com.shootoff.gui.CheckableImageListCell;
 import com.shootoff.gui.CheckableImageListCell.CameraRenamedListener;

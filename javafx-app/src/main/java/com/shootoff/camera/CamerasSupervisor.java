@@ -25,15 +25,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.processors.ShotProcessor;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 
 public class CamerasSupervisor {
-	private final Configuration config;
+	private final Settings config;
 	private final List<CameraManager> managers = new ArrayList<>();
 
 	private final AtomicBoolean allDetecting = new AtomicBoolean(true);
 
-	public CamerasSupervisor(Configuration config) {
+	public CamerasSupervisor(Settings config) {
 		this.config = config;
 	}
 

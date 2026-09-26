@@ -26,7 +26,7 @@ import com.shootoff.config.Configuration;
 import com.shootoff.gui.CalibrationConfigurator;
 import com.shootoff.gui.CalibrationListener;
 import com.shootoff.gui.CalibrationManager;
-import com.shootoff.gui.CalibrationOption;
+import com.shootoff.config.CalibrationOption;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.MirroredCanvasManager;
 import com.shootoff.gui.Resetter;

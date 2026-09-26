@@ -35,7 +35,7 @@ import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
 import com.shootoff.camera.Frame;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 
 public final class JavaShotDetector extends FrameProcessingShotDetector {
 	private static final Logger logger = LoggerFactory.getLogger(JavaShotDetector.class);
@@ -419,7 +419,7 @@ public final class JavaShotDetector extends FrameProcessingShotDetector {
 		final double y = pc.centerPixelY;
 
 		if (super.addShot(color.get(), x, y, workingFrame.getTimestamp(), true)
-				&& Configuration.getConfig().isDebugShotsRecordToFiles()) {
+				&& Settings.getSettings().isDebugShotsRecordToFiles()) {
 			final Mat debugFrame = new Mat();
 			Imgproc.cvtColor(workingFrame.getOriginalMat(), debugFrame, Imgproc.COLOR_HSV2BGR);
 

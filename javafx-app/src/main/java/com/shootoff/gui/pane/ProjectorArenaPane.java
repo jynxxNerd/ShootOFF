@@ -42,6 +42,7 @@ import com.shootoff.gui.ShotEntry;
 import com.shootoff.gui.controller.ShootOFFController;
 import com.shootoff.targets.Target;
 import com.shootoff.util.TimerPool;
+import com.shootoff.geom.Point;
 
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
@@ -210,7 +211,7 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 		if (config.getArenaPosition().isPresent()) {
 			logger.debug("Projector has been manually placed previously");
 
-			final Point2D arenaPosition = config.getArenaPosition().get();
+			final Point arenaPosition = config.getArenaPosition().get();
 
 			final ObservableList<Screen> screens = Screen.getScreensForRectangle(arenaPosition.getX(),
 					arenaPosition.getY(), 1, 1);

@@ -18,6 +18,8 @@
 
 package com.shootoff.gui;
 
+import com.shootoff.config.CalibrationOption;
+
 public interface CalibrationConfigurator {
 	CalibrationOption getCalibratedFeedBehavior();
 

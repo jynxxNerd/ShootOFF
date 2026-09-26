@@ -33,6 +33,7 @@ import com.shootoff.camera.CameraCalibrationListener;
 import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
 import com.shootoff.camera.perspective.PerspectiveManager;
+import com.shootoff.config.CalibrationOption;
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.pane.ProjectorArenaPane;
 import com.shootoff.gui.targets.TargetView;

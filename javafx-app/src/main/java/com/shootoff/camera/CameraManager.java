@@ -54,7 +54,7 @@ import com.shootoff.camera.shotdetection.JavaShotDetector;
 import com.shootoff.camera.shotdetection.ShotDetector;
 import com.shootoff.camera.shotdetection.ShotYieldingShotDetector;
 import com.shootoff.camera.video.VideoWriter;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.util.TimerPool;
 
 import javafx.embed.swing.SwingFXUtils;
@@ -93,7 +93,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	private Optional<CloseListener> closeListener = Optional.empty();
 
 	protected final CameraView cameraView;
-	protected final Configuration config = Configuration.getConfig();
+	protected final Settings config = Settings.getSettings();
 	private final Object projectionBoundsLock = new Object();
 	protected Optional<Bounds> projectionBounds = Optional.empty();
 
@@ -407,13 +407,20 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		return shotRecorders.get(shot);
 	}
 
-	public void startRecordingShots() {
-		String sessionName = null;
-		if (config.getSessionRecorder().isPresent()) {
-			sessionName = config.getSessionRecorder().get().getSessionName();
+	/**
+	 * Starts keeping video around each detected shot.
+	 *
+	 * @param sessionName
+	 *            the name of the session being recorded, if any; shot videos then go in a
+	 *            folder of that name under <tt>sessions/</tt>
+	 */
+	public void startRecordingShots(Optional<String> sessionName) {
+		String sessionFolderName = null;
+		if (sessionName.isPresent()) {
+			sessionFolderName = sessionName.get();
 
 			final File sessionVideoFolder = new File(System.getProperty("shootoff.home") + File.separator + "sessions"
-					+ File.separator + config.getSessionRecorder().get().getSessionName());
+					+ File.separator + sessionName.get());
 
 			if (!sessionVideoFolder.exists() && !sessionVideoFolder.mkdirs()) {
 				logger.error("Could not create video folder for session: {}", sessionVideoFolder.getAbsolutePath());
@@ -433,7 +440,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		setDetecting(false);
 
 		try {
-			rollingRecorder = new RollingRecorder(".mp4", sessionName, cameraName, getFeedWidth(), getFeedHeight());
+			rollingRecorder = new RollingRecorder(".mp4", sessionFolderName, cameraName, getFeedWidth(), getFeedHeight());
 			recordingShots = true;
 		} catch (final IOException e) {
 			logger.error("Could not start recording shots for camera {}", cameraName, e);

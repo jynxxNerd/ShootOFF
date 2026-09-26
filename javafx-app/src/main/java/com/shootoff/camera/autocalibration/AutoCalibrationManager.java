@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
 import com.shootoff.camera.CameraCalibrationListener;
 import com.shootoff.camera.Frame;
 import com.shootoff.camera.cameratypes.Camera;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
@@ -419,7 +419,7 @@ public class AutoCalibrationManager {
 
 		@Override
 		public boolean enabled() {
-			return Configuration.getConfig().autoAdjustExposure() && camera.supportsExposureAdjustment();
+			return Settings.getSettings().autoAdjustExposure() && camera.supportsExposureAdjustment();
 		}
 
 		@Override

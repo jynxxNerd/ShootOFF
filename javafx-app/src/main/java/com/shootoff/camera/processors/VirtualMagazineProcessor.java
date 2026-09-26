@@ -21,15 +21,15 @@ package com.shootoff.camera.processors;
 import java.io.File;
 
 import com.shootoff.camera.Shot;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.sound.SoundPlayer;
 
 public class VirtualMagazineProcessor implements ShotProcessor {
-	private final Configuration config;
+	private final Settings config;
 	private boolean useTTS = true;
 	private int roundCount = 0;
 
-	public VirtualMagazineProcessor(Configuration config) {
+	public VirtualMagazineProcessor(Settings config) {
 		this.config = config;
 		roundCount = config.getVirtualMagazineCapacity();
 	}

@@ -22,7 +22,7 @@ import java.io.File;
 import java.util.Random;
 
 import com.shootoff.camera.Shot;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.sound.SoundPlayer;
 
 public class MalfunctionsProcessor implements ShotProcessor {
@@ -31,7 +31,7 @@ public class MalfunctionsProcessor implements ShotProcessor {
 	private static final Random rand = new Random();
 	private final float prob;
 
-	public MalfunctionsProcessor(final Configuration config) {
+	public MalfunctionsProcessor(final Settings config) {
 		prob = config.getMalfunctionsProbability() / 100;
 	}
 

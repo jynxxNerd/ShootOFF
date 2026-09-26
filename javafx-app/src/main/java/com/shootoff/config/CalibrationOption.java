@@ -1,4 +1,4 @@
-package com.shootoff.gui;
+package com.shootoff.config;
 
 public enum CalibrationOption {
 	EVERYWHERE("Detect Shots Everywhere"), ONLY_IN_BOUNDS("Only detect shots in projector bounds"), CROP(

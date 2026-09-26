@@ -224,7 +224,7 @@ public class ExerciseSlide extends Slide implements PluginListener, ItemSelectio
 		config.setSessionRecorder(new SessionRecorder());
 
 		for (final CameraManager cm : config.getRecordingManagers()) {
-			cm.startRecordingShots();
+			cm.startRecordingShots(config.getSessionRecorder().map(SessionRecorder::getSessionName));
 		}
 	}
 

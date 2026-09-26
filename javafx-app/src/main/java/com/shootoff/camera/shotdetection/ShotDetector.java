@@ -9,7 +9,7 @@ import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.BoundsShot;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import javafx.geometry.Bounds;
 
 /**
@@ -20,7 +20,7 @@ public abstract class ShotDetector {
 	private static final Logger logger = LoggerFactory.getLogger(ShotDetector.class);
 
 	private final CameraManager cameraManager;
-	private final Configuration config = Configuration.getConfig();
+	private final Settings config = Settings.getSettings();
 	private final CameraView cameraView;
 
 	public static boolean isSystemSupported() {
