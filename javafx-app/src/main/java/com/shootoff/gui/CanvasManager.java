@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -67,6 +66,8 @@ import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
 import com.shootoff.targets.io.TargetIO;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
+import com.shootoff.targets.model.HitTester;
+import com.shootoff.targets.model.TargetId;
 import com.shootoff.targets.model.TargetSet;
 
 import javafx.application.Platform;
@@ -733,51 +734,44 @@ public class CanvasManager implements CameraView {
 		}
 	}
 
-	protected Optional<Hit> checkHit(DisplayShot shot, Optional<String> videoString, boolean isMirroredShot) {		
-		// Targets are in order of when they were added, thus we must search in
-		// reverse to ensure shots register for the top target when targets
-		// overlap
-		for (final ListIterator<Target> li = targets.listIterator(targets.size()); li.hasPrevious();) {
-			final Target target = li.previous();
+	protected Optional<Hit> checkHit(DisplayShot shot, Optional<String> videoString, boolean isMirroredShot) {
+		// An ArenaShot's getX/getY are its arena coordinates
+		final double x = shot.getX();
+		final double y = shot.getY();
 
-			final Optional<Hit> hit;
-			if (shot instanceof ArenaShot)
-			{
-				hit = target.isHit(((ArenaShot)shot).getX(), ((ArenaShot)shot).getY());
-			}
-			else
-			{
-				hit = target.isHit(shot.getX(), shot.getY());
-			}
+		// The model checks visible targets topmost (last added) first, so shots register for the
+		// top target when targets overlap
+		final Optional<com.shootoff.targets.model.Hit> modelHit = HitTester.hit(targetSet, x, y);
+		final Optional<TargetView> target = modelHit.flatMap(h -> targetFor(h.targetId()));
 
-			if (hit.isPresent()) {
-				hit.get().setShot(shot);
-				
-				final TargetRegion region = hit.get().getHitRegion();
+		if (modelHit.isPresent() && target.isPresent()) {
+			final Hit hit = target.get().toHit(modelHit.get(), x, y);
+			hit.setShot(shot);
 
-				if (config.inDebugMode()) {
-					final Map<String, String> tags = region.getAllTags();
+			final TargetRegion region = hit.getHitRegion();
 
-					final StringBuilder tagList = new StringBuilder();
-					for (final Iterator<Entry<String, String>> it = tags.entrySet().iterator(); it.hasNext();) {
-						final Entry<String, String> entry = it.next();
-						tagList.append(entry.getKey());
-						tagList.append(":");
-						tagList.append(entry.getValue());
-						if (it.hasNext()) tagList.append(", ");
-					}
+			if (config.inDebugMode()) {
+				final Map<String, String> tags = region.getAllTags();
 
-					logger.debug("Processing Shot: Found Hit Region For Shot ({}, {}), Type ({}), Tags ({})",
-							shot.getX(), shot.getY(), region.getType(), tagList.toString());
+				final StringBuilder tagList = new StringBuilder();
+				for (final Iterator<Entry<String, String>> it = tags.entrySet().iterator(); it.hasNext();) {
+					final Entry<String, String> entry = it.next();
+					tagList.append(entry.getKey());
+					tagList.append(":");
+					tagList.append(entry.getValue());
+					if (it.hasNext()) tagList.append(", ");
 				}
 
-				if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
-					config.getSessionRecorder().get().recordShot(cameraName, shot, false, false, Optional.of(target),
-							Optional.of(target.getRegions().indexOf(region)), videoString);
-				}
-
-				return hit;
+				logger.debug("Processing Shot: Found Hit Region For Shot ({}, {}), Type ({}), Tags ({})",
+						shot.getX(), shot.getY(), region.getType(), tagList.toString());
 			}
+
+			if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
+				config.getSessionRecorder().get().recordShot(cameraName, shot, false, false,
+						Optional.of(target.get()), Optional.of(modelHit.get().region().index()), videoString);
+			}
+
+			return Optional.of(hit);
 		}
 
 		logger.debug("Processing Shot: Did Not Find Hit For Shot ({}, {})", shot.getX(), shot.getY());
@@ -785,6 +779,16 @@ public class CanvasManager implements CameraView {
 		if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
 			config.getSessionRecorder().get().recordShot(cameraName, shot, false, false, Optional.empty(),
 					Optional.empty(), videoString);
+		}
+
+		return Optional.empty();
+	}
+
+	// The view of a target in this canvas's set; empty if another thread removed it meanwhile
+	private Optional<TargetView> targetFor(TargetId id) {
+		for (final Target target : new ArrayList<>(targets)) {
+			final TargetView view = (TargetView) target;
+			if (view.getPlacedTarget().getId().equals(id)) return Optional.of(view);
 		}
 
 		return Optional.empty();

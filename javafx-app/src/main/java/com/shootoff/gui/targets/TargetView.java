@@ -17,8 +17,6 @@
  */
 package com.shootoff.gui.targets;
 
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,6 +43,7 @@ import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
 import com.shootoff.targets.animation.SpriteAnimation;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
+import com.shootoff.targets.model.HitTester;
 import com.shootoff.targets.model.PlacedTarget;
 import com.shootoff.targets.model.Placement;
 import com.shootoff.targets.model.Region;
@@ -52,7 +51,6 @@ import com.shootoff.targets.model.TargetSet;
 import com.shootoff.targets.model.TargetSetListener;
 
 import javafx.animation.Animation.Status;
-import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Bounds;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
@@ -169,6 +167,8 @@ public class TargetView implements Target {
 		membership = new Membership(privateSet, privateSet.add(components.getDefinition()));
 		privateSet.addListener(placementListener);
 		applyPlacement(membership.placed());
+		watchImageFrames();
+		pushImageMasks();
 
 		mousePressed();
 		mouseDragged();
@@ -233,6 +233,7 @@ public class TargetView implements Target {
 		membership = new Membership(set, placed);
 		set.addListener(placementListener);
 		applyPlacement(placed);
+		pushImageMasks();
 	}
 
 	/**
@@ -264,6 +265,30 @@ public class TargetView implements Target {
 				regionNodes.get(i).setScaleY(1 / p.scaleY());
 			}
 		}
+	}
+
+	// The hit tester reads each image region's current frame, which animations and resets change
+	private void watchImageFrames() {
+		for (int i = 0; i < regionNodes.size(); i++) {
+			if (regionNodes.get(i) instanceof ImageRegion imageRegion) {
+				final int regionIndex = i;
+				imageRegion.imageProperty()
+						.addListener((observable, oldImage, newImage) -> pushImageMask(regionIndex, newImage));
+			}
+		}
+	}
+
+	private void pushImageMasks() {
+		for (int i = 0; i < regionNodes.size(); i++) {
+			if (regionNodes.get(i) instanceof ImageRegion imageRegion) pushImageMask(i, imageRegion.getImage());
+		}
+	}
+
+	private void pushImageMask(int regionIndex, Image image) {
+		if (image == null) return;
+
+		final Membership m = membership;
+		m.set().setImageMask(m.placed().getId(), regionIndex, FxAlphaMasks.of(image));
 	}
 
 	// Only the canvas that records session events records this target, and only once the
@@ -635,98 +660,24 @@ public class TargetView implements Target {
 		return anchor;
 	}
 
-	// Unchanged until Task 6: the JavaFX hit test, on the group the model now positions
+	/**
+	 * @return a model hit on this target as the v1 API reports it: the region's JavaFX node, and
+	 *         the impact relative to the region's bounds on the canvas, in whole pixels
+	 */
+	public Hit toHit(com.shootoff.targets.model.Hit hit, double x, double y) {
+		final Rect regionBounds = membership.placed().regionBounds(hit.region());
+
+		return new Hit(this, (TargetRegion) regionNodes.get(hit.region().index()),
+				(int) (x - regionBounds.getMinX()), (int) (y - regionBounds.getMinY()));
+	}
+
+	/**
+	 * The v1 hit test for this target alone: the core hit tester, ignoring whether the target is
+	 * visible, as this method always has.
+	 */
 	@Override
 	public Optional<Hit> isHit(double x, double y) {
-		if (targetGroup.getBoundsInParent().contains(x, y)) {
-			// Target was hit, see if a specific region was hit
-			for (int i = targetGroup.getChildren().size() - 1; i >= 0; i--) {
-				final Node node = targetGroup.getChildren().get(i);
-
-				if (!(node instanceof TargetRegion)) continue;
-
-				final Bounds nodeBounds = targetGroup.getLocalToParentTransform().transform(node.getBoundsInParent());
-
-				final int adjustedX = (int) (x - nodeBounds.getMinX());
-				final int adjustedY = (int) (y - nodeBounds.getMinY());
-
-				if (nodeBounds.contains(x, y)) {
-					// If we hit an image region on a transparent pixel,
-					// ignore it
-					final TargetRegion region = (TargetRegion) node;
-
-					// Ignore regions where ignoreHit tag is true
-					if (region.tagExists(TargetView.TAG_IGNORE_HIT)
-							&& Boolean.parseBoolean(region.getTag(TargetView.TAG_IGNORE_HIT)))
-						continue;
-
-					if (region.getType() == RegionType.IMAGE) {
-						// The image you get from the image view is its
-						// original size. We need to resize it if it has
-						// changed size to accurately determine if a pixel
-						// is transparent
-						final Image currentImage = ((ImageRegion) region).getImage();
-
-						if (adjustedX < 0 || adjustedY < 0) {
-							logger.debug(
-									"An adjusted pixel is negative: Adjusted ({}, {}), Original ({}, {}), "
-											+ " nodeBounds.getMin ({}, {})",
-									adjustedX, adjustedY, x, y, nodeBounds.getMaxX(),
-									nodeBounds.getMinY());
-							return Optional.empty();
-						}
-
-						if (Math.abs(currentImage.getWidth() - nodeBounds.getWidth()) > .0000001
-								|| Math.abs(currentImage.getHeight() - nodeBounds.getHeight()) > .0000001) {
-
-							final BufferedImage bufferedOriginal = SwingFXUtils.fromFXImage(currentImage, null);
-
-							final java.awt.Image tmp = bufferedOriginal.getScaledInstance((int) nodeBounds.getWidth(),
-									(int) nodeBounds.getHeight(), java.awt.Image.SCALE_SMOOTH);
-							final BufferedImage bufferedResized = new BufferedImage((int) nodeBounds.getWidth(),
-									(int) nodeBounds.getHeight(), BufferedImage.TYPE_INT_ARGB);
-
-							final Graphics2D g2d = bufferedResized.createGraphics();
-							g2d.drawImage(tmp, 0, 0, null);
-							g2d.dispose();
-
-							try {
-								if (adjustedX >= bufferedResized.getWidth() || adjustedY >= bufferedResized.getHeight()
-										|| bufferedResized.getRGB(adjustedX, adjustedY) >> 24 == 0) {
-									continue;
-								}
-							} catch (final ArrayIndexOutOfBoundsException e) {
-								final String message = String.format(
-										"Index out of bounds while trying to find adjusted coordinate (%d, %d) "
-												+ "from original (%.2f, %.2f) in adjusted BufferedImage for target %s "
-												+ "with width = %d, height = %d",
-										adjustedX, adjustedY, x, y, getTargetFile().getPath(),
-										bufferedResized.getWidth(), bufferedResized.getHeight());
-								logger.error(message, e);
-								return Optional.empty();
-							}
-						} else {
-							if (adjustedX >= currentImage.getWidth() || adjustedY >= currentImage.getHeight()
-									|| currentImage.getPixelReader().getArgb(adjustedX, adjustedY) >> 24 == 0) {
-								continue;
-							}
-						}
-					} else {
-						// The shot is in the bounding box but make sure it
-						// is in the shape's
-						// fill otherwise we can get a shot detected where
-						// there isn't actually
-						// a region showing
-						final Point2D localCoords = targetGroup.parentToLocal(x, y);
-						if (!node.contains(localCoords)) continue;
-					}
-
-					return Optional.of(new Hit(this, (TargetRegion) node, adjustedX, adjustedY));
-				}
-			}
-		}
-
-		return Optional.empty();
+		return HitTester.hit(membership.placed(), x, y).map(hit -> toHit(hit, x, y));
 	}
 
 	// Unchanged
