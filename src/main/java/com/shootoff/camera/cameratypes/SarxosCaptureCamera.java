@@ -125,12 +125,12 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		closing.set(false);
 
-		// V4L2 is the only backend that can negotiate MJPG on Linux
+		// V4L2 is the only backend that can negotiate a specific pixel format (YUYV/MJPG) on Linux
 		final boolean open = SystemInfo.isLinux() ? camera.open(cameraIndex, Videoio.CAP_V4L2)
 				: camera.open(cameraIndex);
 
 		if (open) {
-			applyCaptureSettings(camera);
+			applyCaptureSettings(camera, requestedViewSize);
 
 			// setViewSize normally runs before open(), when VideoCapture.set is a no-op; apply
 			// whatever size was requested now that the capture is actually open.
@@ -145,11 +145,34 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		return open;
 	}
 
-	static void applyCaptureSettings(final VideoCapture capture) {
-		// Uncompressed YUYV at high resolutions exceeds USB 2.0 bandwidth, which
-		// holds many webcams to a few FPS. MJPG avoids that. Cameras that do not
-		// support MJPG keep their default format.
-		capture.set(Videoio.CAP_PROP_FOURCC, org.opencv.videoio.VideoWriter.fourcc('M', 'J', 'P', 'G'));
+	// Uncompressed YUYV at high resolutions exceeds USB 2.0 bandwidth, which holds many webcams
+	// to a few FPS, so MJPG is requested above 640x480. At or below that size YUYV is requested
+	// explicitly instead of leaving it to the camera's default: it avoids MJPG's JPEG chroma
+	// blurring of small colored dots (worse for laser detection) and, on cameras like the
+	// Logitech C270, a per-frame libjpeg "Corrupt JPEG data" warning that MJPG triggers even at
+	// low resolutions. Cameras that do not support the requested format keep their default.
+	private static final int MAX_YUYV_PIXELS = 640 * 480;
+
+	static int preferredFourcc(final Optional<Dimension> requestedSize) {
+		if (requestedSize.isPresent()) {
+			final Dimension size = requestedSize.get();
+			if (size.getWidth() * size.getHeight() > MAX_YUYV_PIXELS) {
+				return org.opencv.videoio.VideoWriter.fourcc('M', 'J', 'P', 'G');
+			}
+		}
+
+		// No size requested means OpenCV's V4L2 default of 640x480 applies, which also gets YUYV.
+		return org.opencv.videoio.VideoWriter.fourcc('Y', 'U', 'Y', 'V');
+	}
+
+	static void applyFourcc(final VideoCapture capture, final Optional<Dimension> requestedSize) {
+		// FOURCC must be set before width/height are applied; V4L2 uses it to pick which of a
+		// resolution's supported formats to negotiate.
+		capture.set(Videoio.CAP_PROP_FOURCC, preferredFourcc(requestedSize));
+	}
+
+	static void applyCaptureSettings(final VideoCapture capture, final Optional<Dimension> requestedSize) {
+		applyFourcc(capture, requestedSize);
 
 		// Set the max FPS to 60. If we don't set this it defaults
 		// to 30, which unnecessarily hampers higher end cameras
@@ -212,7 +235,12 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		// Callers (CameraManager, CheckableImageListCell) call this before open(), when
 		// VideoCapture.set is a no-op; open() applies the stashed size once the camera is open.
 		// If the camera is already open, apply it immediately instead of waiting for a reopen.
-		if (isOpen()) applyViewSize(camera, size);
+		// The fourcc is re-picked for the new size and set before width/height, same V4L2 order
+		// as open().
+		if (isOpen()) {
+			applyFourcc(camera, requestedViewSize);
+			applyViewSize(camera, size);
+		}
 	}
 
 	@Override
