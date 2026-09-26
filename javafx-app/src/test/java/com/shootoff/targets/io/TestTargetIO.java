@@ -11,12 +11,17 @@ import static org.junit.Assert.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import javafx.scene.Node;
 import javafx.scene.paint.Color;
@@ -179,5 +184,56 @@ public class TestTargetIO {
 		pteb.init(cs, new ShootOFFController(), pac);
 
 		pteb.addTarget(new File("@" + tempXMLTarget.getName()), 0, 0);
+	}
+
+	@Test
+	public void testBundledTargetsBuildOneNodePerRegion() throws IOException {
+		final List<Path> files;
+		try (Stream<Path> paths = Files.walk(Paths.get("targets"))) {
+			files = paths.filter(p -> p.toString().endsWith(".target")).sorted().toList();
+		}
+
+		for (final Path file : files) {
+			final TargetComponents tc = TargetIO.loadTarget(file.toFile(), false).get();
+			final List<com.shootoff.targets.model.Region> regions = tc.getDefinition().regions();
+
+			assertEquals(file.toString(), regions.size(), tc.getTargetGroup().getChildren().size());
+			assertEquals(file.toFile(), tc.getTargetFile());
+
+			for (int i = 0; i < regions.size(); i++) {
+				final com.shootoff.targets.model.Region region = regions.get(i);
+				final Node node = tc.getTargetGroup().getChildren().get(i);
+
+				assertEquals(region.tags(), ((TargetRegion) node).getAllTags());
+				assertEquals(region.isVisibleByDefault(), node.isVisible());
+
+				if (region instanceof com.shootoff.targets.model.ImageRegion image) {
+					final ImageRegion imageNode = (ImageRegion) node;
+					assertEquals(image.x(), imageNode.getLayoutX(), 0);
+					assertEquals(image.y(), imageNode.getLayoutY(), 0);
+					assertEquals(image.imageWidth(), imageNode.getImage().getWidth(), 0);
+					assertEquals(image.imageHeight(), imageNode.getImage().getHeight(), 0);
+				} else {
+					assertEquals(Double.parseDouble(region.tags().getOrDefault("opacity", "0.5")), node.getOpacity(), 0);
+				}
+			}
+		}
+	}
+
+	@Test
+	public void testMissingTargetFileLoadsNothing() {
+		assertFalse(TargetIO.loadTarget(new File("targets/no_such_target.target")).isPresent());
+	}
+
+	@Test
+	public void testMalformedTargetLoadsNothing() throws IOException {
+		final File malformed = new File("temp_malformed.target");
+		Files.writeString(malformed.toPath(), "<target><ellipse centerX=\"1\"");
+
+		try {
+			assertFalse(TargetIO.loadTarget(malformed).isPresent());
+		} finally {
+			if (!malformed.delete()) System.err.println("Failed to delete " + malformed.getPath());
+		}
 	}
 }
