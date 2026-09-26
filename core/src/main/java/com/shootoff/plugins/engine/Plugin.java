@@ -60,7 +60,9 @@ public class Plugin {
 			}
 
 			entry = exerciseLoader.load(exerciseClass);
-		} catch (final RuntimeException | IOException e) {
+		} catch (final RuntimeException | LinkageError | IOException e) {
+			// A mismatched build (a class the exercise's metadata needs is missing from its jar)
+			// throws a LinkageError, typically NoClassDefFoundError, instead of an exception.
 			loader.close();
 			throw e;
 		}

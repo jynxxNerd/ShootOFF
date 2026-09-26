@@ -105,6 +105,12 @@ public class PluginEngine implements Runnable {
 
 		try {
 			registeringPlugin = new Plugin(jarPath, loaders);
+		} catch (final LinkageError e) {
+			// A jar that references a class it doesn't package (for example a build that shipped
+			// without one of the exercise's classes) must not stop the rest of the menu from
+			// loading, or kill the plugin watcher thread.
+			logger.error("Skipping plugin {}: it is missing a class it needs", jarPath, e);
+			return false;
 		} catch (final Exception e) {
 			logger.error("Error creating new plugin", e);
 			return false;
