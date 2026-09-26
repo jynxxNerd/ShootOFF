@@ -22,9 +22,14 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.controller.VideoPlayerController;
@@ -47,6 +52,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.paint.Color;
@@ -60,6 +66,8 @@ import javafx.stage.Stage;
  * @author phrack
  */
 public class SessionCanvasManager {
+	private static final Logger logger = LoggerFactory.getLogger(SessionCanvasManager.class);
+
 	private final Group canvas;
 	private final Label exerciseLabel = new Label();
 	private final Map<Event, TargetView> eventToContainer = new HashMap<>();
@@ -70,6 +78,12 @@ public class SessionCanvasManager {
 	private final List<Target> targets = new ArrayList<>();
 	private final Configuration config;
 
+	// Events that could not be applied (e.g. recorded with target index -1 by older versions);
+	// undoing them is skipped too so do and undo stay in step
+	private final Set<Event> skippedEvents = new HashSet<>();
+	private final Set<Event> skippedAnimations = new HashSet<>();
+	private boolean warnedAboutSkippedEvents = false;
+
 	public SessionCanvasManager(final Group canvas, final Configuration config) {
 		this.canvas = canvas;
 		this.config = config;
@@ -77,6 +91,10 @@ public class SessionCanvasManager {
 	}
 
 	public void doEvent(final Event e) {
+		// Re-evaluate from scratch if this event is being redone
+		skippedEvents.remove(e);
+		skippedAnimations.remove(e);
+
 		switch (e.getType()) {
 		case SHOT:
 			if (!(e instanceof ShotEvent)) {
@@ -84,7 +102,7 @@ public class SessionCanvasManager {
 			}
 
 			final ShotEvent se = (ShotEvent) e;
-			canvas.getChildren().add(se.getShot().getMarker());
+			addToCanvas(se.getShot().getMarker());
 
 			if (se.isMalfunction()) {
 				se.getShot().getMarker().setFill(Color.ORANGE);
@@ -123,7 +141,12 @@ public class SessionCanvasManager {
 			}
 
 			if (se.getTargetIndex().isPresent() && se.getHitRegionIndex().isPresent()) {
-				animateTarget(se, false);
+				if (canAnimate(se)) {
+					animateTarget(se, false);
+				} else {
+					skippedAnimations.add(e);
+					logSkipped(e, "shot animation refers to a target that is not shown");
+				}
 			}
 
 			break;
@@ -133,7 +156,7 @@ public class SessionCanvasManager {
 				throw new AssertionError("Expected type TargetAddedEvent but got type " + e.getClass().getName());
 			}
 
-			addTarget((TargetAddedEvent) e);
+			if (!addTarget((TargetAddedEvent) e)) skip(e, "target file could not be loaded");
 			break;
 
 		case TARGET_REMOVED:
@@ -142,6 +165,10 @@ public class SessionCanvasManager {
 			}
 
 			final TargetRemovedEvent tre = (TargetRemovedEvent) e;
+			if (!isValidTargetIndex(tre.getTargetIndex())) {
+				skip(e, "target index " + tre.getTargetIndex() + " is not shown");
+				break;
+			}
 			eventToContainer.put(e, targetViews.get(tre.getTargetIndex()));
 			canvas.getChildren().remove(targetViews.get(tre.getTargetIndex()).getTargetGroup());
 			targetViews.remove(tre.getTargetIndex());
@@ -154,6 +181,10 @@ public class SessionCanvasManager {
 			}
 
 			final TargetResizedEvent trre = (TargetResizedEvent) e;
+			if (!isValidTargetIndex(trre.getTargetIndex())) {
+				skip(e, "target index " + trre.getTargetIndex() + " is not shown");
+				break;
+			}
 			eventToDimension.put(e, targetViews.get(trre.getTargetIndex()).getDimension());
 			targetViews.get(trre.getTargetIndex()).setDimensions(trre.getNewWidth(), trre.getNewHeight());
 			break;
@@ -164,6 +195,10 @@ public class SessionCanvasManager {
 			}
 
 			final TargetMovedEvent tme = (TargetMovedEvent) e;
+			if (!isValidTargetIndex(tme.getTargetIndex())) {
+				skip(e, "target index " + tme.getTargetIndex() + " is not shown");
+				break;
+			}
 			eventToPosition.put(e, targetViews.get(tme.getTargetIndex()).getPosition());
 			targetViews.get(tme.getTargetIndex()).setPosition(tme.getNewX(), tme.getNewY());
 			break;
@@ -182,6 +217,8 @@ public class SessionCanvasManager {
 	}
 
 	public void undoEvent(Event e) {
+		if (skippedEvents.remove(e)) return;
+
 		switch (e.getType()) {
 		case SHOT:
 			if (!(e instanceof ShotEvent)) {
@@ -191,16 +228,19 @@ public class SessionCanvasManager {
 			final ShotEvent se = (ShotEvent) e;
 			canvas.getChildren().remove(se.getShot().getMarker());
 
-			if (se.getTargetIndex().isPresent() && se.getHitRegionIndex().isPresent()) {
+			if (se.getTargetIndex().isPresent() && se.getHitRegionIndex().isPresent()
+					&& !skippedAnimations.remove(e) && canAnimate(se)) {
 				animateTarget(se, true);
 			}
 
 			break;
 
 		case TARGET_ADDED:
-			canvas.getChildren().remove(eventToContainer.get(e).getTargetGroup());
-			targetViews.remove(eventToContainer.get(e));
-			targets.remove(eventToContainer.get(e));
+			final TargetView added = eventToContainer.get(e);
+			if (added == null) break;
+			canvas.getChildren().remove(added.getTargetGroup());
+			targetViews.remove(added);
+			targets.remove(added);
 			break;
 
 		case TARGET_REMOVED:
@@ -210,9 +250,11 @@ public class SessionCanvasManager {
 
 			final TargetRemovedEvent tre = (TargetRemovedEvent) e;
 			final TargetView oldTarget = eventToContainer.get(e);
-			canvas.getChildren().add(oldTarget.getTargetGroup());
-			targetViews.add(tre.getTargetIndex(), oldTarget);
-			targets.add(tre.getTargetIndex(), oldTarget);
+			if (oldTarget == null) break;
+			addToCanvas(oldTarget.getTargetGroup());
+			final int restoreIndex = Math.min(tre.getTargetIndex(), targetViews.size());
+			targetViews.add(restoreIndex, oldTarget);
+			targets.add(Math.min(tre.getTargetIndex(), targets.size()), oldTarget);
 			break;
 
 		case TARGET_RESIZED:
@@ -222,6 +264,7 @@ public class SessionCanvasManager {
 
 			final TargetResizedEvent trre = (TargetResizedEvent) e;
 			final Dimension2D oldDimension = eventToDimension.get(e);
+			if (oldDimension == null || !isValidTargetIndex(trre.getTargetIndex())) break;
 			targetViews.get(trre.getTargetIndex()).setDimensions(oldDimension.getWidth(), oldDimension.getHeight());
 			break;
 
@@ -232,6 +275,7 @@ public class SessionCanvasManager {
 
 			final TargetMovedEvent tme = (TargetMovedEvent) e;
 			final Point2D oldPosition = eventToPosition.get(e);
+			if (oldPosition == null || !isValidTargetIndex(tme.getTargetIndex())) break;
 			targetViews.get(tme.getTargetIndex()).setPosition(oldPosition.getX(), oldPosition.getY());
 			break;
 
@@ -289,18 +333,51 @@ public class SessionCanvasManager {
 		});
 	}
 
-	private void addTarget(final TargetAddedEvent e) {
+	private boolean isValidTargetIndex(int index) {
+		return index >= 0 && index < targetViews.size();
+	}
+
+	private boolean canAnimate(ShotEvent se) {
+		if (!isValidTargetIndex(se.getTargetIndex().get())) return false;
+
+		final int regionIndex = se.getHitRegionIndex().get();
+		return regionIndex >= 0
+				&& regionIndex < targetViews.get(se.getTargetIndex().get()).getTargetGroup().getChildren().size();
+	}
+
+	private void skip(Event e, String reason) {
+		skippedEvents.add(e);
+		logSkipped(e, reason);
+	}
+
+	private void logSkipped(Event e, String reason) {
+		if (!warnedAboutSkippedEvents) {
+			warnedAboutSkippedEvents = true;
+			logger.warn("Some session events could not be applied and were skipped");
+		}
+
+		logger.debug("Skipped {} event at {} ms: {}", e.getType(), e.getTimestamp(), reason);
+	}
+
+	private void addToCanvas(Node node) {
+		if (!canvas.getChildren().contains(node)) canvas.getChildren().add(node);
+	}
+
+	private boolean addTarget(final TargetAddedEvent e) {
 		final Optional<TargetComponents> targetComponents = TargetIO.loadTarget(
 				new File(System.getProperty("shootoff.home") + File.separator + "targets/" + e.getTargetName()));
 
 		if (targetComponents.isPresent()) {
 			final TargetComponents tc = targetComponents.get();
 
-			canvas.getChildren().add(tc.getTargetGroup());
+			addToCanvas(tc.getTargetGroup());
 			final TargetView targetContainer = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), targets);
 			eventToContainer.put(e, targetContainer);
 			targetViews.add(targetContainer);
 			targets.add(targetContainer);
+			return true;
 		}
+
+		return false;
 	}
 }

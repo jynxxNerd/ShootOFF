@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session>
+	<camera name="arena">
+		<shot timestamp="102548" color="RED" x="561.792410" y="706.246499" shotTimestamp="0" markerRadius="4" isMalfunction="false" isReload="false" targetIndex="-1" hitRegionIndex="-1" />
+		<shot timestamp="102548" color="RED" x="434.611797" y="712.836735" shotTimestamp="0" markerRadius="4" isMalfunction="false" isReload="false" targetIndex="-1" hitRegionIndex="-1" />
+		<targetAdded timestamp="112649" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="112649" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112649" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112650" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="112650" index="1" newX="219" newY="277" />
+		<targetAdded timestamp="112663" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="112663" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112663" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112663" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="112663" index="2" newX="1062" newY="594" />
+		<targetAdded timestamp="112673" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="112673" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112673" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112673" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="112673" index="3" newX="397" newY="482" />
+		<targetAdded timestamp="112681" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="112681" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112681" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112681" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="112681" index="4" newX="222" newY="619" />
+		<targetAdded timestamp="112688" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="112688" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112688" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112688" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="112688" index="5" newX="485" newY="254" />
+		<targetAdded timestamp="112695" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="112695" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112695" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112695" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="112695" index="6" newX="301" newY="201" />
+		<targetAdded timestamp="112702" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="112702" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112702" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112702" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="112702" index="7" newX="490" newY="52" />
+		<targetAdded timestamp="112709" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="112709" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112709" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112709" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="112709" index="8" newX="533" newY="324" />
+		<targetAdded timestamp="112715" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="112715" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112715" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112715" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="112715" index="9" newX="730" newY="531" />
+		<targetAdded timestamp="112722" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="112722" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="112722" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="112722" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="112722" index="10" newX="762" newY="501" />
+		<exerciseFeedMessage timestamp="112722">missed targets: 0
+bad hits: 0
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117224" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetRemoved timestamp="117225" index="1" />
+		<targetAdded timestamp="117260" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="117260" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="117260" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="117260" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="117260" index="1" newX="239" newY="597" />
+		<targetAdded timestamp="117275" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="117275" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="117275" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="117275" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="117275" index="2" newX="131" newY="531" />
+		<targetAdded timestamp="117285" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="117285" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="117285" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="117285" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="117285" index="3" newX="314" newY="147" />
+		<targetAdded timestamp="117293" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="117293" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="117293" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="117293" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="117293" index="4" newX="460" newY="83" />
+		<targetAdded timestamp="117299" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="117299" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="117299" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="117299" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="117299" index="5" newX="436" newY="42" />
+		<targetAdded timestamp="117306" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="117306" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="117306" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="117306" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="117306" index="6" newX="16" newY="309" />
+		<exerciseFeedMessage timestamp="117306">missed targets: 0
+bad hits: 0
+		</exerciseFeedMessage>
+		<shot timestamp="124989" color="RED" x="632.643905" y="260.668777" shotTimestamp="0" markerRadius="4" isMalfunction="false" isReload="false" targetIndex="5" hitRegionIndex="0" />
+		<targetRemoved timestamp="124989" index="5" />
+		<targetRemoved timestamp="124989" index="5" />
+		<exerciseFeedMessage timestamp="127375">missed targets: 4
+bad hits: 1
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetRemoved timestamp="127375" index="1" />
+		<targetAdded timestamp="127385" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="127385" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="127385" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="127385" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="127385" index="1" newX="299" newY="74" />
+		<targetAdded timestamp="127392" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="127392" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="127392" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="127392" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="127393" index="2" newX="396" newY="488" />
+		<targetAdded timestamp="127399" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="127399" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="127399" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="127400" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="127400" index="3" newX="318" newY="38" />
+		<targetAdded timestamp="127407" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="127407" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="127407" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="127407" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="127407" index="4" newX="51" newY="512" />
+		<shot timestamp="129240" color="RED" x="530.693569" y="241.564714" shotTimestamp="4249" markerRadius="4" isMalfunction="false" isReload="false" targetIndex="3" hitRegionIndex="0" />
+		<targetRemoved timestamp="129240" index="3" />
+		<targetRemoved timestamp="129240" index="3" />
+		<shot timestamp="132954" color="RED" x="608.155641" y="662.824748" shotTimestamp="7965" markerRadius="4" isMalfunction="false" isReload="false" targetIndex="2" hitRegionIndex="0" />
+		<targetRemoved timestamp="132954" index="2" />
+		<targetRemoved timestamp="132954" index="2" />
+		<exerciseFeedMessage timestamp="137460">missed targets: 5
+bad hits: 3
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="137460" index="1" />
+		<targetRemoved timestamp="137460" index="1" />
+		<targetRemoved timestamp="137460" index="1" />
+		<targetRemoved timestamp="137460" index="1" />
+		<targetAdded timestamp="137472" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="137472" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137472" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137472" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="137472" index="1" newX="165" newY="295" />
+		<targetAdded timestamp="137483" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="137483" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137483" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137483" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="137483" index="2" newX="311" newY="541" />
+		<targetAdded timestamp="137491" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="137491" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137491" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137491" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="137491" index="3" newX="195" newY="461" />
+		<targetAdded timestamp="137499" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="137499" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137499" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137499" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="137499" index="4" newX="30" newY="124" />
+		<targetAdded timestamp="137507" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="137507" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137507" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137508" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="137508" index="5" newX="977" newY="485" />
+		<targetAdded timestamp="137516" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="137516" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137516" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137516" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="137516" index="6" newX="114" newY="123" />
+		<targetAdded timestamp="137524" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="137524" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137524" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137524" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="137524" index="7" newX="88" newY="189" />
+		<targetAdded timestamp="137535" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="137535" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="137535" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="137536" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="137536" index="8" newX="718" newY="588" />
+		<exerciseFeedMessage timestamp="147593">missed targets: 8
+bad hits: 3
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetRemoved timestamp="147593" index="1" />
+		<targetAdded timestamp="147605" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="147605" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147605" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147606" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="147606" index="1" newX="1037" newY="115" />
+		<targetAdded timestamp="147616" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="147616" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147616" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147616" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="147616" index="2" newX="1124" newY="196" />
+		<targetAdded timestamp="147625" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="147625" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147625" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147625" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="147625" index="3" newX="1155" newY="604" />
+		<targetAdded timestamp="147632" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="147632" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147632" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147632" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="147632" index="4" newX="245" newY="380" />
+		<targetAdded timestamp="147640" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="147640" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147640" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147640" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="147640" index="5" newX="614" newY="8" />
+		<targetAdded timestamp="147648" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="147648" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147648" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147648" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="147648" index="6" newX="1102" newY="318" />
+		<targetAdded timestamp="147656" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="147656" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147656" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147656" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="147656" index="7" newX="935" newY="166" />
+		<targetAdded timestamp="147663" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="147663" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="147663" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="147663" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="147663" index="8" newX="913" newY="564" />
+		<exerciseFeedMessage timestamp="157678">missed targets: 12
+bad hits: 3
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetRemoved timestamp="157678" index="1" />
+		<targetAdded timestamp="157687" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="157687" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157687" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157687" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="157687" index="1" newX="124" newY="395" />
+		<targetAdded timestamp="157700" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="157700" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157700" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157700" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="157700" index="2" newX="40" newY="254" />
+		<targetAdded timestamp="157711" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="157711" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157711" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157711" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="157711" index="3" newX="441" newY="90" />
+		<targetAdded timestamp="157722" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="157722" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157722" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157722" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="157722" index="4" newX="312" newY="129" />
+		<targetAdded timestamp="157730" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="157730" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157730" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157730" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="157730" index="5" newX="1067" newY="547" />
+		<targetAdded timestamp="157737" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="157737" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157737" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157737" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="157737" index="6" newX="761" newY="245" />
+		<targetAdded timestamp="157742" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="157742" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157742" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157742" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="157742" index="7" newX="180" newY="361" />
+		<targetAdded timestamp="157749" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="157749" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157749" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157749" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="157749" index="8" newX="1059" newY="435" />
+		<targetAdded timestamp="157755" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="157755" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157755" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157755" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="157755" index="9" newX="1050" newY="70" />
+		<targetAdded timestamp="157761" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="157761" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157761" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157761" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="157761" index="10" newX="655" newY="353" />
+		<targetAdded timestamp="157767" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="157767" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157767" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157768" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="157768" index="11" newX="516" newY="543" />
+		<targetAdded timestamp="157773" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="157773" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="157773" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="157774" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="157774" index="12" newX="57" newY="274" />
+		<exerciseFeedMessage timestamp="167815">missed targets: 18
+bad hits: 3
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetRemoved timestamp="167815" index="1" />
+		<targetAdded timestamp="167828" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="167828" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167828" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167828" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="167828" index="1" newX="565" newY="434" />
+		<targetAdded timestamp="167836" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="167836" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167836" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167836" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="167836" index="2" newX="551" newY="62" />
+		<targetAdded timestamp="167843" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="167843" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167843" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167843" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="167843" index="3" newX="669" newY="222" />
+		<targetAdded timestamp="167850" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="167850" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167850" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167850" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="167850" index="4" newX="227" newY="349" />
+		<targetAdded timestamp="167859" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="167859" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167859" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167859" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="167859" index="5" newX="366" newY="72" />
+		<targetAdded timestamp="167867" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="167867" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167867" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167867" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="167867" index="6" newX="250" newY="209" />
+		<targetAdded timestamp="167873" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="167873" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167873" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167873" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="167873" index="7" newX="240" newY="266" />
+		<targetAdded timestamp="167879" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="167879" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="167879" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="167879" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="167879" index="8" newX="305" newY="565" />
+		<shot timestamp="168070" color="RED" x="633.039092" y="713.168016" shotTimestamp="43078" markerRadius="4" isMalfunction="false" isReload="false" targetIndex="1" hitRegionIndex="0" />
+		<targetRemoved timestamp="168070" index="1" />
+		<targetRemoved timestamp="168070" index="1" />
+		<exerciseFeedMessage timestamp="177904">missed targets: 19
+bad hits: 3
+		</exerciseFeedMessage>
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetRemoved timestamp="177904" index="1" />
+		<targetAdded timestamp="177918" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="177918" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177918" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177918" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="177918" index="1" newX="810" newY="371" />
+		<targetAdded timestamp="177930" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="177930" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177930" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177930" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="177930" index="2" newX="828" newY="447" />
+		<targetAdded timestamp="177938" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="177938" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177938" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177938" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="177938" index="3" newX="208" newY="93" />
+		<targetAdded timestamp="177949" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="177949" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177949" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177949" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="177949" index="4" newX="368" newY="210" />
+		<targetAdded timestamp="177961" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="177961" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177961" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177961" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="177961" index="5" newX="670" newY="471" />
+		<targetAdded timestamp="177971" name="shoot_dont_shoot/shoot.target" />
+		<targetResized timestamp="177971" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177971" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177971" name="shoot_dont_shoot/shoot.target" />
+		<targetMoved timestamp="177971" index="6" newX="624" newY="159" />
+		<targetAdded timestamp="177983" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="177983" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177983" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177983" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="177983" index="7" newX="1093" newY="130" />
+		<targetAdded timestamp="177989" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="177989" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177989" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177989" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="177989" index="8" newX="247" newY="169" />
+		<targetAdded timestamp="177997" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="177997" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="177997" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="177997" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="177997" index="9" newX="198" newY="59" />
+		<targetAdded timestamp="178007" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetResized timestamp="178007" index="-1" newWidth="300.000000" newHeight="300.000000" />
+		<targetMoved timestamp="178007" index="-1" newX="0" newY="0" />
+		<targetAdded timestamp="178007" name="shoot_dont_shoot/dont_shoot.target" />
+		<targetMoved timestamp="178007" index="10" newX="442" newY="134" />
+	</camera>
+</session>

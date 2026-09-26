@@ -85,6 +85,6 @@ fabric.properties
 .pmd
 
 # Ignore ShootOFF Folders
-sessions/
+/sessions/
 log/
 RandomTargetParDrill-bests.properties
