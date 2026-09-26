@@ -22,6 +22,8 @@ import com.shootoff.session.Event;
 import com.shootoff.session.SessionRecorder;
 import com.shootoff.session.ShotEvent;
 import com.shootoff.session.TargetAddedEvent;
+import com.shootoff.session.TargetMovedEvent;
+import com.shootoff.session.TargetRemovedEvent;
 import com.shootoff.session.io.SessionIO;
 
 import javafx.scene.Group;
@@ -88,5 +90,32 @@ class TestSessionCanvasManagerReplay {
 		assertDoesNotThrow(() -> viewer.doEvent(added));
 		assertDoesNotThrow(() -> viewer.undoEvent(added));
 		assertEquals(childrenBefore, canvas.getChildren().size());
+	}
+
+	@Test
+	void missingTargetFileKeepsLaterIndexesAligned() {
+		final TargetAddedEvent missing = new TargetAddedEvent("arena", 0, "no_such_dir/not_a_target.txt");
+		final TargetAddedEvent present = new TargetAddedEvent("arena", 1, "shoot_dont_shoot/shoot.target");
+		final TargetMovedEvent moveSecond = new TargetMovedEvent("arena", 2, 1, 40, 50);
+		final TargetRemovedEvent removeFirst = new TargetRemovedEvent("arena", 3, 0);
+		final TargetMovedEvent moveNowFirst = new TargetMovedEvent("arena", 4, 0, 70, 80);
+		final List<Event> events = List.of(missing, present, moveSecond, removeFirst, moveNowFirst);
+
+		events.forEach(viewer::doEvent);
+
+		final Node presentGroup = canvas.getChildren().get(canvas.getChildren().size() - 1);
+		assertEquals(70, presentGroup.getLayoutX(), 0.001);
+		assertEquals(80, presentGroup.getLayoutY(), 0.001);
+		assertTrue(canvas.getChildren().contains(presentGroup)); // removing the missing target did not remove it
+
+		final List<Event> reversed = new ArrayList<>(events);
+		Collections.reverse(reversed);
+		assertDoesNotThrow(() -> reversed.forEach(viewer::undoEvent));
+		assertTrue(!canvas.getChildren().contains(presentGroup));
+
+		// Redo after a full undo lands on the same result
+		events.forEach(viewer::doEvent);
+		final Node redoneGroup = canvas.getChildren().get(canvas.getChildren().size() - 1);
+		assertEquals(70, redoneGroup.getLayoutX(), 0.001);
 	}
 }

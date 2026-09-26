@@ -80,6 +80,8 @@ public class SessionRecorder {
 	// resized
 	// to wherever it already is and to however big it already is.
 	private void checkTarget(String cameraName, Target target) {
+		if (target.getTargetFile() == null) return;
+
 		if (!seenTargets.containsKey(cameraName)) {
 			seenTargets.put(cameraName, new HashSet<Target>());
 		}
@@ -113,6 +115,8 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetAdded(String cameraName, Target target) {
+		if (target.getTargetFile() == null) return;
+
 		if (!seenTargets.containsKey(cameraName)) {
 			seenTargets.put(cameraName, new HashSet<Target>());
 		}
@@ -133,8 +137,9 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetRemoved(String cameraName, Target target) {
-		// A target that isn't registered on a canvas has no index to replay against
-		if (target.getTargetIndex() < 0) return;
+		// A target that isn't registered on a canvas has no index to replay against, and one
+		// without a file (e.g. the manual calibration rectangle) isn't a session target
+		if (target.getTargetIndex() < 0 || target.getTargetFile() == null) return;
 
 		if (!ignoreTargetCheck.get()) checkTarget(cameraName, target);
 
@@ -165,8 +170,9 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetResized(String cameraName, Target target, double newWidth, double newHeight) {
-		// A target that isn't registered on a canvas has no index to replay against
-		if (target.getTargetIndex() < 0) return;
+		// A target that isn't registered on a canvas has no index to replay against, and one
+		// without a file (e.g. the manual calibration rectangle) isn't a session target
+		if (target.getTargetIndex() < 0 || target.getTargetFile() == null) return;
 
 		if (!ignoreTargetCheck.get()) checkTarget(cameraName, target);
 
@@ -178,8 +184,9 @@ public class SessionRecorder {
 	}
 
 	public void recordTargetMoved(String cameraName, Target target, int newX, int newY) {
-		// A target that isn't registered on a canvas has no index to replay against
-		if (target.getTargetIndex() < 0) return;
+		// A target that isn't registered on a canvas has no index to replay against, and one
+		// without a file (e.g. the manual calibration rectangle) isn't a session target
+		if (target.getTargetIndex() < 0 || target.getTargetFile() == null) return;
 
 		if (!ignoreTargetCheck.get()) checkTarget(cameraName, target);
 

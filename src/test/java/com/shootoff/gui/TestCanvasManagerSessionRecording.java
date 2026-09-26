@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.gui.controller.ShootOFFController;
+import com.shootoff.gui.targets.MirroredTarget;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.session.Event;
 import com.shootoff.session.EventType;
@@ -104,5 +105,34 @@ class TestCanvasManagerSessionRecording {
 		target.setDimensions(30, 40);
 
 		assertEquals(List.of(), eventTypes());
+	}
+
+	@Test
+	void targetWithoutFileIsNeverRecorded() {
+		// e.g. the manual calibration rectangle
+		final TargetView fileless = new TargetView(null, new Group(), new HashMap<String, String>(), canvas, false);
+
+		canvas.addTarget(fileless);
+		fileless.setPosition(10, 20);
+		canvas.removeTarget(fileless);
+
+		assertEquals(List.of(), eventTypes());
+	}
+
+	@Test
+	void mirroredResizeIsRecordedOnTheRecordingCanvas() {
+		// Dragging a target on the (silent) arena tab resizes the projector copy through
+		// mirrorSetDimensions; that resize must be recorded
+		final MirroredTarget projectorCopy = new MirroredTarget(new File("targets/shoot.target"), new Group(),
+				new HashMap<String, String>(), config, canvas, false);
+		canvas.addTarget(projectorCopy);
+		recorder.getCameraEvents(CAMERA).clear();
+
+		projectorCopy.mirrorSetDimensions(50, 60);
+
+		assertEquals(List.of(EventType.TARGET_RESIZED), eventTypes());
+		final TargetResizedEvent resized = (TargetResizedEvent) recorder.getCameraEvents(CAMERA).get(0);
+		assertEquals(50, resized.getNewWidth(), 0.001);
+		assertEquals(60, resized.getNewHeight(), 0.001);
 	}
 }

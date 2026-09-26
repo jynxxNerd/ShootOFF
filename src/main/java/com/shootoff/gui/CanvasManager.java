@@ -858,7 +858,8 @@ public class CanvasManager implements CameraView {
 
 		targets.add(newTarget);
 
-		if (recordsSessionEvents && config.getSessionRecorder().isPresent()) {
+		// Targets without a file (e.g. the manual calibration rectangle) aren't session targets
+		if (recordsSessionEvents && config.getSessionRecorder().isPresent() && newTarget.getTargetFile() != null) {
 			final SessionRecorder recorder = config.getSessionRecorder().get();
 			recorder.recordTargetAdded(cameraName, newTarget);
 			final Point2D position = newTarget.getPosition();

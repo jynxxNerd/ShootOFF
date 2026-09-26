@@ -90,6 +90,9 @@ public class MirroredTarget extends TargetView {
 
 	public void mirrorSetDimensions(double newWidth, double newHeight) {
 		super.setDimensions(newWidth, newHeight);
+		// A drag on the arena tab resizes this copy through here; the tab's own handler doesn't
+		// record, so record it on this side (a no-op when this copy's canvas doesn't record)
+		recordResize(newWidth, newHeight);
 	}
 
 	@Override

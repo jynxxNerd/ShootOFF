@@ -170,6 +170,14 @@ public class TargetView implements Target {
 				&& parent.get().recordsSessionEvents() && getTargetIndex() >= 0;
 	}
 
+	// For resizes applied through a mirror (see MirroredTarget.mirrorSetDimensions), whose own
+	// handlers ran on the non-recording canvas
+	protected void recordResize(double newWidth, double newHeight) {
+		if (shouldRecordSessionEvents()) {
+			config.get().getSessionRecorder().get().recordTargetResized(cameraName, this, newWidth, newHeight);
+		}
+	}
+
 	@Override
 	public int getTargetIndex() {
 		if (parent.isPresent())

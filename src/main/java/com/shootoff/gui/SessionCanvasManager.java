@@ -156,7 +156,7 @@ public class SessionCanvasManager {
 				throw new AssertionError("Expected type TargetAddedEvent but got type " + e.getClass().getName());
 			}
 
-			if (!addTarget((TargetAddedEvent) e)) skip(e, "target file could not be loaded");
+			addTarget((TargetAddedEvent) e);
 			break;
 
 		case TARGET_REMOVED:
@@ -363,21 +363,28 @@ public class SessionCanvasManager {
 		if (!canvas.getChildren().contains(node)) canvas.getChildren().add(node);
 	}
 
-	private boolean addTarget(final TargetAddedEvent e) {
+	private void addTarget(final TargetAddedEvent e) {
 		final Optional<TargetComponents> targetComponents = TargetIO.loadTarget(
 				new File(System.getProperty("shootoff.home") + File.separator + "targets/" + e.getTargetName()));
 
-		if (targetComponents.isPresent()) {
-			final TargetComponents tc = targetComponents.get();
+		final Group targetGroup;
+		final Map<String, String> targetTags;
 
-			addToCanvas(tc.getTargetGroup());
-			final TargetView targetContainer = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), targets);
-			eventToContainer.put(e, targetContainer);
-			targetViews.add(targetContainer);
-			targets.add(targetContainer);
-			return true;
+		if (targetComponents.isPresent()) {
+			targetGroup = targetComponents.get().getTargetGroup();
+			targetTags = targetComponents.get().getTargetTags();
+		} else {
+			// An empty stand-in keeps this target's slot so later target indexes in the session
+			// still line up
+			logSkipped(e, "target " + e.getTargetName() + " could not be loaded; using an empty stand-in");
+			targetGroup = new Group();
+			targetTags = new HashMap<>();
 		}
 
-		return false;
+		addToCanvas(targetGroup);
+		final TargetView targetContainer = new TargetView(targetGroup, targetTags, targets);
+		eventToContainer.put(e, targetContainer);
+		targetViews.add(targetContainer);
+		targets.add(targetContainer);
 	}
 }
