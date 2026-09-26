@@ -9,6 +9,7 @@ import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Settings;
+import com.shootoff.shots.ShotQueue;
 import com.shootoff.geom.Rect;
 
 /**
@@ -118,10 +119,9 @@ public abstract class ShotDetector {
 		if (logger.isInfoEnabled()) logger.info("Suspected shot accepted: Center ({}, {}), cl {} fr {}", shot.getX(),
 				shot.getY(), shot.getColor(), cameraManager.getFrameCount());
 
-		// Notify of new shot on a non-shot detection thread because most
-		// training exercises do shot processing on whatever thread submits
-		// the shot
-		new Thread(() -> cameraView.addShot(shot), "Shot Notifier").start();
+		// Handle the shot off the detection thread, because exercises handle shots on the thread that
+		// delivers them, and one shot at a time, in the order shots were detected
+		ShotQueue.shared().submit(() -> cameraView.addShot(shot));
 	}
 
 	protected boolean checkDuplicate(final Shot shot) {

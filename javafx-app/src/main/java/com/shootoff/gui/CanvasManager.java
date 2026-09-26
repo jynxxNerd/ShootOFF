@@ -52,6 +52,7 @@ import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
+import com.shootoff.gui.exercise.HostedExercise;
 import com.shootoff.gui.pane.ProjectorArenaPane;
 import com.shootoff.gui.targets.MirroredTarget;
 import com.shootoff.gui.targets.TargetCommands;
@@ -60,6 +61,7 @@ import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.TrainingExerciseBase;
 import com.shootoff.session.SessionRecorder;
 import com.shootoff.session.TargetRef;
+import com.shootoff.shots.ShotQueue;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RegionType;
@@ -670,9 +672,9 @@ public class CanvasManager implements CameraView {
 			// copies and will not be the versions of the targets added
 			// by exercises.
 			if ((this instanceof MirroredCanvasManager) && cameraManager == null) {
-				currentExercise.get().shotListener(shot, hit);
+				notifyExercise(currentExercise.get(), shot, hit);
 			} else if (!(this instanceof MirroredCanvasManager)) {
-				currentExercise.get().shotListener(shot, hit);
+				notifyExercise(currentExercise.get(), shot, hit);
 			}
 		}
 	}
@@ -704,12 +706,28 @@ public class CanvasManager implements CameraView {
 
 		if (!isMirroredShot) {
 			if (currentExercise.isPresent()) {
-				currentExercise.get().shotListener(shot, hit);
+				notifyExercise(currentExercise.get(), shot, hit);
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Hands a shot to the running exercise. On the shot queue's thread, a v1 exercise hears it on a
+	 * thread of its own, as every shot had before the queue: a v1 exercise may block in shotListener
+	 * (Shoot Don't Shoot speaks "Bad shoot!" there), and later shots must not wait for it. The shot's
+	 * row is already in the shot timer. A v2 exercise's host passes the shot to the exercise's own
+	 * thread in order, so it is called here. Called on any other thread (click-to-shoot on the JavaFX
+	 * thread, a v1 exercise adding a shot itself), the exercise hears the shot there, as before.
+	 */
+	private static void notifyExercise(TrainingExercise exercise, Shot shot, Optional<Hit> hit) {
+		if (exercise instanceof HostedExercise || !ShotQueue.shared().isQueueThread()) {
+			exercise.shotListener(shot, hit);
+		} else {
+			new Thread(() -> exercise.shotListener(shot, hit), "Shot Listener").start();
+		}
 	}
 
 	private void drawShot(DisplayShot shot) {
