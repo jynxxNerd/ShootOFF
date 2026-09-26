@@ -45,7 +45,7 @@ class TestSessionCanvasManagerReplay {
 	@Test
 	void replaysRecordedArenaSessionWithDuplicateTargetsAndBadIndexes() {
 		final Optional<SessionRecorder> session = SessionIO
-				.loadSession(new File("src/test/resources/sessions/arena_duplicate_targets.xml"));
+				.loadSession(new File("javafx-app/src/test/resources/sessions/arena_duplicate_targets.xml"));
 		assertTrue(session.isPresent());
 		final List<Event> events = session.get().getCameraEvents("arena");
 		assertTrue(events.size() > 100);

@@ -16,8 +16,8 @@ public class TestPluginEngine {
 
 	@Before
 	public void setUp() throws IOException {
-		pluginsPath = System.getProperty("user.dir") + File.separator + "src" + File.separator + "test" + File.separator
-				+ "exercises";
+		pluginsPath = System.getProperty("user.dir") + File.separator + "javafx-app" + File.separator + "src"
+				+ File.separator + "test" + File.separator + "exercises";
 		System.setProperty("shootoff.plugins", pluginsPath);
 
 		pe = new PluginEngine(new PluginListener() {

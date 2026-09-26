@@ -37,7 +37,7 @@ import com.shootoff.session.TargetResizedEvent;
 import javafx.scene.Group;
 
 public class TestSessionIO {
-	private static final File LEGACY_SESSION = new File("src/test/resources/sessions/legacy_session.json");
+	private static final File LEGACY_SESSION = new File("javafx-app/src/test/resources/sessions/legacy_session.json");
 
 	private SessionRecorder sessionRecorder;
 	private String cameraName1;

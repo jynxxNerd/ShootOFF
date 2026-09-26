@@ -23,8 +23,8 @@ public class TestPlugin {
 
 	@Before
 	public void setUp() {
-		pluginDir = Paths.get(System.getProperty("user.dir") + File.separator + "src" + File.separator + "test"
-				+ File.separator + "exercises");
+		pluginDir = Paths.get(System.getProperty("user.dir") + File.separator + "javafx-app" + File.separator + "src"
+				+ File.separator + "test" + File.separator + "exercises");
 	}
 
 	@Test
