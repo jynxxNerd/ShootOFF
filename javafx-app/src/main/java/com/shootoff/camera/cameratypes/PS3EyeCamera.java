@@ -62,19 +62,6 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
 
-import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.geometry.Insets;
-import javafx.scene.Group;
-import javafx.scene.Scene;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
-import javafx.scene.layout.GridPane;
-import javafx.scene.paint.Color;
-import javafx.stage.Stage;
-
 public class PS3EyeCamera extends CalculatedFPSCamera {
 	private static final Logger logger = LoggerFactory.getLogger(PS3EyeCamera.class);
 
@@ -88,17 +75,49 @@ public class PS3EyeCamera extends CalculatedFPSCamera {
 	private static boolean closed = true;
 
 	private Optional<Integer> origExposure = Optional.empty();
-	private boolean configIsOpen = false;
 
 	private static eyecam eyecamLib;
 	private static byte[] ba = new byte[getViewWidth() * getViewHeight() * 4];
-	private static Label fpsValue = new Label("0");
-	private static Stage ps3eyeSettingsStage = new Stage();
 
 	public PS3EyeCamera() {
 		if (!initialized) {
 			init();
 		}
+	}
+
+	/**
+	 * Receives updates for an open settings window.
+	 */
+	public interface SettingsListener {
+		void fpsUpdated(double fps);
+
+		void cameraClosing();
+	}
+
+	private volatile Optional<SettingsListener> settingsListener = Optional.empty();
+
+	/**
+	 * @param listener
+	 *            the open settings window, or <tt>null</tt> when it closes
+	 */
+	public void setSettingsListener(SettingsListener listener) {
+		settingsListener = Optional.ofNullable(listener);
+	}
+
+	public int getGain() {
+		return eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_GAIN);
+	}
+
+	public void setGain(int gain) {
+		eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_GAIN, gain);
+	}
+
+	public boolean isAutoGain() {
+		return eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_AUTO_GAIN) != 0;
+	}
+
+	public void setAutoGain(boolean autoGain) {
+		eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_AUTO_GAIN, autoGain ? 1 : 0);
 	}
 
 	public static void init() {
@@ -172,149 +191,6 @@ public class PS3EyeCamera extends CalculatedFPSCamera {
 		return ps3ID != null;
 	}
 
-	public void launchCameraSettings() {
-		logger.trace("Launch camera settings called");
-		final CheckBox autoGain = new CheckBox("AutoGain");
-		boolean isAutoGainSet = false;
-		final Color textColor = Color.BLACK;
-
-		final Slider gain = new Slider(0, 63,
-				eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_GAIN));
-		final Slider exposure = new Slider(0, 255,
-				eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_EXPOSURE));
-
-		final Label gainCaption = new Label("Gain:");
-		final Label exposureCaption = new Label("Exposure:");
-		final Label autoGainCaption = new Label("Auto Gain:");
-		final Label fpsCaption = new Label("FPS: ");
-
-		final Label gainValue = new Label(Integer.toString((int) gain.getValue()));
-		final Label exposureValue = new Label(Integer.toString((int) exposure.getValue()));
-
-		gain.setShowTickLabels(true);
-		gain.setShowTickMarks(true);
-		gain.setMajorTickUnit(9);// 63
-		gain.setMinorTickCount(9);
-		gain.setBlockIncrement(1);
-		gain.setSnapToTicks(true);
-
-		exposure.setShowTickLabels(true);
-		exposure.setShowTickMarks(true);
-		exposure.setMajorTickUnit(50);// 255
-		exposure.setMinorTickCount(25);
-		exposure.setBlockIncrement(1);
-		exposure.setSnapToTicks(true);
-
-		final Group root = new Group();
-		final Scene scene = new Scene(root, 425, 200);
-		ps3eyeSettingsStage.setScene(scene);
-		ps3eyeSettingsStage.setTitle("PS3EYE Configuration");
-		scene.setFill(Color.WHITESMOKE);
-
-		final GridPane grid = new GridPane();
-		grid.setPadding(new Insets(10, 10, 10, 10));
-		grid.setVgap(10);
-		grid.setHgap(70);
-
-		scene.setRoot(grid);
-
-		gainCaption.setTextFill(textColor);
-		GridPane.setConstraints(gainCaption, 0, 1);
-		grid.getChildren().add(gainCaption);
-
-		exposureCaption.setTextFill(textColor);
-		GridPane.setConstraints(exposureCaption, 0, 2);
-		grid.getChildren().add(exposureCaption);
-
-		GridPane.setConstraints(autoGainCaption, 0, 4);
-		grid.getChildren().add(autoGainCaption);
-
-		GridPane.setConstraints(fpsCaption, 0, 5);
-		grid.getChildren().add(fpsCaption);
-
-		GridPane.setConstraints(gain, 1, 1);
-		grid.getChildren().add(gain);
-
-		GridPane.setConstraints(exposure, 1, 2);
-		grid.getChildren().add(exposure);
-
-		gainValue.setTextFill(textColor);
-		GridPane.setConstraints(gainValue, 2, 1);
-		grid.getChildren().add(gainValue);
-
-		exposureValue.setTextFill(textColor);
-		GridPane.setConstraints(exposureValue, 2, 2);
-		grid.getChildren().add(exposureValue);
-
-		GridPane.setConstraints(fpsValue, 1, 5);
-		grid.getChildren().add(fpsValue);
-
-		configIsOpen = true;
-
-		gain.valueProperty().addListener(new ChangeListener<Number>() {
-			@Override
-			public void changed(ObservableValue<? extends Number> ov, Number old_val, Number new_val) {
-				if (logger.isTraceEnabled()) logger.trace("gain set to: {}", Math.round(new_val.doubleValue()));
-				eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_GAIN,
-						(int) Math.round(new_val.doubleValue()));
-				gainValue.setText(String.format("%d", (int) Math.round(new_val.doubleValue())));
-			}
-		});
-
-		exposure.valueProperty().addListener(new ChangeListener<Number>() {
-			@Override
-			public void changed(ObservableValue<? extends Number> ov, Number old_val, Number new_val) {
-				eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_EXPOSURE,
-						(int) Math.round(new_val.doubleValue()));
-				if (logger.isTraceEnabled())
-					logger.trace("exposure level set to: {}", Math.round(new_val.doubleValue()));
-				exposureValue.setText(String.format("%d", (int) Math.round(new_val.doubleValue())));
-			}
-		});
-
-		if (eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_AUTO_GAIN) == 0) {
-			isAutoGainSet = false;
-			autoGain.setText("Off");
-			gain.setDisable(false);
-			exposure.setDisable(false);
-		} else {
-			isAutoGainSet = true;
-			autoGain.setText("On");
-			gain.setDisable(true);
-			exposure.setDisable(true);
-		}
-
-		autoGain.setSelected(isAutoGainSet);
-
-		GridPane.setConstraints(autoGain, 1, 4);
-		grid.getChildren().add(autoGain);
-
-		autoGain.selectedProperty().addListener(new ChangeListener<Boolean>() {
-			@Override
-			public void changed(ObservableValue<? extends Boolean> ov, Boolean old_val, Boolean new_val) {
-				if (new_val) {
-					autoGain.setText("On");
-					gain.setValue(eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_GAIN));
-					gain.setDisable(true);
-					exposure.setDisable(true);
-					eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_AUTO_GAIN, 1);
-				} else {
-					eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_AUTO_GAIN, 0);
-					autoGain.setText("Off");
-					gain.setValue(eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_GAIN));
-					gain.setDisable(false);
-					exposure.setDisable(false);
-				}
-			}
-		});
-
-		ps3eyeSettingsStage.show();
-
-		ps3eyeSettingsStage.setOnCloseRequest((e) -> {
-			configIsOpen = false;
-		});
-	}// end launchcamerasettings
-
 	@Override
 	public String getName() {
 		return "PS3Eye";
@@ -340,10 +216,9 @@ public class PS3EyeCamera extends CalculatedFPSCamera {
 
 	@Override
 	public synchronized void close() {
-		if (configIsOpen) {
-			configIsOpen = false;
-			ps3eyeSettingsStage.close();
-		}
+		final Optional<SettingsListener> listener = settingsListener;
+		settingsListener = Optional.empty();
+		if (listener.isPresent()) listener.get().cameraClosing();
 
 		closeMe();
 	}
@@ -439,12 +314,8 @@ public class PS3EyeCamera extends CalculatedFPSCamera {
 				estimateCameraFPS();
 			}
 
-			if (configIsOpen) {
-				Platform.runLater(() -> {
-					final String theFPS = Double.toString(getFPS());
-					if (theFPS.length() >= 6) fpsValue.setText((Double.toString(getFPS()).substring(0, 5)));
-				});
-			}
+			final Optional<SettingsListener> listener = settingsListener;
+			if (listener.isPresent()) listener.get().fpsUpdated(getFPS());
 		}
 
 		if (cameraEventListener.isPresent()) cameraEventListener.get().cameraClosed();
@@ -455,11 +326,11 @@ public class PS3EyeCamera extends CalculatedFPSCamera {
 		return false;
 	}
 
-	private int getExposure() {
+	public int getExposure() {
 		return eyecamLib.ps3eye_get_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_EXPOSURE);
 	}
 
-	private void setExposure(int exposure) {
+	public void setExposure(int exposure) {
 		eyecamLib.ps3eye_set_parameter(ps3ID, eyecam.ps3eye_parameter.PS3EYE_EXPOSURE, exposure);
 	}
 

@@ -44,12 +44,14 @@ import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
 import com.shootoff.camera.CamerasSupervisor;
 import com.shootoff.camera.cameratypes.Camera;
+import com.shootoff.camera.cameratypes.PS3EyeCamera;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.CalibrationManager;
 import com.shootoff.gui.CameraConfigListener;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.ExerciseListener;
+import com.shootoff.gui.PS3EyeSettingsWindow;
 import com.shootoff.gui.Resetter;
 import com.shootoff.gui.ShotEntry;
 import com.shootoff.gui.pane.ExerciseSlide;
@@ -688,7 +690,11 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 				final CameraManager cameraManager = camerasSupervisor
 						.getCameraManager(cameraTabPane.getSelectionModel().getSelectedIndex());
 
-				cameraManager.launchCameraSettings();
+				if (cameraManager.getCamera() instanceof PS3EyeCamera) {
+					PS3EyeSettingsWindow.show((PS3EyeCamera) cameraManager.getCamera());
+				} else {
+					cameraManager.launchCameraSettings();
+				}
 			});
 
 			contextMenu.getItems().add(cameraMenuItem);
