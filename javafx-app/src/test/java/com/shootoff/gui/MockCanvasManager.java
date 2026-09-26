@@ -69,6 +69,7 @@ public class MockCanvasManager extends CanvasManager {
 	@Override
 	public Target addTarget(Target newTarget) {
 		super.getCanvasGroup().getChildren().add(((TargetView) newTarget).getTargetGroup());
+		((TargetView) newTarget).joinTargetSet(super.getTargetSet());
 		super.getTargets().add(newTarget);
 
 		return newTarget;

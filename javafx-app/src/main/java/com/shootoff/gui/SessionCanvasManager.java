@@ -367,22 +367,18 @@ public class SessionCanvasManager {
 		final Optional<TargetComponents> targetComponents = TargetIO.loadTarget(
 				new File(System.getProperty("shootoff.home") + File.separator + "targets/" + e.getTargetName()));
 
-		final Group targetGroup;
-		final Map<String, String> targetTags;
-
+		final TargetComponents components;
 		if (targetComponents.isPresent()) {
-			targetGroup = targetComponents.get().getTargetGroup();
-			targetTags = targetComponents.get().getTargetTags();
+			components = targetComponents.get();
 		} else {
 			// An empty stand-in keeps this target's slot so later target indexes in the session
 			// still line up
 			logSkipped(e, "target " + e.getTargetName() + " could not be loaded; using an empty stand-in");
-			targetGroup = new Group();
-			targetTags = new HashMap<>();
+			components = TargetComponents.empty(null);
 		}
 
-		addToCanvas(targetGroup);
-		final TargetView targetContainer = new TargetView(targetGroup, targetTags, targets);
+		addToCanvas(components.getTargetGroup());
+		final TargetView targetContainer = new TargetView(components, targets);
 		eventToContainer.put(e, targetContainer);
 		targetViews.add(targetContainer);
 		targets.add(targetContainer);

@@ -25,6 +25,7 @@ import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.gui.MockCanvasManager;
 import com.shootoff.gui.targets.TargetView;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
 import com.shootoff.session.Event;
 import com.shootoff.session.ExerciseFeedMessageEvent;
 import com.shootoff.session.SessionRecorder;
@@ -34,7 +35,6 @@ import com.shootoff.session.TargetMovedEvent;
 import com.shootoff.session.TargetRemovedEvent;
 import com.shootoff.session.TargetResizedEvent;
 
-import javafx.scene.Group;
 
 public class TestSessionIO {
 	private static final File LEGACY_SESSION = new File("javafx-app/src/test/resources/sessions/legacy_session.json");
@@ -65,8 +65,7 @@ public class TestSessionIO {
 
 		Configuration config = new Configuration(new String[0]);
 		MockCanvasManager canvasManager = new MockCanvasManager(config);
-		TargetView target = new TargetView(new File(targetName), new Group(), new HashMap<String, String>(),
-				canvasManager, false);
+		TargetView target = new TargetView(TargetComponents.empty(new File(targetName)), canvasManager, false);
 		canvasManager.addTarget(target);
 
 		hitRegionIndex = 0;

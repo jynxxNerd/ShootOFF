@@ -21,6 +21,7 @@ package com.shootoff.gui;
 import com.shootoff.geom.Rect;
 import com.shootoff.geom.Size;
 
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.geometry.Dimension2D;
 
@@ -33,6 +34,10 @@ public final class FxGeometry {
 
 	public static Rect toRect(Bounds bounds) {
 		return new Rect(bounds.getMinX(), bounds.getMinY(), bounds.getWidth(), bounds.getHeight());
+	}
+
+	public static Bounds toBounds(Rect rect) {
+		return new BoundingBox(rect.getMinX(), rect.getMinY(), rect.getWidth(), rect.getHeight());
 	}
 
 	public static Size toSize(Dimension2D dimension) {

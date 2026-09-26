@@ -62,10 +62,10 @@ public class TestTarget {
 		targets = new ArrayList<Target>();
 		TargetComponents popperComponents = TargetIO.loadTarget(new File("targets/Pepper_Popper.target")).get();
 		pepperPopper = (TargetView) canvasManager.addTarget(
-				new TargetView(popperComponents.getTargetGroup(), popperComponents.getTargetTags(), targets));
+				new TargetView(popperComponents, targets));
 		targets.add(pepperPopper);
 		TargetComponents resetComponents = TargetIO.loadTarget(new File("targets/Reset.target")).get();
-		targets.add(new TargetView(resetComponents.getTargetGroup(), resetComponents.getTargetTags(), targets));
+		targets.add(new TargetView(resetComponents, targets));
 	}
 
 	@Test

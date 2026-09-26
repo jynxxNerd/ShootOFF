@@ -67,6 +67,7 @@ import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
 import com.shootoff.targets.io.TargetIO;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
+import com.shootoff.targets.model.TargetSet;
 
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
@@ -111,6 +112,8 @@ public class CanvasManager implements CameraView {
 	private final ImageView background = new ImageView();
 	private final List<DisplayShot> shots = Collections.synchronizedList(new ArrayList<DisplayShot>());
 	private final List<Target> targets = new ArrayList<>();
+	// The model of targets, in the same order
+	private final TargetSet targetSet = new TargetSet();
 
 	private ProgressIndicator progress;
 	private Optional<ContextMenu> contextMenu = Optional.empty();
@@ -826,11 +829,7 @@ public class CanvasManager implements CameraView {
 		final Optional<TargetComponents> targetComponents = loadTarget(targetFile, playAnimations);
 
 		if (targetComponents.isPresent()) {
-			final TargetComponents tc = targetComponents.get();
-			final Optional<Target> target = Optional
-					.of(addTarget(targetFile, tc.getTargetGroup(), tc.getTargetTags(), true));
-
-			return target;
+			return Optional.of(addTarget(targetComponents.get().withTargetFile(targetFile), true));
 		}
 
 		return Optional.empty();
@@ -840,13 +839,13 @@ public class CanvasManager implements CameraView {
 		return addTarget(targetFile, true);
 	}
 
-	public Target addTarget(File targetFile, Group targetGroup, Map<String, String> targetTags, boolean userDeletable) {
+	public Target addTarget(TargetComponents components, boolean userDeletable) {
 		final TargetView newTarget;
 
 		if (this instanceof MirroredCanvasManager) {
-			newTarget = new MirroredTarget(targetFile, targetGroup, targetTags, config, this, userDeletable);
+			newTarget = new MirroredTarget(components, config, this, userDeletable);
 		} else {
-			newTarget = new TargetView(targetFile, targetGroup, targetTags, this, userDeletable);
+			newTarget = new TargetView(components, this, userDeletable);
 		}
 
 		return addTarget(newTarget);
@@ -861,6 +860,7 @@ public class CanvasManager implements CameraView {
 			Platform.runLater(addTargetAction);
 		}
 
+		((TargetView) newTarget).joinTargetSet(targetSet);
 		targets.add(newTarget);
 
 		// Targets without a file (e.g. the manual calibration rectangle) aren't session targets
@@ -902,6 +902,7 @@ public class CanvasManager implements CameraView {
 		}
 
 		targets.remove(target);
+		((TargetView) target).leaveTargetSet();
 
 		// If this is a mirrored canvas, only alert exercises of target updates
 		// from the arena window, not the tab. There is no arena tab if we are in
@@ -931,6 +932,13 @@ public class CanvasManager implements CameraView {
 
 	public List<Target> getTargets() {
 		return targets;
+	}
+
+	/**
+	 * @return the model of this canvas's targets, in the same order as {@link #getTargets()}
+	 */
+	public TargetSet getTargetSet() {
+		return targetSet;
 	}
 
 	public void toggleTargetSelection(Optional<TargetView> newSelection) {

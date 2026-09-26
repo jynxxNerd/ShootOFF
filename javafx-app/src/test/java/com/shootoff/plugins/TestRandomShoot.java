@@ -80,7 +80,7 @@ public class TestRandomShoot {
 		List<Target> targets = new ArrayList<Target>();
 		TargetComponents tc = TargetIO
 				.loadTarget(new File("targets" + File.separator + "SimpleBullseye_five_small.target")).get();
-		TargetView bullseyeFiveTarget = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), new ArrayList<Target>());
+		TargetView bullseyeFiveTarget = new TargetView(tc, new ArrayList<Target>());
 		targets.add(bullseyeFiveTarget);
 
 		RandomShoot rs = new RandomShoot(targets, rng);
@@ -141,7 +141,7 @@ public class TestRandomShoot {
 				.loadTarget(new File(TestRandomShoot.class.getResource("/test_missing_sound_files.target").getFile()))
 				.get();
 		
-		TargetView missingSoundTarget = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), targets);
+		TargetView missingSoundTarget = new TargetView(tc, targets);
 		targets.add(missingSoundTarget);
 
 		RandomShoot rs = new RandomShoot(targets, rng);

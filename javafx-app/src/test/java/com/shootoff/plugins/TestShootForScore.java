@@ -49,7 +49,7 @@ public class TestShootForScore {
 		targets = new ArrayList<Target>();
 		TargetComponents tc = TargetIO.loadTarget(new File("targets" + File.separator + "SimpleBullseye_score.target"))
 				.get();
-		TargetView bullseyeScoreTarget = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), new ArrayList<Target>());
+		TargetView bullseyeScoreTarget = new TargetView(tc, new ArrayList<Target>());
 		targets.add(bullseyeScoreTarget);
 
 		for (Node node : tc.getTargetGroup().getChildren()) {

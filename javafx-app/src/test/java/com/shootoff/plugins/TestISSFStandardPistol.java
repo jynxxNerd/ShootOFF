@@ -68,7 +68,7 @@ public class TestISSFStandardPistol {
 
 		targets = new ArrayList<Target>();
 		TargetComponents tc = TargetIO.loadTarget(new File("targets/ISSF.target")).get();
-		TargetView issfTarget = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), targets);
+		TargetView issfTarget = new TargetView(tc, targets);
 		targets.add(issfTarget);
 		scoredRegionHit = new MockHit(issfTarget, (TargetRegion) issfTarget.getTargetGroup().getChildren().get(0), 0, 0);
 		regionScore = Integer.parseInt(scoredRegionHit.getHitRegion().getTag("points"));

@@ -15,7 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.shootoff.gui.targets;
 
 import java.awt.Graphics2D;
@@ -33,7 +32,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.config.Configuration;
+import com.shootoff.geom.Point;
+import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 import com.shootoff.gui.CanvasManager;
+import com.shootoff.gui.FxGeometry;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RectangleRegion;
@@ -41,6 +44,12 @@ import com.shootoff.targets.RegionType;
 import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
 import com.shootoff.targets.animation.SpriteAnimation;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
+import com.shootoff.targets.model.PlacedTarget;
+import com.shootoff.targets.model.Placement;
+import com.shootoff.targets.model.Region;
+import com.shootoff.targets.model.TargetSet;
+import com.shootoff.targets.model.TargetSetListener;
 
 import javafx.animation.Animation.Status;
 import javafx.embed.swing.SwingFXUtils;
@@ -55,13 +64,16 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
+import javafx.scene.transform.Scale;
 
 /**
- * This is contains the code required to display, resize, and move targets. It
- * also implements required functions like animating targets and determine if a
- * target was hit and where if it was hit. This class needs to be re-implemented
- * to make ShootOFF work on platforms that don't support JavaFX.
- * 
+ * Shows a target and lets the user select, move and resize it. The target's position, scale and
+ * visibility live in a {@link PlacedTarget} owned by a {@link TargetSet}: its canvas's set once
+ * {@link CanvasManager#addTarget(Target)} adds it, a private one before that and after it is
+ * removed. Every change goes through the set, and the JavaFX nodes follow the set's change
+ * events. The scale is drawn with a {@link Scale} transform about the model's pivot; the group's
+ * own scaleX/scaleY stay 1.
+ *
  * @author phrack
  */
 public class TargetView implements Target {
@@ -74,15 +86,27 @@ public class TargetView implements Target {
 	protected static final int SCALE_DELTA = 1;
 	private static final int RESIZE_MARGIN = 5;
 
-	private final File targetFile;
+	private final TargetComponents components;
 	private final Group targetGroup;
+	private final List<Node> regionNodes;
 	private final Map<String, String> targetTags;
+	private final Scale scale = new Scale(1, 1, 0, 0);
 	private final Set<Node> resizeAnchors = new HashSet<>();
 	private final Optional<Configuration> config;
 	private final Optional<CanvasManager> parent;
 	private final Optional<List<Target>> targets;
 	private final boolean userDeletable;
 	private final String cameraName;
+	private final TargetSetListener placementListener = new TargetSetListener() {
+		@Override
+		public void targetChanged(PlacedTarget target) {
+			if (target.getId().equals(membership.placed().getId())) applyPlacement(target);
+		}
+	};
+
+	// The set this target is in and its entry there, swapped together when it joins or leaves a
+	// canvas
+	private volatile Membership membership;
 	private boolean keepInBounds = false;
 	private boolean isSelected = false;
 	private boolean move;
@@ -94,23 +118,12 @@ public class TargetView implements Target {
 	private double x;
 	private double y;
 
-	private final double origWidth;
-	private final double origHeight;
-
 	private TargetSelectionListener selectionListener;
 
-	public TargetView(File targetFile, Group target, Map<String, String> targetTags, CanvasManager parent,
-			boolean userDeletable) {
-		this.targetFile = targetFile;
-		targetGroup = target;
-		this.targetTags = targetTags;
-		config = Optional.ofNullable(Configuration.getConfig());
-		this.parent = Optional.of(parent);
-		targets = Optional.empty();
-		this.userDeletable = userDeletable;
-		cameraName = parent.getCameraName();
-		origWidth = targetGroup.getBoundsInParent().getWidth();
-		origHeight = targetGroup.getBoundsInParent().getHeight();
+	private record Membership(TargetSet set, PlacedTarget placed) {}
+
+	public TargetView(TargetComponents components, CanvasManager parent, boolean userDeletable) {
+		this(components, Optional.of(parent), Optional.empty(), userDeletable);
 
 		targetGroup.setOnMouseClicked((event) -> {
 			// Skip target selection if click to shoot is being used
@@ -121,33 +134,47 @@ public class TargetView implements Target {
 			targetGroup.requestFocus();
 			event.consume();
 		});
-
-		mousePressed();
-		mouseDragged();
-		mouseMoved();
-		mouseReleased();
-		keyPressed();
 	}
 
 	// Used by the session viewer, target pane, and for testing
-	public TargetView(Group target, Map<String, String> targetTags, List<Target> targets) {
-		targetFile = null;
-		targetGroup = target;
-		this.targetTags = targetTags;
-		config = Optional.empty();
-		parent = Optional.empty();
-		this.targets = Optional.of(targets);
-		userDeletable = false;
-		cameraName = null;
-		origWidth = targetGroup.getBoundsInParent().getWidth();
-		origHeight = targetGroup.getBoundsInParent().getHeight();
+	public TargetView(TargetComponents components, List<Target> targets) {
+		this(components, Optional.empty(), Optional.of(targets), false);
+	}
+
+	private TargetView(TargetComponents components, Optional<CanvasManager> parent, Optional<List<Target>> targets,
+			boolean userDeletable) {
+		this.components = components;
+		targetGroup = components.getTargetGroup();
+
+		final int regionCount = components.getDefinition().regions().size();
+		if (targetGroup.getChildren().size() < regionCount) {
+			throw new IllegalArgumentException("The target group has fewer nodes than the target has regions");
+		}
+		regionNodes = List.copyOf(targetGroup.getChildren().subList(0, regionCount));
+
+		targetTags = components.getTargetTags();
+		config = parent.isPresent() ? Optional.ofNullable(Configuration.getConfig()) : Optional.empty();
+		this.parent = parent;
+		this.targets = targets;
+		this.userDeletable = userDeletable;
+		cameraName = parent.map(CanvasManager::getCameraName).orElse(null);
+
+		// The model's scale is drawn by this transform. setAll: a group shared with an earlier view
+		// (MirroredCanvasManager) keeps one scale.
+		targetGroup.setScaleX(1);
+		targetGroup.setScaleY(1);
+		targetGroup.getTransforms().setAll(scale);
+
+		final TargetSet privateSet = new TargetSet();
+		membership = new Membership(privateSet, privateSet.add(components.getDefinition()));
+		privateSet.addListener(placementListener);
+		applyPlacement(membership.placed());
 
 		mousePressed();
 		mouseDragged();
 		mouseMoved();
 		mouseReleased();
 		keyPressed();
-
 	}
 
 	public boolean isUserDeletable() {
@@ -156,11 +183,87 @@ public class TargetView implements Target {
 
 	@Override
 	public File getTargetFile() {
-		return targetFile;
+		return components.getTargetFile();
 	}
 
 	public Group getTargetGroup() {
 		return targetGroup;
+	}
+
+	public TargetComponents getComponents() {
+		return components;
+	}
+
+	/**
+	 * @return the set this target is in: its canvas's set once added to a canvas, otherwise a
+	 *         private one
+	 */
+	public TargetSet getTargetSet() {
+		return membership.set();
+	}
+
+	public PlacedTarget getPlacedTarget() {
+		return membership.placed();
+	}
+
+	public Placement getPlacement() {
+		return membership.placed().getPlacement();
+	}
+
+	/**
+	 * Sets the position, scale and visibility at once, without mirroring or session events (used
+	 * to copy one view's placement to another).
+	 */
+	public final void setPlacement(Placement placement) {
+		final Membership m = membership;
+		m.set().place(m.placed().getId(), placement);
+	}
+
+	/**
+	 * Moves this target's model into <tt>set</tt>, keeping its placement. CanvasManager calls this
+	 * when it adds the target.
+	 */
+	public void joinTargetSet(TargetSet set) {
+		final Membership old = membership;
+		if (old.set() == set) return;
+
+		final PlacedTarget placed = set.add(components.getDefinition(), old.placed().getPlacement());
+		old.set().removeListener(placementListener);
+		old.set().remove(old.placed().getId());
+		membership = new Membership(set, placed);
+		set.addListener(placementListener);
+		applyPlacement(placed);
+	}
+
+	/**
+	 * Moves this target's model back into a private set, keeping its placement. CanvasManager
+	 * calls this when it removes the target.
+	 */
+	public void leaveTargetSet() {
+		joinTargetSet(new TargetSet());
+	}
+
+	// The JavaFX side of a placement: layout from the position, the Scale transform from the scale
+	// about the model's pivot, and unresizable regions scaled back to their own size
+	private void applyPlacement(PlacedTarget target) {
+		final Placement p = target.getPlacement();
+		final Point pivot = target.getPivot();
+
+		targetGroup.setLayoutX(p.x());
+		targetGroup.setLayoutY(p.y());
+		scale.setPivotX(pivot.getX());
+		scale.setPivotY(pivot.getY());
+		scale.setX(p.scaleX());
+		scale.setY(p.scaleY());
+		targetGroup.setVisible(p.visible());
+
+		final List<Region> regions = target.getDefinition().regions();
+		for (int i = 0; i < regions.size(); i++) {
+			if (!regions.get(i).isResizable()) {
+				regionNodes.get(i).setScaleX(1 / p.scaleX());
+				regionNodes.get(i).setScaleY(1 / p.scaleY());
+			}
+		}
 	}
 
 	// Only the canvas that records session events records this target, and only once the
@@ -178,6 +281,21 @@ public class TargetView implements Target {
 		}
 	}
 
+	private void recordMoved() {
+		if (shouldRecordSessionEvents()) {
+			final Placement p = getPlacement();
+			config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this, (int) p.x(), (int) p.y());
+		}
+	}
+
+	private void recordResized() {
+		if (shouldRecordSessionEvents()) {
+			final Size size = membership.placed().getSize();
+			config.get().getSessionRecorder().get().recordTargetResized(cameraName, this, size.getWidth(),
+					size.getHeight());
+		}
+	}
+
 	@Override
 	public int getTargetIndex() {
 		if (parent.isPresent())
@@ -191,11 +309,12 @@ public class TargetView implements Target {
 		if (parent.isPresent()) {
 			final Bounds b = parent.get().getCanvasGroup().getBoundsInParent();
 			setDimensions(b.getWidth(), b.getHeight());
-			final Point2D p = targetGroup.localToParent(0, 0);
+			final Point p = membership.placed().localToParent(0, 0);
 			setPosition(p.getX() * -1, p.getY() * -1);
 		}
 	}
 
+	// Drawn only: children added here aren't regions of the target's model
 	@Override
 	public void addTargetChild(Node child) {
 		getTargetGroup().getChildren().add(child);
@@ -210,8 +329,8 @@ public class TargetView implements Target {
 	public List<TargetRegion> getRegions() {
 		final List<TargetRegion> regions = new ArrayList<>();
 
-		for (final Node n : getTargetGroup().getChildren()) {
-			if (n instanceof TargetRegion) regions.add((TargetRegion) n);
+		for (final Node n : regionNodes) {
+			regions.add((TargetRegion) n);
 		}
 
 		return regions;
@@ -219,88 +338,53 @@ public class TargetView implements Target {
 
 	@Override
 	public boolean hasRegion(TargetRegion region) {
-		return getTargetGroup().getChildren().contains(region);
+		return regionNodes.contains(region);
 	}
 
 	@Override
 	public void setVisible(boolean isVisible) {
-		getTargetGroup().setVisible(isVisible);
+		final Membership m = membership;
+		m.set().setVisible(m.placed().getId(), isVisible);
 	}
 
 	@Override
 	public boolean isVisible() {
-		return getTargetGroup().isVisible();
+		return getPlacement().visible();
 	}
 
 	@Override
 	public void setPosition(double x, double y) {
-		targetGroup.setLayoutX(x);
-		targetGroup.setLayoutY(y);
-
-		if (shouldRecordSessionEvents()) {
-			config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this, (int) targetGroup.getLayoutX(),
-					(int) targetGroup.getLayoutY());
-		}
+		final Membership m = membership;
+		m.set().move(m.placed().getId(), x, y);
+		recordMoved();
 	}
 
 	@Override
 	public Point2D getPosition() {
-		return new Point2D(targetGroup.getLayoutX(), targetGroup.getLayoutY());
+		final Placement p = getPlacement();
+		return new Point2D(p.x(), p.y());
 	}
 
 	@Override
 	public void setDimensions(double newWidth, double newHeight) {
-		final double currentWidth = targetGroup.getBoundsInParent().getWidth();
-		final double currentHeight = targetGroup.getBoundsInParent().getHeight();
-
-		if (Math.abs(currentWidth - newWidth) > .001) {
-			final double scaleXDelta = 1.0 + ((newWidth - currentWidth) / currentWidth);
-			targetGroup.setScaleX(targetGroup.getScaleX() * scaleXDelta);
-
-			// Keep unresizable regions the same size
-			for (final Node n : targetGroup.getChildren()) {
-				final TargetRegion r = (TargetRegion) n;
-
-				if (r.tagExists(Target.TAG_RESIZABLE) && !Boolean.parseBoolean(r.getTag(Target.TAG_RESIZABLE))) {
-					final double width = n.getBoundsInParent().getWidth();
-					final double scaledPercentChange = (width / (width * targetGroup.getScaleX()));
-
-					n.setScaleX(scaledPercentChange);
-				}
-			}
-		}
-
-		if (Math.abs(currentHeight - newHeight) > .001) {
-			final double scaleYDelta = 1.0 + ((newHeight - currentHeight) / currentHeight);
-			targetGroup.setScaleY(targetGroup.getScaleY() * scaleYDelta);
-
-			// Keep unresizable regions the same size
-			for (final Node n : targetGroup.getChildren()) {
-				final TargetRegion r = (TargetRegion) n;
-
-				if (r.tagExists(Target.TAG_RESIZABLE) && !Boolean.parseBoolean(r.getTag(Target.TAG_RESIZABLE))) {
-					final double height = n.getBoundsInParent().getHeight();
-					final double scaledPercentChange = (height / (height * targetGroup.getScaleY()));
-
-					n.setScaleY(scaledPercentChange);
-				}
-			}
-		}
+		final Membership m = membership;
+		m.set().resize(m.placed().getId(), newWidth, newHeight);
 	}
 
 	@Override
 	public Dimension2D getDimension() {
-		return new Dimension2D(targetGroup.getBoundsInParent().getWidth(), targetGroup.getBoundsInParent().getHeight());
+		final Size size = membership.placed().getSize();
+		return new Dimension2D(size.getWidth(), size.getHeight());
 	}
 
 	@Override
 	public double getScaleX() {
-		return targetGroup.getBoundsInParent().getWidth() / origWidth;
+		return getPlacement().scaleX();
 	}
 
 	@Override
 	public double getScaleY() {
-		return targetGroup.getBoundsInParent().getHeight() / origHeight;
+		return getPlacement().scaleY();
 	}
 
 	@Override
@@ -322,12 +406,13 @@ public class TargetView implements Target {
 
 	@Override
 	public Bounds getBoundsInParent() {
-		return targetGroup.getBoundsInParent();
+		return FxGeometry.toBounds(membership.placed().getBounds());
 	}
 
 	@Override
 	public Point2D parentToLocal(double x, double y) {
-		return getTargetGroup().parentToLocal(x, y);
+		final Point p = membership.placed().parentToLocal(x, y);
+		return new Point2D(p.getX(), p.getY());
 	}
 
 	@Override
@@ -350,6 +435,7 @@ public class TargetView implements Target {
 		return keepInBounds;
 	}
 
+	// Unchanged from here to toggleSelected
 	public static void parseCommandTag(TargetRegion region, CommandProcessor commandProcessor) {
 		if (!region.tagExists("command")) return;
 
@@ -532,13 +618,15 @@ public class TargetView implements Target {
 
 		// Ensure anchors appear the intended visual size even if the target
 		// has been scaled
-		if (targetGroup.getScaleX() != 1.0f) {
-			final double scaledPercentChange = (ANCHOR_WIDTH / (ANCHOR_WIDTH * targetGroup.getScaleX()));
+		final Placement p = getPlacement();
+
+		if (p.scaleX() != 1.0f) {
+			final double scaledPercentChange = (ANCHOR_WIDTH / (ANCHOR_WIDTH * p.scaleX()));
 			anchor.setScaleX(scaledPercentChange);
 		}
 
-		if (targetGroup.getScaleY() != 1.0f) {
-			final double scaledPercentChange = (ANCHOR_HEIGHT / (ANCHOR_HEIGHT * targetGroup.getScaleY()));
+		if (p.scaleY() != 1.0f) {
+			final double scaledPercentChange = (ANCHOR_HEIGHT / (ANCHOR_HEIGHT * p.scaleY()));
 			anchor.setScaleY(scaledPercentChange);
 		}
 
@@ -547,6 +635,7 @@ public class TargetView implements Target {
 		return anchor;
 	}
 
+	// Unchanged until Task 6: the JavaFX hit test, on the group the model now positions
 	@Override
 	public Optional<Hit> isHit(double x, double y) {
 		if (targetGroup.getBoundsInParent().contains(x, y)) {
@@ -640,6 +729,7 @@ public class TargetView implements Target {
 		return Optional.empty();
 	}
 
+	// Unchanged
 	private void mousePressed() {
 		targetGroup.setOnMousePressed((event) -> {
 			if (!isInResizeZone(event)) {
@@ -656,13 +746,16 @@ public class TargetView implements Target {
 		});
 	}
 
+	// The old handler's arithmetic, step for step, on the model's placement and bounds: the
+	// candidate placement is checked against the display, then applied through the set once
 	private void mouseDragged() {
 		targetGroup.setOnMouseDragged((event) -> {
 
 			if (!resize && !move) return;
 
-			boolean fixedAspectRatioResize = false;
-			double aspectScaleDelta = 0.0;
+			final Membership m = membership;
+			final PlacedTarget placed = m.placed();
+			final Placement start = placed.getPlacement();
 
 			if (move) {
 				if (config.isPresent() && config.get().inDebugMode() && (event.isControlDown() || event.isShiftDown()))
@@ -670,48 +763,53 @@ public class TargetView implements Target {
 
 				final double deltaX = event.getX() - x;
 				final double deltaY = event.getY() - y;
+				final Rect bounds = placed.getBounds();
+				double newX = start.x();
+				double newY = start.y();
 
-				if (!keepInBounds || (targetGroup.getBoundsInParent().getMinX() + deltaX >= 0
-						&& targetGroup.getBoundsInParent().getMaxX() + deltaX <= config.get().getDisplayWidth())) {
+				if (!keepInBounds || (bounds.getMinX() + deltaX >= 0
+						&& bounds.getMaxX() + deltaX <= config.get().getDisplayWidth())) {
 
-					targetGroup.setLayoutX(targetGroup.getLayoutX() + (deltaX * targetGroup.getScaleX()));
+					newX = start.x() + (deltaX * start.scaleX());
 				}
 
-				if (!keepInBounds || (targetGroup.getBoundsInParent().getMinY() + deltaY >= 0
-						&& targetGroup.getBoundsInParent().getMaxY() + deltaY <= config.get().getDisplayHeight())) {
+				if (!keepInBounds || (bounds.getMinY() + deltaY >= 0
+						&& bounds.getMaxY() + deltaY <= config.get().getDisplayHeight())) {
 
-					targetGroup.setLayoutY(targetGroup.getLayoutY() + (deltaY * targetGroup.getScaleY()));
+					newY = start.y() + (deltaY * start.scaleY());
 				}
 
-				if (shouldRecordSessionEvents()) {
-					config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
-							(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
-				}
+				m.set().move(placed.getId(), newX, newY);
+				recordMoved();
 
 				return;
 			}
 
-			if ((top || bottom) && (left || right) && event.isControlDown()) fixedAspectRatioResize = true;
+			final boolean fixedAspectRatioResize = (top || bottom) && (left || right) && event.isControlDown();
+			double aspectScaleDelta = 0.0;
+			final Rect local = placed.getLocalBounds();
+			Placement current = start;
 
 			if (left || right) {
-				double gap; // The gap between the mouse and nearest
-				// target edge
+				// The gap between the mouse and nearest target edge
+				final double gap;
 
 				if (right) {
-					gap = (event.getX() - targetGroup.getLayoutBounds().getMaxX()) * targetGroup.getScaleX();
+					gap = (event.getX() - local.getMaxX()) * current.scaleX();
 				} else {
-					gap = (event.getX() - targetGroup.getLayoutBounds().getMinX()) * targetGroup.getScaleX();
+					gap = (event.getX() - local.getMinX()) * current.scaleX();
 				}
 
-				final double currentWidth = targetGroup.getBoundsInParent().getWidth();
+				final Rect bounds = placed.boundsAt(current);
+				final double currentWidth = bounds.getWidth();
 				final double newWidth = currentWidth + gap;
 
 				double scaleDelta = (newWidth - currentWidth) / currentWidth;
 
 				if (fixedAspectRatioResize) aspectScaleDelta = scaleDelta;
 
-				final double currentOriginX = targetGroup.getBoundsInParent().getMinX();
-				double newOriginX;
+				final double currentOriginX = bounds.getMinX();
+				final double newOriginX;
 
 				if (right) {
 					scaleDelta *= -1.0;
@@ -724,49 +822,33 @@ public class TargetView implements Target {
 
 				if (right) originXDelta *= -1.0;
 
-				final double oldLayoutX = targetGroup.getLayoutX();
-				final double oldScaleX = targetGroup.getScaleX();
-				final double newScaleX = oldScaleX * (1.0 - scaleDelta);
+				final double newScaleX = current.scaleX() * (1.0 - scaleDelta);
 
 				// If we scale too small the target can do weird things
 				if (newScaleX < 0.001 || Double.isNaN(newScaleX) || Double.isInfinite(newScaleX)) return;
 
-				targetGroup.setLayoutX(targetGroup.getLayoutX() + originXDelta);
-				targetGroup.setScaleX(newScaleX);
+				final Placement resized = new Placement(current.x() + originXDelta, current.y(), newScaleX,
+						current.scaleY(), current.visible());
+				final Rect resizedBounds = placed.boundsAt(resized);
 
-				if (keepInBounds && (targetGroup.getBoundsInParent().getMinX() <= 0
-						|| targetGroup.getBoundsInParent().getMaxX() >= config.get().getDisplayWidth())) {
-
-					// Target went out of bounds, so go back to the old size
-					targetGroup.setLayoutX(oldLayoutX);
-					targetGroup.setScaleX(oldScaleX);
-
-				} else {
-					// Target stayed in bounds so make sure that unresizable
-					// target regions stay the same size
-					for (final Node n : targetGroup.getChildren()) {
-						if (!(n instanceof TargetRegion)) continue;
-
-						final TargetRegion r = (TargetRegion) n;
-
-						if (r.tagExists(Target.TAG_RESIZABLE)
-								&& !Boolean.parseBoolean(r.getTag(Target.TAG_RESIZABLE))) {
-							n.setScaleX(n.getScaleX() * (1.0 + scaleDelta));
-						}
-					}
+				// If the target would go out of bounds, it keeps its old size
+				if (!keepInBounds || !(resizedBounds.getMinX() <= 0
+						|| resizedBounds.getMaxX() >= config.get().getDisplayWidth())) {
+					current = resized;
 				}
 			}
 
 			if (top || bottom) {
-				double gap;
+				final double gap;
 
 				if (bottom) {
-					gap = (event.getY() - targetGroup.getLayoutBounds().getMaxY()) * targetGroup.getScaleY();
+					gap = (event.getY() - local.getMaxY()) * current.scaleY();
 				} else {
-					gap = (event.getY() - targetGroup.getLayoutBounds().getMinY()) * targetGroup.getScaleY();
+					gap = (event.getY() - local.getMinY()) * current.scaleY();
 				}
 
-				final double currentHeight = targetGroup.getBoundsInParent().getHeight();
+				final Rect bounds = placed.boundsAt(current);
+				final double currentHeight = bounds.getHeight();
 				double newHeight = currentHeight + gap;
 
 				if (fixedAspectRatioResize) {
@@ -777,8 +859,8 @@ public class TargetView implements Target {
 
 				double scaleDelta = (newHeight - currentHeight) / currentHeight;
 
-				final double currentOriginY = targetGroup.getBoundsInParent().getMinY();
-				double newOriginY;
+				final double currentOriginY = bounds.getMinY();
+				final double newOriginY;
 
 				if (bottom) {
 					scaleDelta *= -1.0;
@@ -791,50 +873,32 @@ public class TargetView implements Target {
 
 				if (bottom) originYDelta *= -1.0;
 
-				final double oldLayoutY = targetGroup.getLayoutY();
-				final double oldScaleY = targetGroup.getScaleY();
-				final double newScaleY = oldScaleY * (1.0 - scaleDelta);
+				final double newScaleY = current.scaleY() * (1.0 - scaleDelta);
 
-				// If we scale too small the target can do weird things
-				if (newScaleY < 0.001 || Double.isNaN(newScaleY) || Double.isInfinite(newScaleY)) return;
+				// If we scale too small the target can do weird things; a width change above still
+				// applies, as it always did
+				if (newScaleY < 0.001 || Double.isNaN(newScaleY) || Double.isInfinite(newScaleY)) {
+					m.set().place(placed.getId(), current);
+					return;
+				}
 
-				targetGroup.setLayoutY(targetGroup.getLayoutY() + originYDelta);
-				targetGroup.setScaleY(newScaleY);
+				final Placement resized = new Placement(current.x(), current.y() + originYDelta, current.scaleX(),
+						newScaleY, current.visible());
+				final Rect resizedBounds = placed.boundsAt(resized);
 
-				if (keepInBounds && (targetGroup.getBoundsInParent().getMinY() <= 0
-						|| targetGroup.getBoundsInParent().getMaxY() >= config.get().getDisplayHeight())) {
-
-					// Target went out of bounds, so go back to the old size
-					targetGroup.setLayoutY(oldLayoutY);
-					targetGroup.setScaleY(oldScaleY);
-				} else {
-					// Target stayed in bounds so make sure that unresizable
-					// target regions stay the same size
-					for (final Node n : targetGroup.getChildren()) {
-						if (!(n instanceof TargetRegion)) continue;
-
-						final TargetRegion r = (TargetRegion) n;
-
-						if (r.tagExists(Target.TAG_RESIZABLE)
-								&& !Boolean.parseBoolean(r.getTag(Target.TAG_RESIZABLE))) {
-							n.setScaleY(n.getScaleY() * (1.0 + scaleDelta));
-						}
-					}
+				if (!keepInBounds || !(resizedBounds.getMinY() <= 0
+						|| resizedBounds.getMaxY() >= config.get().getDisplayHeight())) {
+					current = resized;
 				}
 			}
 
-			if (shouldRecordSessionEvents()) {
-				config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
-						(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
-			}
-
-			if (shouldRecordSessionEvents()) {
-				config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
-						targetGroup.getBoundsInParent().getWidth(), targetGroup.getBoundsInParent().getHeight());
-			}
+			m.set().place(placed.getId(), current);
+			recordMoved();
+			recordResized();
 		});
 	}
 
+	// Unchanged
 	private void mouseMoved() {
 		targetGroup.setOnMouseMoved((event) -> {
 			x = event.getX();
@@ -862,6 +926,7 @@ public class TargetView implements Target {
 		});
 	}
 
+	// Unchanged
 	private void mouseReleased() {
 		targetGroup.setOnMouseReleased((event) -> {
 			resize = false;
@@ -870,10 +935,14 @@ public class TargetView implements Target {
 		});
 	}
 
+	// The old handler's arithmetic on the model's placement and bounds
 	private void keyPressed() {
 		targetGroup.setOnKeyPressed((event) -> {
-			final double currentWidth = targetGroup.getBoundsInParent().getWidth();
-			final double currentHeight = targetGroup.getBoundsInParent().getHeight();
+			final Membership m = membership;
+			final Placement p = m.placed().getPlacement();
+			final Rect bounds = m.placed().getBounds();
+			final double currentWidth = bounds.getWidth();
+			final double currentHeight = bounds.getHeight();
 
 			switch (event.getCode()) {
 			case DELETE:
@@ -886,25 +955,16 @@ public class TargetView implements Target {
 					final double newWidth = currentWidth - SCALE_DELTA;
 					final double scaleDelta = (newWidth - currentWidth) / currentWidth;
 
-					targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - scaleDelta));
-
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
-								targetGroup.getBoundsInParent().getWidth(),
-								targetGroup.getBoundsInParent().getHeight());
-					}
+					m.set().scale(m.placed().getId(), p.scaleX() * (1.0 - scaleDelta), p.scaleY());
+					recordResized();
 				} else {
-					if (!keepInBounds || (targetGroup.getBoundsInParent().getMinX() - MOVEMENT_DELTA >= 0
-							&& targetGroup.getBoundsInParent().getMaxX() - MOVEMENT_DELTA <= config.get()
-									.getDisplayWidth())) {
+					if (!keepInBounds || (bounds.getMinX() - MOVEMENT_DELTA >= 0
+							&& bounds.getMaxX() - MOVEMENT_DELTA <= config.get().getDisplayWidth())) {
 
-						targetGroup.setLayoutX(targetGroup.getLayoutX() - MOVEMENT_DELTA);
+						m.set().move(m.placed().getId(), p.x() - MOVEMENT_DELTA, p.y());
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
-								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
-					}
+					recordMoved();
 				}
 			}
 
@@ -915,29 +975,20 @@ public class TargetView implements Target {
 					final double newWidth = currentWidth + SCALE_DELTA;
 					final double scaleDelta = (newWidth - currentWidth) / currentWidth;
 
-					if (!keepInBounds || (targetGroup.getBoundsInParent().getMinX() + (SCALE_DELTA / 2) >= 0
-							&& targetGroup.getBoundsInParent().getMaxX() + (SCALE_DELTA / 2) <= config.get()
-									.getDisplayWidth())) {
-						targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - scaleDelta));
+					if (!keepInBounds || (bounds.getMinX() + (SCALE_DELTA / 2) >= 0
+							&& bounds.getMaxX() + (SCALE_DELTA / 2) <= config.get().getDisplayWidth())) {
+						m.set().scale(m.placed().getId(), p.scaleX() * (1.0 - scaleDelta), p.scaleY());
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
-								targetGroup.getBoundsInParent().getWidth(),
-								targetGroup.getBoundsInParent().getHeight());
-					}
+					recordResized();
 				} else {
-					if (!keepInBounds || (targetGroup.getBoundsInParent().getMinX() + MOVEMENT_DELTA >= 0
-							&& targetGroup.getBoundsInParent().getMaxX() + MOVEMENT_DELTA <= config.get()
-									.getDisplayWidth())) {
+					if (!keepInBounds || (bounds.getMinX() + MOVEMENT_DELTA >= 0
+							&& bounds.getMaxX() + MOVEMENT_DELTA <= config.get().getDisplayWidth())) {
 
-						targetGroup.setLayoutX(targetGroup.getLayoutX() + MOVEMENT_DELTA);
+						m.set().move(m.placed().getId(), p.x() + MOVEMENT_DELTA, p.y());
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
-								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
-					}
+					recordMoved();
 				}
 			}
 
@@ -947,34 +998,26 @@ public class TargetView implements Target {
 				if (event.isShiftDown()) {
 					final double newHeight = currentHeight - SCALE_DELTA;
 					final double scaleDelta = (newHeight - currentHeight) / currentHeight;
-
-					targetGroup.setScaleY(targetGroup.getScaleY() * (1.0 - scaleDelta));
+					double scaleX = p.scaleX();
 
 					// Scale up proportionally if ctrl is down
 					if (event.isControlDown()) {
 						final double newWidth = currentWidth - (SCALE_DELTA * (currentWidth / currentHeight));
 						final double widthDelta = (newWidth - currentWidth) / currentWidth;
 
-						targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - widthDelta));
+						scaleX = scaleX * (1.0 - widthDelta);
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
-								targetGroup.getBoundsInParent().getWidth(),
-								targetGroup.getBoundsInParent().getHeight());
-					}
+					m.set().scale(m.placed().getId(), scaleX, p.scaleY() * (1.0 - scaleDelta));
+					recordResized();
 				} else {
-					if (!keepInBounds || (targetGroup.getBoundsInParent().getMinY() - MOVEMENT_DELTA >= 0
-							&& targetGroup.getBoundsInParent().getMaxY() - MOVEMENT_DELTA <= config.get()
-									.getDisplayHeight())) {
+					if (!keepInBounds || (bounds.getMinY() - MOVEMENT_DELTA >= 0
+							&& bounds.getMaxY() - MOVEMENT_DELTA <= config.get().getDisplayHeight())) {
 
-						targetGroup.setLayoutY(targetGroup.getLayoutY() - MOVEMENT_DELTA);
+						m.set().move(m.placed().getId(), p.x(), p.y() - MOVEMENT_DELTA);
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
-								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
-					}
+					recordMoved();
 				}
 			}
 
@@ -985,37 +1028,30 @@ public class TargetView implements Target {
 					final double newHeight = currentHeight + SCALE_DELTA;
 					final double scaleDelta = (newHeight - currentHeight) / currentHeight;
 
-					if (!keepInBounds || (targetGroup.getBoundsInParent().getMinY() + (SCALE_DELTA / 2) >= 0
-							&& targetGroup.getBoundsInParent().getMaxY() + (SCALE_DELTA / 2) <= config.get()
-									.getDisplayHeight())) {
-						targetGroup.setScaleY(targetGroup.getScaleY() * (1.0 - scaleDelta));
+					if (!keepInBounds || (bounds.getMinY() + (SCALE_DELTA / 2) >= 0
+							&& bounds.getMaxY() + (SCALE_DELTA / 2) <= config.get().getDisplayHeight())) {
+						double scaleX = p.scaleX();
 
 						// Scale down proportionally if ctrl is down
 						if (event.isControlDown()) {
 							final double newWidth = currentWidth + (SCALE_DELTA * (currentWidth / currentHeight));
 							final double widthDelta = (newWidth - currentWidth) / currentWidth;
 
-							targetGroup.setScaleX(targetGroup.getScaleX() * (1.0 - widthDelta));
+							scaleX = scaleX * (1.0 - widthDelta);
 						}
+
+						m.set().scale(m.placed().getId(), scaleX, p.scaleY() * (1.0 - scaleDelta));
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetResized(cameraName, this,
-								targetGroup.getBoundsInParent().getWidth(),
-								targetGroup.getBoundsInParent().getHeight());
-					}
+					recordResized();
 				} else {
-					if (!keepInBounds || (targetGroup.getBoundsInParent().getMinY() + MOVEMENT_DELTA >= 0
-							&& targetGroup.getBoundsInParent().getMaxY() + MOVEMENT_DELTA <= config.get()
-									.getDisplayHeight())) {
+					if (!keepInBounds || (bounds.getMinY() + MOVEMENT_DELTA >= 0
+							&& bounds.getMaxY() + MOVEMENT_DELTA <= config.get().getDisplayHeight())) {
 
-						targetGroup.setLayoutY(targetGroup.getLayoutY() + MOVEMENT_DELTA);
+						m.set().move(m.placed().getId(), p.x(), p.y() + MOVEMENT_DELTA);
 					}
 
-					if (shouldRecordSessionEvents()) {
-						config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this,
-								(int) targetGroup.getLayoutX(), (int) targetGroup.getLayoutY());
-					}
+					recordMoved();
 				}
 			}
 
@@ -1028,20 +1064,25 @@ public class TargetView implements Target {
 		});
 	}
 
+	// The resize zones are measured on the target's regions, not on selection decorations
+	private Rect localBounds() {
+		return membership.placed().getLocalBounds();
+	}
+
 	private boolean isTopZone(MouseEvent event) {
-		return event.getY() < (targetGroup.getLayoutBounds().getMinY() + RESIZE_MARGIN);
+		return event.getY() < (localBounds().getMinY() + RESIZE_MARGIN);
 	}
 
 	private boolean isBottomZone(MouseEvent event) {
-		return event.getY() > (targetGroup.getLayoutBounds().getMaxY() - RESIZE_MARGIN);
+		return event.getY() > (localBounds().getMaxY() - RESIZE_MARGIN);
 	}
 
 	private boolean isLeftZone(MouseEvent event) {
-		return event.getX() < (targetGroup.getLayoutBounds().getMinX() + RESIZE_MARGIN);
+		return event.getX() < (localBounds().getMinX() + RESIZE_MARGIN);
 	}
 
 	private boolean isRightZone(MouseEvent event) {
-		return event.getX() > (targetGroup.getLayoutBounds().getMaxX() - RESIZE_MARGIN);
+		return event.getX() > (localBounds().getMaxX() - RESIZE_MARGIN);
 	}
 
 	private boolean isInResizeZone(MouseEvent event) {

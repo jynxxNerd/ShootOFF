@@ -18,10 +18,12 @@
 
 package com.shootoff.gui;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,14 +42,15 @@ import com.shootoff.gui.targets.TargetView;
 import com.shootoff.plugins.ProjectorTrainingExerciseBase;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.targets.CameraViews;
-import com.shootoff.targets.RectangleRegion;
 import com.shootoff.targets.io.TargetIO;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
+import com.shootoff.targets.model.ResourceResolver;
+import com.shootoff.targets.model.TargetDefinition;
 import com.shootoff.util.TimerPool;
 
 import javafx.application.Platform;
 import com.shootoff.geom.Rect;
 import com.shootoff.geom.Size;
-import javafx.scene.Group;
 import javafx.scene.control.Label;
 import javafx.scene.paint.Color;
 import javafx.stage.WindowEvent;
@@ -224,18 +227,19 @@ public class CalibrationManager implements CameraCalibrationListener {
 	}
 
 	private void createCalibrationTarget(double x, double y, double width, double height) {
-		final RectangleRegion calibrationRectangle = new RectangleRegion(x, y, width, height);
-		calibrationRectangle.setFill(Color.PURPLE);
-		calibrationRectangle.setOpacity(TargetIO.DEFAULT_OPACITY);
+		// Purple (Color.PURPLE) at the default target opacity, as before
+		final TargetDefinition definition = new TargetDefinition(Optional.empty(), Map.of(), List.of(
+				new com.shootoff.targets.model.RectangleRegion(0, x, y, width, height, "#800080", Map.of())));
 
-		final Group calibrationGroup = new Group();
-		calibrationGroup.setOnMouseClicked((e) -> {
-			calibrationGroup.requestFocus();
-		});
-		calibrationGroup.getChildren().add(calibrationRectangle);
+		final TargetComponents components;
+		try {
+			components = TargetIO.buildTarget(definition, ResourceResolver.files(), false);
+		} catch (final IOException e) {
+			// A rectangle reads no files
+			throw new UncheckedIOException(e);
+		}
 
-		calibrationTarget = Optional.of((TargetView) calibratingCanvasManager.addTarget(null, calibrationGroup,
-				new HashMap<String, String>(), false));
+		calibrationTarget = Optional.of((TargetView) calibratingCanvasManager.addTarget(components, false));
 		calibrationTarget.get().setKeepInBounds(true);
 	}
 

@@ -2,7 +2,6 @@ package com.shootoff.gui;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.util.Map;
 import java.util.Optional;
 
 import com.shootoff.camera.shot.ArenaShot;
@@ -57,20 +56,19 @@ public class MirroredCanvasManager extends CanvasManager {
 	}
 
 	@Override
-	public Target addTarget(File targetFile, Group targetGroup, Map<String, String> targetTags, boolean userDeletable) {
+	public Target addTarget(TargetComponents components, boolean userDeletable) {
+		final File targetFile = components.getTargetFile();
 		final Optional<TargetComponents> targetComponents = super.loadTarget(targetFile, false);
 
 		if (targetComponents.isPresent()) {
-			final TargetComponents tc = targetComponents.get();
-			return mirroredManager.mirrorAddTarget(targetFile, tc.getTargetGroup(), tc.getTargetTags(), userDeletable);
+			return mirroredManager.mirrorAddTarget(targetComponents.get().withTargetFile(targetFile), userDeletable);
 		}
 
 		return null;
 	}
 
-	public Target mirrorAddTarget(File targetFile, Group targetGroup, Map<String, String> targetTags,
-			boolean userDeletable) {
-		return super.addTarget(targetFile, targetGroup, targetTags, userDeletable);
+	public Target mirrorAddTarget(TargetComponents components, boolean userDeletable) {
+		return super.addTarget(components, userDeletable);
 	}
 
 	@Override
@@ -80,16 +78,18 @@ public class MirroredCanvasManager extends CanvasManager {
 		if (newTarget instanceof MirroredTarget) {
 			target = (MirroredTarget) newTarget;
 		} else {
-			target = new MirroredTarget(newTarget.getTargetFile(), ((TargetView) newTarget).getTargetGroup(),
-					newTarget.getAllTags(), config, this, ((TargetView) newTarget).isUserDeletable());
+			// Wrap the view's nodes and keep where it was placed (e.g. a course target)
+			final TargetView source = (TargetView) newTarget;
+			target = new MirroredTarget(source.getComponents(), config, this, source.isUserDeletable());
+			target.setPlacement(source.getPlacement());
 		}
 
 		final Optional<TargetComponents> targetComponents = super.loadTarget(newTarget.getTargetFile(), false);
 
 		if (targetComponents.isPresent()) {
-			final TargetComponents tc = targetComponents.get();
-			final MirroredTarget t = new MirroredTarget(newTarget.getTargetFile(), tc.getTargetGroup(),
-					tc.getTargetTags(), config, mirroredManager, ((TargetView) newTarget).isUserDeletable());
+			final TargetComponents tc = targetComponents.get().withTargetFile(newTarget.getTargetFile());
+			final MirroredTarget t = new MirroredTarget(tc, config, mirroredManager,
+					((TargetView) newTarget).isUserDeletable());
 			final Dimension2D targetDimension = target.getDimension();
 			t.mirrorSetDimensions(targetDimension.getWidth(), targetDimension.getHeight());
 			final Point2D targetPosition = target.getPosition();

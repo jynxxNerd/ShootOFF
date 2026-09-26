@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,6 +16,7 @@ import com.shootoff.config.ConfigurationException;
 import com.shootoff.gui.controller.ShootOFFController;
 import com.shootoff.gui.targets.MirroredTarget;
 import com.shootoff.gui.targets.TargetView;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
 import com.shootoff.session.Event;
 import com.shootoff.session.EventType;
 import com.shootoff.session.SessionRecorder;
@@ -49,8 +49,7 @@ class TestCanvasManagerSessionRecording {
 	}
 
 	private TargetView newTarget() {
-		return new TargetView(new File("targets/shoot.target"), new Group(), new HashMap<String, String>(), canvas,
-				false);
+		return new TargetView(TargetComponents.empty(new File("targets/shoot.target")), canvas, false);
 	}
 
 	private List<EventType> eventTypes() {
@@ -110,7 +109,7 @@ class TestCanvasManagerSessionRecording {
 	@Test
 	void targetWithoutFileIsNeverRecorded() {
 		// e.g. the manual calibration rectangle
-		final TargetView fileless = new TargetView(null, new Group(), new HashMap<String, String>(), canvas, false);
+		final TargetView fileless = new TargetView(TargetComponents.empty(null), canvas, false);
 
 		canvas.addTarget(fileless);
 		fileless.setPosition(10, 20);
@@ -123,8 +122,8 @@ class TestCanvasManagerSessionRecording {
 	void mirroredResizeIsRecordedOnTheRecordingCanvas() {
 		// Dragging a target on the (silent) arena tab resizes the projector copy through
 		// mirrorSetDimensions; that resize must be recorded
-		final MirroredTarget projectorCopy = new MirroredTarget(new File("targets/shoot.target"), new Group(),
-				new HashMap<String, String>(), config, canvas, false);
+		final MirroredTarget projectorCopy = new MirroredTarget(TargetComponents.empty(new File("targets/shoot.target")),
+				config, canvas, false);
 		canvas.addTarget(projectorCopy);
 		recorder.getCameraEvents(CAMERA).clear();
 

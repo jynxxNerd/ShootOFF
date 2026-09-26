@@ -68,7 +68,7 @@ public class TestTargetCommands {
 		targets = new ArrayList<Target>();
 		TargetComponents poiComponents = TargetIO.loadTarget(new File("targets/POI_Offset_Adjustment.target")).get();
 		poiTarget = (TargetView) canvasManager.addTarget(
-				new TargetView(poiComponents.getTargetGroup(), poiComponents.getTargetTags(), targets));
+				new TargetView(poiComponents, targets));
 		targets.add(poiTarget);
 		
 		canvasManager.addTarget(new File("targets/POI_Offset_Adjustment.target"));

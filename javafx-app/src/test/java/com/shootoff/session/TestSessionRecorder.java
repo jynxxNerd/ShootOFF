@@ -3,7 +3,6 @@ package com.shootoff.session;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,8 +15,8 @@ import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.gui.MockCanvasManager;
 import com.shootoff.gui.targets.TargetView;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
 
-import javafx.scene.Group;
 
 public class TestSessionRecorder {
 	private SessionRecorder sessionRecorder;
@@ -41,10 +40,10 @@ public class TestSessionRecorder {
 		shot = new DisplayShot(ShotColor.RED, 0, 0, 0, 2);
 
 		targetName1 = "bullseye.target";
-		target1 = new TargetView(new File(targetName1), new Group(), new HashMap<String, String>(), canvasManager, false);
+		target1 = new TargetView(TargetComponents.empty(new File(targetName1)), canvasManager, false);
 
 		targetName2 = "shoot_dont_shoot" + File.separator + " shoot.target";
-		target2 = new TargetView(new File(targetName2), new Group(), new HashMap<String, String>(), canvasManager, false);
+		target2 = new TargetView(TargetComponents.empty(new File(targetName2)), canvasManager, false);
 
 		canvasManager.addTarget(target1);
 		canvasManager.addTarget(target2);
@@ -381,8 +380,7 @@ public class TestSessionRecorder {
 	@Test
 	public void testUnregisteredTargetEventsAreIgnored() throws ConfigurationException {
 		final MockCanvasManager otherCanvas = new MockCanvasManager(new Configuration(new String[0]));
-		final TargetView unregistered = new TargetView(new File("unregistered.target"), new Group(),
-				new HashMap<String, String>(), otherCanvas, false);
+		final TargetView unregistered = new TargetView(TargetComponents.empty(new File("unregistered.target")), otherCanvas, false);
 
 		sessionRecorder.recordTargetMoved(cameraName, unregistered, 1, 2);
 		sessionRecorder.recordTargetResized(cameraName, unregistered, 3, 4);

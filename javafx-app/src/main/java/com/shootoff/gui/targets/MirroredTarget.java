@@ -1,15 +1,12 @@
 package com.shootoff.gui.targets;
 
-import java.io.File;
-import java.util.Map;
-
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.CanvasManager;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
 
 import javafx.event.EventHandler;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
-import javafx.scene.Group;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.shape.Rectangle;
@@ -17,9 +14,9 @@ import javafx.scene.shape.Rectangle;
 public class MirroredTarget extends TargetView {
 	private MirroredTarget mirroredTarget;
 
-	public MirroredTarget(File targetFile, Group target, Map<String, String> targetTags, Configuration config,
-			CanvasManager parent, boolean userDeletable) {
-		super(targetFile, target, targetTags, parent, userDeletable);
+	public MirroredTarget(TargetComponents components, Configuration config, CanvasManager parent,
+			boolean userDeletable) {
+		super(components, parent, userDeletable);
 	}
 
 	public void setMirroredTarget(MirroredTarget mirroredTarget) {

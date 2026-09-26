@@ -61,7 +61,7 @@ public class TestDuelingTree {
 
 		targets = new ArrayList<Target>();
 		TargetComponents tc = TargetIO.loadTarget(new File("targets" + File.separator + "Duel_Tree.target")).get();
-		TargetView duelTreeTarget = new TargetView(tc.getTargetGroup(), tc.getTargetTags(), new ArrayList<Target>());
+		TargetView duelTreeTarget = new TargetView(tc, new ArrayList<Target>());
 		targets.add(duelTreeTarget);
 
 		leftPaddlesHits = new ArrayList<Hit>();
