@@ -529,12 +529,16 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	public void setColumnValue(String name, String value) {
 		fx(() -> {
 			final TableView<ShotEntry> table = context.view().getShotEntryTable();
-			if (table.getItems().isEmpty()) {
-				logger.warn("{} set {} on an empty shot timer", support.exerciseName(), name);
-				return;
-			}
+			// Guarded together with the pipeline's own row append (CanvasManager.appendShotEntry),
+			// which may run on the shot queue's thread at the same moment (spec 2.2)
+			synchronized (table.getItems()) {
+				if (table.getItems().isEmpty()) {
+					logger.warn("{} set {} on an empty shot timer", support.exerciseName(), name);
+					return;
+				}
 
-			table.getItems().get(table.getItems().size() - 1).setExerciseValue(name, value);
+				table.getItems().get(table.getItems().size() - 1).setExerciseValue(name, value);
+			}
 			table.refresh();
 		});
 	}
@@ -545,10 +549,13 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 		fx(() -> {
 			final ObservableList<ShotEntry> rows = context.view().getShotEntryTable().getItems();
-			if (rows.isEmpty()) return;
+			// See setColumnValue
+			synchronized (rows) {
+				if (rows.isEmpty()) return;
 
-			final int last = rows.size() - 1;
-			rows.set(last, rows.get(last).withRowColor(Optional.of(color)));
+				final int last = rows.size() - 1;
+				rows.set(last, rows.get(last).withRowColor(Optional.of(color)));
+			}
 		});
 	}
 
@@ -562,9 +569,12 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 		fx(() -> {
 			final ObservableList<ShotEntry> rows = context.view().getShotEntryTable().getItems();
-			final Optional<Shot> previous = rows.isEmpty() ? Optional.empty()
-					: Optional.of(rows.get(rows.size() - 1).getShot());
-			rows.add(new ShotEntry(noShot, previous, Optional.of(color), false, false));
+			// See setColumnValue
+			synchronized (rows) {
+				final Optional<Shot> previous = rows.isEmpty() ? Optional.empty()
+						: Optional.of(rows.get(rows.size() - 1).getShot());
+				rows.add(new ShotEntry(noShot, previous, Optional.of(color), false, false));
+			}
 		});
 	}
 

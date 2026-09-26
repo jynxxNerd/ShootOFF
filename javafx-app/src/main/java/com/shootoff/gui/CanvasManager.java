@@ -298,7 +298,9 @@ public class CanvasManager implements CameraView {
 			cameraAlert.show();
 
 			shots.clear();
-			shotEntries.clear();
+			synchronized (shotEntries) {
+				shotEntries.clear();
+			}
 		});
 	}
 
@@ -454,7 +456,11 @@ public class CanvasManager implements CameraView {
 
 			shots.clear();
 			try {
-				if (shotEntries != null) shotEntries.clear();
+				if (shotEntries != null) {
+					synchronized (shotEntries) {
+						shotEntries.clear();
+					}
+				}
 			} catch (final NullPointerException npe) {
 				logger.error("JDK 8094135 exception", npe);
 				jdk8094135Warning();
@@ -501,22 +507,27 @@ public class CanvasManager implements CameraView {
 
 	// A shot's row in the shot timer, after the latest row
 	private void appendShotEntry(DisplayShot shot, boolean hadMalfunction, boolean hadReload) {
-		final Optional<Shot> lastShot;
+		// Guarded together with every other change to shotEntries (CanvasManager.clearShots,
+		// jdk8094135Warning, and JavaFxExerciseHost/TrainingExerciseBase's row writers), which may run
+		// on a different thread at the same moment (spec 2.2: rows are appended on one thread, in order)
+		synchronized (shotEntries) {
+			final Optional<Shot> lastShot;
 
-		if (shotEntries.isEmpty()) {
-			lastShot = Optional.empty();
-		} else {
-			lastShot = Optional.of(shotEntries.get(shotEntries.size() - 1).getShot());
-		}
+			if (shotEntries.isEmpty()) {
+				lastShot = Optional.empty();
+			} else {
+				lastShot = Optional.of(shotEntries.get(shotEntries.size() - 1).getShot());
+			}
 
-		final ShotEntry shotEntry = new ShotEntry(shot, lastShot, config.getShotTimerRowColor(), hadMalfunction,
-				hadReload);
+			final ShotEntry shotEntry = new ShotEntry(shot, lastShot, config.getShotTimerRowColor(), hadMalfunction,
+					hadReload);
 
-		try {
-			shotEntries.add(shotEntry);
-		} catch (final NullPointerException npe) {
-			logger.error("JDK 8094135 exception", npe);
-			jdk8094135Warning();
+			try {
+				shotEntries.add(shotEntry);
+			} catch (final NullPointerException npe) {
+				logger.error("JDK 8094135 exception", npe);
+				jdk8094135Warning();
+			}
 		}
 	}
 

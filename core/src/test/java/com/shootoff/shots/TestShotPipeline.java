@@ -59,6 +59,7 @@ class TestShotPipeline {
 		Optional<ShotPipeline.Arena<Shot>> arena = Optional.empty();
 		boolean hasTimer = true;
 		boolean exerciseRunning = true;
+		boolean throwOnRow = false;
 
 		FakeSurface(String name) {
 			this.name = name;
@@ -92,6 +93,8 @@ class TestShotPipeline {
 			if (!hasTimer) return Optional.empty();
 
 			return Optional.of((shot, hadMalfunction, hadReload) -> {
+				if (throwOnRow) throw new IllegalStateException("Called endChange before beginChange");
+
 				events.add(name + " row" + (hadMalfunction ? " after a malfunction" : "")
 						+ (hadReload ? " after a reload" : ""));
 				rows.add(shot);
@@ -364,5 +367,23 @@ class TestShotPipeline {
 		assertFalse(overlapped.get(), "two threads appended rows at once");
 		assertEquals(List.of(first, second), rowed);
 		assertEquals(1, Set.copyOf(threads).size());
+	}
+
+	// Defense in depth: a user interface's row list can throw (e.g. two threads changed it at once);
+	// the shot must still be shown, hit-tested, recorded and delivered
+	@Test
+	void aThrowingRowAppendDoesNotLoseTheShot() {
+		camera.addBox(10, 10, Map.of());
+		camera.addBox(200, 200, Map.of());
+		camera.throwOnRow = true;
+
+		cameraPipeline.addShot(shot(220, 220), false);
+
+		// No "Camera 1 row" event: the row append threw and was caught, but everything after it ran
+		assertEquals(List.of("Camera 1 shows (220, 220)", "Camera 1 hit test", "Camera 1 delivers a hit"), events);
+		assertEquals(List.of(), camera.rows);
+		final ShotEvent recordedShot = recorded("Camera 1").get(0);
+		assertEquals(Optional.of(1), recordedShot.getTargetIndex());
+		assertEquals(Optional.of(0), recordedShot.getHitRegionIndex());
 	}
 }

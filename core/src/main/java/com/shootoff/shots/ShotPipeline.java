@@ -198,7 +198,14 @@ public final class ShotPipeline<S extends Shot> {
 				hadMalfunction = false;
 				hadReload = false;
 			}
-			shotTimer.get().appendShotRow(shot, malfunction, reload);
+
+			// Defense in depth: a row that fails to append (e.g. a user interface's row list
+			// changed by two threads at once) must not lose the rest of the shot below
+			try {
+				shotTimer.get().appendShotRow(shot, malfunction, reload);
+			} catch (final RuntimeException e) {
+				logger.error("Appending the shot timer row failed; continuing with the shot", e);
+			}
 		}
 
 		surface.show(shot);
