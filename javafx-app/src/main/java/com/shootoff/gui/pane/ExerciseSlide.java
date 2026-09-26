@@ -21,7 +21,9 @@ package com.shootoff.gui.pane;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,8 @@ import com.shootoff.gui.controller.SessionViewerController;
 import com.shootoff.plugins.ExerciseMetadata;
 import com.shootoff.plugins.ProjectorTrainingExerciseBase;
 import com.shootoff.plugins.TrainingExercise;
+import com.shootoff.plugins.engine.ExerciseEntry;
+import com.shootoff.plugins.engine.LegacyExerciseEntry;
 import com.shootoff.plugins.engine.PluginListener;
 import com.shootoff.session.SessionRecorder;
 import com.shootoff.session.io.SessionIO;
@@ -62,6 +66,9 @@ public class ExerciseSlide extends Slide implements PluginListener, ItemSelectio
 	private final ItemSelectionPane<TrainingExercise> exerciseItemPane = new ItemSelectionPane<>(true, this);
 	private final ItemSelectionPane<TrainingExercise> projectorExerciseItemPane = new ItemSelectionPane<>(
 			exerciseItemPane.getToggleGroup(), this);
+
+	// What each registered exercise's button hands to the ExerciseListener
+	private final Map<ExerciseEntry, TrainingExercise> menuItems = new ConcurrentHashMap<>();
 
 	private static final TrainingExercise noneExercise = new TrainingExercise() {
 		@Override
@@ -187,24 +194,41 @@ public class ExerciseSlide extends Slide implements PluginListener, ItemSelectio
 	}
 
 	@Override
-	public void registerExercise(TrainingExercise exercise) {
-		final Tooltip t = new Tooltip(exercise.getInfo().getDescription());
-		t.setPrefWidth(500);
-		t.setWrapText(true);
-		exerciseItemPane.addButton(exercise, exercise.getInfo().getName(), Optional.empty(), Optional.of(t));
+	public void registerExercise(ExerciseEntry exercise) {
+		addMenuItem(exerciseItemPane, exercise);
 	}
 
 	@Override
-	public void registerProjectorExercise(TrainingExercise exercise) {
-		final Tooltip t = new Tooltip(exercise.getInfo().getDescription());
-		t.setPrefWidth(500);
-		t.setWrapText(true);
-		projectorExerciseItemPane.addButton(exercise, exercise.getInfo().getName(), Optional.empty(), Optional.of(t));
+	public void registerProjectorExercise(ExerciseEntry exercise) {
+		addMenuItem(projectorExerciseItemPane, exercise);
 	}
 
 	@Override
-	public void unregisterExercise(TrainingExercise exercise) {
-		exerciseItemPane.removeButton(exercise);
+	public void unregisterExercise(ExerciseEntry exercise) {
+		final TrainingExercise item = menuItems.remove(exercise);
+		if (item == null) return;
+
+		// A projector exercise's button is in the projector pane
+		(exercise.isProjectorOnly() ? projectorExerciseItemPane : exerciseItemPane).removeButton(item);
+	}
+
+	private void addMenuItem(ItemSelectionPane<TrainingExercise> pane, ExerciseEntry exercise) {
+		final Optional<TrainingExercise> item = menuItem(exercise);
+		if (item.isEmpty()) return;
+
+		menuItems.put(exercise, item.get());
+
+		final Tooltip t = new Tooltip(exercise.metadata().getDescription());
+		t.setPrefWidth(500);
+		t.setWrapText(true);
+		pane.addButton(item.get(), exercise.metadata().getName(), Optional.empty(), Optional.of(t));
+	}
+
+	private static Optional<TrainingExercise> menuItem(ExerciseEntry exercise) {
+		if (exercise instanceof LegacyExerciseEntry legacy) return Optional.of(legacy.prototype());
+
+		logger.warn("{} is a v2 exercise; the JavaFX app can't run those yet", exercise.metadata());
+		return Optional.empty();
 	}
 
 	public void toggleProjectorExercises(boolean isDisabled) {

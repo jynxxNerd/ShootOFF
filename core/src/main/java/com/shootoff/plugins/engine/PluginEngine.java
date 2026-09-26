@@ -1,17 +1,17 @@
 /*
  * ShootOFF - Software for Laser Dry Fire Training
  * Copyright (C) 2016 phrack
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -29,50 +29,53 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.shootoff.plugins.BouncingTargets;
-import com.shootoff.plugins.DuelingTree;
 import com.shootoff.plugins.ExerciseMetadata;
-import com.shootoff.plugins.ISSFStandardPistol;
-import com.shootoff.plugins.ParForScore;
-import com.shootoff.plugins.ParRandomShot;
-import com.shootoff.plugins.RandomShoot;
-import com.shootoff.plugins.ShootDontShoot;
-import com.shootoff.plugins.ShootForScore;
-import com.shootoff.plugins.SteelChallenge;
-import com.shootoff.plugins.TimedHolsterDrill;
-import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.util.VersionChecker;
 
 /**
  * Watch for new plugin jars and manage plugin registration and deletion.
- * 
+ *
  * @author phrack
  */
 public class PluginEngine implements Runnable {
 	private static final Logger logger = LoggerFactory.getLogger(PluginEngine.class);
 	private final Path pluginDir;
 	private final PluginListener pluginListener;
+	private final List<ExerciseLoader> loaders;
 	private final PathMatcher jarMatcher = FileSystems.getDefault().getPathMatcher("glob:*.jar");
 	private final WatchService watcher = FileSystems.getDefault().newWatchService();
 	private final Set<Plugin> plugins = new HashSet<>();
 
 	private final AtomicBoolean watching = new AtomicBoolean(false);
 
-	public PluginEngine(final PluginListener pluginListener) throws IOException {
+	/**
+	 * Lists the built-in exercises and the plugins in the <tt>shootoff.plugins</tt> folder, in the
+	 * Training menu's order: standard built-ins, then plugins, then projector built-ins.
+	 *
+	 * @param loaders
+	 *            one per plugin API version the app can run
+	 * @param builtIns
+	 *            the exercises that ship with the app
+	 */
+	public PluginEngine(final PluginListener pluginListener, final List<ExerciseLoader> loaders,
+			final List<ExerciseEntry> builtIns) throws IOException {
 		if (pluginListener == null) {
 			throw new IllegalArgumentException("pluginListener cannot be null");
 		}
 
 		pluginDir = Paths.get(System.getProperty("shootoff.plugins"));
 		this.pluginListener = pluginListener;
+		this.loaders = List.copyOf(loaders);
 
 		if (!Files.exists(pluginDir) && !pluginDir.toFile().mkdirs()) {
 			logger.error("The path specified by shootoff.plugins doesn't exist and we couldn't create it.");
@@ -84,78 +87,60 @@ public class PluginEngine implements Runnable {
 					+ "shootoff.plugins property is not set to a directory");
 		}
 
-		registerDefaultStandardTrainingExercises();
+		for (final ExerciseEntry builtIn : builtIns) {
+			if (!builtIn.isProjectorOnly()) pluginListener.registerExercise(builtIn);
+		}
+
 		enumerateExistingPlugins();
-		registerDefaultProjectorExercises();
+
+		for (final ExerciseEntry builtIn : builtIns) {
+			if (builtIn.isProjectorOnly()) pluginListener.registerProjectorExercise(builtIn);
+		}
 
 		pluginDir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE);
-	}
-
-	private void registerDefaultStandardTrainingExercises() {
-		pluginListener.registerExercise(new ISSFStandardPistol());
-		pluginListener.registerExercise(new RandomShoot());
-		pluginListener.registerExercise(new ShootForScore());
-		pluginListener.registerExercise(new TimedHolsterDrill());
-		pluginListener.registerExercise(new ParForScore());
-		pluginListener.registerExercise(new ParRandomShot());
-	}
-
-	private void registerDefaultProjectorExercises() {
-		pluginListener.registerProjectorExercise(new BouncingTargets());
-		pluginListener.registerProjectorExercise(new DuelingTree());
-		pluginListener.registerProjectorExercise(new ShootDontShoot());
-		pluginListener.registerProjectorExercise(new SteelChallenge());
 	}
 
 	private boolean registerPlugin(final Path jarPath) {
 		final Plugin registeringPlugin;
 
 		try {
-			registeringPlugin = new Plugin(jarPath);
+			registeringPlugin = new Plugin(jarPath, loaders);
 		} catch (final Exception e) {
 			logger.error("Error creating new plugin", e);
 			return false;
 		}
 
-		// If the plugin already exists and the new plugin is newer,
-		// unregister the old plugin before registering the new one.
-		// If the new plugin is actually older, don't load it
+		// If the plugin already exists and the new plugin is newer, unregister the old plugin before
+		// registering the new one. If the new plugin is actually older, don't load it
 		final Optional<Plugin> existingPlugin = findPlugin(registeringPlugin);
 
 		if (existingPlugin.isPresent()) {
 			final Plugin existing = existingPlugin.get();
+			final ExerciseMetadata existingMetadata = existing.getEntry().metadata();
+			final ExerciseMetadata registeringMetadata = registeringPlugin.getEntry().metadata();
 
-			final ExerciseMetadata existingMetadata = existing.getExercise().getInfo();
-			final ExerciseMetadata registeringMetadata = registeringPlugin.getExercise().getInfo();
-
-			final String existingVersion = existing.getExercise().getInfo().getVersion();
-			final String loadedVersion = registeringPlugin.getExercise().getInfo().getVersion();
-			if (VersionChecker.compareVersions(existingVersion, loadedVersion) == -1) {
-				// Existing is older
-				logger.debug("Registering plugin ({}, {}, {}, {}) is a newer duplicate of an " +
-						"already registered plugin ({}, {}, {}, {})",
-						registeringMetadata.getName(), registeringMetadata.getVersion(), registeringMetadata.getCreator(),
-						registeringPlugin.getJarPath(),
-						existingMetadata.getName(), existingMetadata.getVersion(), existingMetadata.getCreator(),
-						existing.getJarPath());
+			if (VersionChecker.compareVersions(existingMetadata.getVersion(), registeringMetadata.getVersion()) == -1) {
+				logger.debug("Registering plugin ({}, {}, {}, {}) is a newer duplicate of an "
+						+ "already registered plugin ({}, {}, {}, {})", registeringMetadata.getName(),
+						registeringMetadata.getVersion(), registeringMetadata.getCreator(),
+						registeringPlugin.getJarPath(), existingMetadata.getName(), existingMetadata.getVersion(),
+						existingMetadata.getCreator(), existing.getJarPath());
 				unregisterPlugin(existing);
 			} else {
-				// Existing is newer or the same, do nothing
-				logger.debug("Registering plugin ({}, {}, {}, {}) is an older or same version duplicate of an " +
-						"already registered plugin ({}, {}, {}, {})",
-						registeringMetadata.getName(), registeringMetadata.getVersion(), registeringMetadata.getCreator(),
-						registeringPlugin.getJarPath(),
-						existingMetadata.getName(), existingMetadata.getVersion(), existingMetadata.getCreator(),
-						existing.getJarPath());
+				logger.debug("Registering plugin ({}, {}, {}, {}) is an older or same version duplicate of an "
+						+ "already registered plugin ({}, {}, {}, {})", registeringMetadata.getName(),
+						registeringMetadata.getVersion(), registeringMetadata.getCreator(),
+						registeringPlugin.getJarPath(), existingMetadata.getName(), existingMetadata.getVersion(),
+						existingMetadata.getCreator(), existing.getJarPath());
 				return false;
 			}
 		}
 
 		if (plugins.add(registeringPlugin)) {
-			if (PluginType.STANDARD.equals(registeringPlugin.getType())) {
-				pluginListener.registerExercise(registeringPlugin.getExercise());
-			} else if (PluginType.PROJECTOR_ONLY.equals(registeringPlugin.getType())) {
-				pluginListener.registerProjectorExercise(registeringPlugin.getExercise());
+			if (registeringPlugin.getEntry().isProjectorOnly()) {
+				pluginListener.registerProjectorExercise(registeringPlugin.getEntry());
+			} else {
+				pluginListener.registerExercise(registeringPlugin.getEntry());
 			}
 		}
 
@@ -163,13 +148,13 @@ public class PluginEngine implements Runnable {
 	}
 
 	private void unregisterPlugin(Plugin plugin) {
-		pluginListener.unregisterExercise(plugin.getExercise());
+		pluginListener.unregisterExercise(plugin.getEntry());
 		plugins.remove(plugin);
 	}
 
 	private void enumerateExistingPlugins() {
-		try {
-			Files.walk(pluginDir).forEach(filePath -> {
+		try (Stream<Path> files = Files.walk(pluginDir)) {
+			files.forEach(filePath -> {
 				if (Files.isRegularFile(filePath) && jarMatcher.matches(filePath.getFileName())) {
 					registerPlugin(filePath);
 				}
@@ -179,15 +164,15 @@ public class PluginEngine implements Runnable {
 		}
 	}
 
+	// Plugins are the same exercise if they have the same name and creator
 	private Optional<Plugin> findPlugin(Plugin plugin) {
-		for (final Plugin p : plugins) {
-			final ExerciseMetadata existingMetadata = p.getExercise().getInfo();
-			final ExerciseMetadata newMetadata = plugin.getExercise().getInfo();
+		final ExerciseMetadata newMetadata = plugin.getEntry().metadata();
 
-			// Plugins are considered to be the same if they have the
-			// same name and creator
-			if (existingMetadata.getName().equals(newMetadata.getName()) && 
-					existingMetadata.getCreator().equals(newMetadata.getCreator())) {
+		for (final Plugin p : plugins) {
+			final ExerciseMetadata existingMetadata = p.getEntry().metadata();
+
+			if (existingMetadata.getName().equals(newMetadata.getName())
+					&& existingMetadata.getCreator().equals(newMetadata.getCreator())) {
 				return Optional.of(p);
 			}
 		}
@@ -199,9 +184,12 @@ public class PluginEngine implements Runnable {
 		return plugins;
 	}
 
-	public Optional<Plugin> getPlugin(TrainingExercise trainingExercise) {
+	/**
+	 * @return the plugin whose exercise has <tt>metadata</tt>; empty for a built-in exercise
+	 */
+	public Optional<Plugin> getPlugin(ExerciseMetadata metadata) {
 		for (final Plugin p : plugins) {
-			if (p.getExercise().getInfo().equals(trainingExercise.getInfo())) return Optional.of(p);
+			if (p.getEntry().metadata().equals(metadata)) return Optional.of(p);
 		}
 
 		return Optional.empty();

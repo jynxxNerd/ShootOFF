@@ -29,23 +29,23 @@ public class TestPlugin {
 
 	@Test
 	public void testStandardPlugin() throws ParserConfigurationException, SAXException, IOException {
-		Plugin p = new Plugin(pluginDir.resolve(Paths.get("ShotScore.jar")));
-		assertEquals("com.shootoff.plugins.ShotScore", p.getExercise().getClass().getName());
-		assertEquals("Shot Score", p.getExercise().getInfo().getName());
+		Plugin p = new Plugin(pluginDir.resolve(Paths.get("ShotScore.jar")), ExerciseLoaders.all());
+		assertEquals("com.shootoff.plugins.ShotScore", p.getEntry().exerciseClass().getName());
+		assertEquals("Shot Score", p.getEntry().metadata().getName());
 		assertEquals(PluginType.STANDARD, p.getType());
 	}
 
 	@Test
 	public void testProjectorPlugin() throws ParserConfigurationException, SAXException, IOException {
-		Plugin p = new Plugin(pluginDir.resolve(Paths.get("SteelContest.jar")));
-		assertEquals("com.shootoff.plugins.SteelContest", p.getExercise().getClass().getName());
-		assertEquals("Steel Contest", p.getExercise().getInfo().getName());
+		Plugin p = new Plugin(pluginDir.resolve(Paths.get("SteelContest.jar")), ExerciseLoaders.all());
+		assertEquals("com.shootoff.plugins.SteelContest", p.getEntry().exerciseClass().getName());
+		assertEquals("Steel Contest", p.getEntry().metadata().getName());
 		assertEquals(PluginType.PROJECTOR_ONLY, p.getType());
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testUnknownPlugin() throws ParserConfigurationException, SAXException, IOException {
 		@SuppressWarnings("unused")
-		Plugin p = new Plugin(pluginDir.resolve(Paths.get("Unknown.jar")));
+		Plugin p = new Plugin(pluginDir.resolve(Paths.get("Unknown.jar")), ExerciseLoaders.all());
 	}
 }

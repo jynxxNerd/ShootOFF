@@ -59,11 +59,13 @@ import com.shootoff.gui.pane.FileSlide;
 import com.shootoff.gui.pane.ProjectorSlide;
 import com.shootoff.gui.pane.ShotSectorPane;
 import com.shootoff.gui.pane.TargetSlide;
+import com.shootoff.plugins.BuiltInExercises;
 import com.shootoff.plugins.ExerciseMetadata;
 import com.shootoff.plugins.ProjectorTrainingExerciseBase;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.TrainingExerciseBase;
 import com.shootoff.plugins.TrainingExerciseView;
+import com.shootoff.plugins.engine.ExerciseLoaders;
 import com.shootoff.plugins.engine.Plugin;
 import com.shootoff.plugins.engine.PluginEngine;
 import com.shootoff.targets.CameraViews;
@@ -180,7 +182,7 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		projectorSlide = new ProjectorSlide(controlsContainer, bodyContainer, this, shootOFFStage,
 				trainingExerciseContainer, this, exerciseSlide);
 
-		pluginEngine = new PluginEngine(exerciseSlide);
+		pluginEngine = new PluginEngine(exerciseSlide, ExerciseLoaders.all(), BuiltInExercises.entries());
 		pluginEngine.startWatching();
 
 		defaultWindowTitle = shootOFFStage.getTitle();
@@ -978,7 +980,7 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 
 			final TrainingExercise newExercise = (TrainingExercise) ctor.newInstance(knownTargets);
 
-			final Optional<Plugin> plugin = pluginEngine.getPlugin(newExercise);
+			final Optional<Plugin> plugin = pluginEngine.getPlugin(newExercise.getInfo());
 			if (plugin.isPresent()) {
 				config.setPlugin(plugin.get());
 			} else {
@@ -1012,7 +1014,7 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 			final TrainingExercise newExercise = (TrainingExercise) ctor
 					.newInstance(projectorSlide.getArenaPane().getCanvasManager().getTargets());
 
-			final Optional<Plugin> plugin = pluginEngine.getPlugin(newExercise);
+			final Optional<Plugin> plugin = pluginEngine.getPlugin(newExercise.getInfo());
 			if (plugin.isPresent()) {
 				config.setPlugin(plugin.get());
 			} else {

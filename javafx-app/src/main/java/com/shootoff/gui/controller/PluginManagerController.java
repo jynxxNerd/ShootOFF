@@ -431,7 +431,7 @@ public class PluginManagerController {
 
 		public Optional<Plugin> findInstalledPlugin(final Set<Plugin> plugins) {
 			for (final Plugin p : plugins) {
-				final ExerciseMetadata exerciseMetadata = p.getExercise().getInfo();
+				final ExerciseMetadata exerciseMetadata = p.getEntry().metadata();
 
 				if (exerciseMetadata.getName().equals(getName())) {
 					return Optional.of(p);
@@ -470,7 +470,7 @@ public class PluginManagerController {
 
 			if (isPluginCompatible(metadata.getMinShootOFFVersion(), metadata.getMaxShootOFFVersion())) {
 				if (installedPlugin.isPresent()
-						&& VersionChecker.compareVersions(installedPlugin.get().getExercise().getInfo().getVersion(),
+						&& VersionChecker.compareVersions(installedPlugin.get().getEntry().metadata().getVersion(),
 								metadata.getVersion()) < 0) {
 					// Plugin is already installed but the installed version is
 					// older than the current compatible version, so auto-update

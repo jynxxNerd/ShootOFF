@@ -79,10 +79,10 @@ class TestPluginDescriptorIsolation {
 
 	@Test
 	void testLoadsExerciseFromJarUsingItsOwnDescriptor() throws Exception {
-		final Plugin plugin = new Plugin(buildPluginJar(true));
+		final Plugin plugin = new Plugin(buildPluginJar(true), ExerciseLoaders.all());
 
-		assertEquals(EXERCISE_CLASS, plugin.getExercise().getClass().getName());
-		assertEquals("Test Exercise", plugin.getExercise().getInfo().getName());
+		assertEquals(EXERCISE_CLASS, plugin.getEntry().exerciseClass().getName());
+		assertEquals("Test Exercise", plugin.getEntry().metadata().getName());
 		assertEquals(PluginType.STANDARD, plugin.getType());
 	}
 
@@ -90,6 +90,6 @@ class TestPluginDescriptorIsolation {
 	void testJarWithoutDescriptorIsRejected() throws Exception {
 		final Path jar = buildPluginJar(false);
 
-		assertThrows(IllegalArgumentException.class, () -> new Plugin(jar));
+		assertThrows(IllegalArgumentException.class, () -> new Plugin(jar, ExerciseLoaders.all()));
 	}
 }
