@@ -16,6 +16,8 @@ dependencies {
     api(project(":core"))
     api(project(":plugin-api"))
     testImplementation(testFixtures(project(":core")))
+    // ExerciseHostContract, which JavaFxExerciseHost must pass
+    testImplementation(testFixtures(project(":plugin-api")))
 
     // Also needed at compile time: JavaFXToolkitInitializer implements
     // TestExecutionListener to work around a GTK2/GTK3 native library
