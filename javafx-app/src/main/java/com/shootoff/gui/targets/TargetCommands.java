@@ -30,7 +30,9 @@ import com.shootoff.plugins.TrainingExerciseBase;
 import com.shootoff.camera.shot.BoundsShot;
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.CanvasManager;
+import com.shootoff.geom.Point;
 import com.shootoff.gui.Resetter;
+import com.shootoff.shots.PoiAdjustment;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RectangleRegion;
@@ -129,32 +131,19 @@ public class TargetCommands implements CommandProcessor {
 			
 			// Pair is convenient but it's clearly not the intended use.
 			// Refactor it if it bugs you
-			Pair<Double, Double> translated = canvasManager.translateCanvasToCameraPoint(nodeBounds.getX() + reg.getBoundsInParent().getMinX() + regcenterx, nodeBounds.getY() + reg.getBoundsInParent().getMinY() + regcentery);
-			regcenterx = translated.getKey();
-			regcentery = translated.getValue();
-			
-			double offsetx = ((BoundsShot)hit.getShot()).getBoundsX();
-			double offsety = ((BoundsShot)hit.getShot()).getBoundsY();
-			
-			offsetx = (offsetx - regcenterx) / hit.getTarget().getScaleX();
-			offsety = (offsety - regcentery) / hit.getTarget().getScaleY();
+			final Pair<Double, Double> translated = canvasManager.translateCanvasToCameraPoint(nodeBounds.getX() + reg.getBoundsInParent().getMinX() + regcenterx, nodeBounds.getY() + reg.getBoundsInParent().getMinY() + regcentery);
+			final BoundsShot shot = (BoundsShot) hit.getShot();
+			final Point offset = PoiAdjustment.offset(new Point(translated.getKey(), translated.getValue()),
+					new Point(shot.getBoundsX(), shot.getBoundsY()), hit.getTarget().getScaleX(),
+					hit.getTarget().getScaleY());
 
 			if (logger.isTraceEnabled()) {
-				logger.trace("Adjusting POI regcenterx {} regcentery {}", regcenterx, regcentery);
+				logger.trace("Adjusting POI regcenterx {} regcentery {}", translated.getKey(), translated.getValue());
 				logger.trace("Adjusting POI scalex {} scaley {}", hit.getTarget().getScaleX(), hit.getTarget().getScaleY());
-				logger.trace("Adjusting POI offsetx {} offsety {}", offsetx, offsety);
+				logger.trace("Adjusting POI offsetx {} offsety {}", offset.getX(), offset.getY());
 			}
 
-			if (config.updatePOIAdjustment(offsetx, offsety)) {
-				TrainingExerciseBase.playSound("sounds/beep2.wav");
-				try {
-					Thread.sleep(200);
-				} catch (InterruptedException e) {}
-				TrainingExerciseBase.playSound("sounds/beep2.wav");
-			} else if (config.isAdjustingPOI())
-				TrainingExerciseBase.playSound("sounds/beep.wav");
-			else
-				TrainingExerciseBase.playSound("sounds/beep2.wav");
+			PoiAdjustment.apply(config, offset);
 		}
 	}
 }

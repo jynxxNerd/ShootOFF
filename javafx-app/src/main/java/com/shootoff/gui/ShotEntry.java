@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.DisplayShot;
-import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.shots.TimerRow;
 
 import javafx.scene.paint.Color;
 
@@ -40,27 +40,11 @@ public class ShotEntry {
 			boolean hadReload) {
 		this.shot = shot;
 
-		if (ShotColor.RED.equals(shot.getColor())) {
-			color = "red";
-		} else if (ShotColor.GREEN.equals(shot.getColor())) {
-			color = "green";
-		} else {
-			color = "infrared";
-		}
-
+		final TimerRow row = TimerRow.of(shot, lastShot, hadMalfunction, hadReload);
+		color = row.laser();
 		this.rowColor = rowColor;
-
-		final float timestampS = ((float) shot.getTimestamp()) / 1000f;
-		timestamp = String.format("%.2f", timestampS);
-
-		String split;
-		if (lastShot.isPresent()) {
-			split = String.format("%.2f", timestampS - ((float) lastShot.get().getTimestamp() / 1000f));
-		} else {
-			split = "-";
-		}
-
-		this.split = new SplitData(split, rowColor, hadMalfunction, hadReload);
+		timestamp = row.time();
+		split = new SplitData(row.split(), rowColor, hadMalfunction, hadReload);
 	}
 
 	private ShotEntry(ShotEntry original, Optional<Color> rowColor) {

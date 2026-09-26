@@ -49,12 +49,14 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.camera.CameraFactory;
+import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.cameratypes.IpCamera;
 import com.shootoff.camera.processors.MalfunctionsProcessor;
 import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.session.SessionRecorder;
 import com.shootoff.util.UserNotifier;
 
 import ch.qos.logback.classic.Level;
@@ -160,6 +162,10 @@ public class Settings {
 	private Optional<Double> poiAdjustmentY = Optional.empty();
 	private boolean adjustingPOI = false;
 	private int poiAdjustmentCount = 0;
+
+	// Runtime state, never written to the configuration file
+	private final Set<CameraManager> recordingManagers = new HashSet<>();
+	private Optional<SessionRecorder> sessionRecorder = Optional.empty();
 
 	private static Settings settings = null;
 
@@ -957,6 +963,36 @@ public class Settings {
 
 	public boolean autoAdjustExposure() {
 		return autoAdjustExposure;
+	}
+
+	/**
+	 * Adds a camera whose video is saved with each shot of the session being recorded.
+	 */
+	public void registerRecordingCameraManager(CameraManager cm) {
+		recordingManagers.add(cm);
+	}
+
+	public void unregisterRecordingCameraManager(CameraManager cm) {
+		recordingManagers.remove(cm);
+	}
+
+	public void unregisterAllRecordingCameraManagers() {
+		recordingManagers.clear();
+	}
+
+	public Set<CameraManager> getRecordingManagers() {
+		return recordingManagers;
+	}
+
+	/**
+	 * Sets the session being recorded, or <tt>null</tt> when none is.
+	 */
+	public void setSessionRecorder(SessionRecorder sessionRecorder) {
+		this.sessionRecorder = Optional.ofNullable(sessionRecorder);
+	}
+
+	public Optional<SessionRecorder> getSessionRecorder() {
+		return sessionRecorder;
 	}
 
 	private final static int POI_NUM_TARGETS = 5;

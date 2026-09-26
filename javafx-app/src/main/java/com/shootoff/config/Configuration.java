@@ -24,25 +24,21 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-import com.shootoff.camera.CameraManager;
 import com.shootoff.gui.controller.VideoPlayerController;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.engine.Plugin;
-import com.shootoff.session.SessionRecorder;
 
 import javafx.scene.paint.Color;
 
 /**
- * The JavaFX app's configuration: the persisted {@link Settings} plus the app's runtime state
- * (the current exercise and plugin, the session recorder, recording cameras, open video players
- * and the shot timer row color).
+ * The JavaFX app's configuration: the persisted {@link Settings} plus the JavaFX app's own runtime
+ * state (the current exercise and plugin, open video players and the shot timer row color). The session
+ * recorder and the recording cameras are in {@link Settings}, which the shot pipeline in core reads.
  *
  * @author phrack
  */
 public class Configuration extends Settings {
-	private final Set<CameraManager> recordingManagers = new HashSet<>();
 	private final Set<VideoPlayerController> videoPlayers = new HashSet<>();
-	private Optional<SessionRecorder> sessionRecorder = Optional.empty();
 	private TrainingExercise currentExercise = null;
 	private Plugin currentPlugin = null;
 	private Optional<Color> shotRowColor = Optional.empty();
@@ -108,30 +104,6 @@ public class Configuration extends Settings {
 
 	public Optional<Color> getShotTimerRowColor() {
 		return shotRowColor;
-	}
-
-	public void registerRecordingCameraManager(CameraManager cm) {
-		recordingManagers.add(cm);
-	}
-
-	public void unregisterRecordingCameraManager(CameraManager cm) {
-		recordingManagers.remove(cm);
-	}
-
-	public void unregisterAllRecordingCameraManagers() {
-		recordingManagers.clear();
-	}
-
-	public Set<CameraManager> getRecordingManagers() {
-		return recordingManagers;
-	}
-
-	public void setSessionRecorder(SessionRecorder sessionRecorder) {
-		this.sessionRecorder = Optional.ofNullable(sessionRecorder);
-	}
-
-	public Optional<SessionRecorder> getSessionRecorder() {
-		return sessionRecorder;
 	}
 
 	public void setExercise(TrainingExercise exercise) {

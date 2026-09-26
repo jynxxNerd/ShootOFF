@@ -26,10 +26,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,10 +41,6 @@ import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
 import com.shootoff.camera.DiagnosticMessage;
 import com.shootoff.camera.Shot;
-import com.shootoff.camera.processors.MalfunctionsProcessor;
-import com.shootoff.camera.processors.ShotProcessor;
-import com.shootoff.camera.processors.VirtualMagazineProcessor;
-import com.shootoff.camera.recorders.ShotRecorder;
 import com.shootoff.camera.shot.ArenaShot;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ScaledShot;
@@ -61,7 +55,9 @@ import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.TrainingExerciseBase;
 import com.shootoff.session.SessionRecorder;
 import com.shootoff.session.TargetRef;
+import com.shootoff.shots.ShotPipeline;
 import com.shootoff.shots.ShotQueue;
+import com.shootoff.shots.ShotTimer;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RegionType;
@@ -130,8 +126,7 @@ public class CanvasManager implements CameraView {
 	// False for a canvas that mirrors another canvas that already records session events,
 	// so each target is recorded once
 	private boolean recordsSessionEvents = true;
-	private boolean hadMalfunction = false;
-	private boolean hadReload = false;
+	private final ShotPipeline<DisplayShot> shotPipeline;
 
 	private static final int MAX_FEED_FPS = 15;
 	private static final int MINIMUM_FRAME_DELTA = 1000 / MAX_FEED_FPS; // ms
@@ -147,6 +142,7 @@ public class CanvasManager implements CameraView {
 		this.resetter = resetter;
 		this.cameraName = cameraName;
 		this.shotEntries = shotEntries;
+		shotPipeline = new ShotPipeline<>(new PipelineSurface(), config);
 
 		background.setOnMouseClicked((event) -> {
 			toggleTargetSelection(Optional.empty());
@@ -500,79 +496,25 @@ public class CanvasManager implements CameraView {
 		this.showShots = showShots;
 	}
 
-	private void notifyShot(Shot shot) {
-		if (config.getSessionRecorder().isPresent()) {
-			for (final CameraManager cm : config.getRecordingManagers())
-				cm.notifyShot(shot);
-		}
-	}
+	// A shot's row in the shot timer, after the latest row
+	private void appendShotEntry(DisplayShot shot, boolean hadMalfunction, boolean hadReload) {
+		final Optional<Shot> lastShot;
 
-	private Optional<String> createVideoString(Shot shot) {
-		if (config.getSessionRecorder().isPresent() && !config.getRecordingManagers().isEmpty()) {
-			final StringBuilder sb = new StringBuilder();
-
-			for (final CameraManager cm : config.getRecordingManagers()) {
-				final ShotRecorder r = cm.getRevelantRecorder(shot);
-
-				// No recorder when forking the shot video failed
-				if (r == null) continue;
-
-				if (sb.length() > 0) {
-					sb.append(",");
-				}
-
-				sb.append(r.getCameraName().replaceAll(":", "-"));
-				sb.append(":");
-				sb.append(r.getRelativeVideoFile().getPath());
-			}
-
-			return sb.length() == 0 ? Optional.empty() : Optional.of(sb.toString());
+		if (shotEntries.isEmpty()) {
+			lastShot = Optional.empty();
+		} else {
+			lastShot = Optional.of(shotEntries.get(shotEntries.size() - 1).getShot());
 		}
 
-		return Optional.empty();
-	}
+		final ShotEntry shotEntry = new ShotEntry(shot, lastShot, config.getShotTimerRowColor(), hadMalfunction,
+				hadReload);
 
-	private Optional<ShotProcessor> processShot(Shot shot) {
-
-		Optional<ShotProcessor> rejectingProcessor = Optional.empty();
-
-		for (final ShotProcessor processor : config.getShotProcessors()) {
-			if (!processor.processShot(shot)) {
-				if (processor instanceof MalfunctionsProcessor) {
-					hadMalfunction = true;
-				} else if (processor instanceof VirtualMagazineProcessor) {
-					hadReload = true;
-				}
-
-				rejectingProcessor = Optional.of(processor);
-				logger.debug("Processing Shot: Shot Rejected By {}", processor.getClass().getName());
-				break;
-			}
+		try {
+			shotEntries.add(shotEntry);
+		} catch (final NullPointerException npe) {
+			logger.error("JDK 8094135 exception", npe);
+			jdk8094135Warning();
 		}
-
-		return rejectingProcessor;
-	}
-
-	private void recordRejectedShot(DisplayShot shot, ShotProcessor rejectingProcessor) {
-
-		if (!config.getSessionRecorder().isPresent()) return;
-
-		notifyShot(shot);
-
-		final Optional<String> videoString = createVideoString(shot);
-
-		if (rejectingProcessor instanceof MalfunctionsProcessor) {
-			config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), true, false, Optional.empty(),
-					Optional.empty(), videoString);
-		} else if (rejectingProcessor instanceof VirtualMagazineProcessor) {
-			config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), false, true, Optional.empty(),
-					Optional.empty(), videoString);
-		}
-	}
-
-	// Session files store each shot's marker radius
-	private static int markerRadius(DisplayShot shot) {
-		return (int) shot.getMarker().getRadiusX();
 	}
 
 	// For testing
@@ -585,98 +527,11 @@ public class CanvasManager implements CameraView {
 		addShot(new DisplayShot(shot, config.getMarkerRadius()), false);
 	}
 
+	/**
+	 * Handles a shot on this canvas, in its coordinates: see {@link ShotPipeline#addShot}.
+	 */
 	public void addShot(DisplayShot shot, boolean isMirroredShot) {
-		if (!isMirroredShot) {
-			final Optional<ShotProcessor> rejectingProcessor = processShot(shot);
-			if (rejectingProcessor.isPresent()) {
-				recordRejectedShot(shot, rejectingProcessor.get());
-				return;
-			} else {
-				notifyShot(shot);
-			}
-
-			// TODO: Add separate infrared sound or switch config to read
-			// "red/infrared"
-			if (config.useRedLaserSound()
-					&& (ShotColor.RED.equals(shot.getColor()) || ShotColor.INFRARED.equals(shot.getColor()))) {
-				TrainingExerciseBase.playSound(config.getRedLaserSound());
-			} else if (config.useGreenLaserSound() && ShotColor.GREEN.equals(shot.getColor())) {
-				TrainingExerciseBase.playSound(config.getGreenLaserSound());
-			}
-		}
-
-		// Create a shot entry to show the shot's data
-		// in the shot timer table if the shot timer
-		// table is in use
-		if (shotEntries != null) {
-			final Optional<Shot> lastShot;
-
-			if (shotEntries.isEmpty()) {
-				lastShot = Optional.empty();
-			} else {
-				lastShot = Optional.of(shotEntries.get(shotEntries.size() - 1).getShot());
-			}
-
-			final ShotEntry shotEntry;
-			if (hadMalfunction || hadReload) {
-				shotEntry = new ShotEntry(shot, lastShot, config.getShotTimerRowColor(), hadMalfunction, hadReload);
-				hadMalfunction = false;
-				hadReload = false;
-			} else {
-				shotEntry = new ShotEntry(shot, lastShot, config.getShotTimerRowColor(), false, false);
-			}
-
-			try {
-				shotEntries.add(shotEntry);
-			} catch (final NullPointerException npe) {
-				logger.error("JDK 8094135 exception", npe);
-				jdk8094135Warning();
-			}
-		}
-
-		shots.add(shot);
-		drawShot(shot);
-
-		final Optional<String> videoString = createVideoString(shot);
-
-		boolean passedToArena = false;
-		boolean processedShot = false;
-
-		if (arenaPane.isPresent() && !(this instanceof MirroredCanvasManager) && projectionBounds.isPresent()) {
-			final Rect b = projectionBounds.get();
-
-			if (b.contains(shot.getX(), shot.getY())) {
-				passedToArena = true;
-
-
-				final ArenaShot arenaShot = new ArenaShot(shot);
-				
-				scaleShotToArenaBounds(arenaShot);
-
-				processedShot = arenaPane.get().getCanvasManager().addArenaShot(arenaShot, videoString, isMirroredShot);
-			}
-		}
-
-		// If the arena canvas handled the shot, we don't need to do anything
-		// else
-		if (passedToArena || processedShot) return;
-
-		final Optional<TrainingExercise> currentExercise = config.getExercise();
-		final Optional<Hit> hit = checkHit(shot, videoString, isMirroredShot);
-		if (hit.isPresent() && hit.get().getHitRegion().tagExists("command")) executeRegionCommands(hit.get(), isMirroredShot);
-
-		if (currentExercise.isPresent() && !processedShot) {
-			// If the canvas is mirrored, use the one without the camera manager
-			// for exercises because that is the one for the arena window.
-			// If we use the arena tab canvas manager the targets will be
-			// copies and will not be the versions of the targets added
-			// by exercises.
-			if ((this instanceof MirroredCanvasManager) && cameraManager == null) {
-				notifyExercise(currentExercise.get(), shot, hit);
-			} else if (!(this instanceof MirroredCanvasManager)) {
-				notifyExercise(currentExercise.get(), shot, hit);
-			}
-		}
+		shotPipeline.addShot(shot, isMirroredShot);
 	}
 
 	public void scaleShotToArenaBounds(ArenaShot shot) {
@@ -694,24 +549,29 @@ public class CanvasManager implements CameraView {
 		logger.trace("scaleShotToArenaBounds post x {} y {}", shot.getX(), shot.getY());
 	}
 
+	/**
+	 * Handles a shot a camera feed passed on to this (arena) canvas: see
+	 * {@link ShotPipeline#addArenaShot}.
+	 */
 	public boolean addArenaShot(ArenaShot shot, Optional<String> videoString, boolean isMirroredShot) {
-		shots.add(shot);
-		drawShot(shot);
+		return shotPipeline.addArenaShot(shot, videoString, isMirroredShot);
+	}
 
-		final Optional<TrainingExercise> currentExercise = config.getExercise();
-		final Optional<Hit> hit = checkHit(shot, videoString, isMirroredShot);
-		if (hit.isPresent() && hit.get().getHitRegion().tagExists("command")) {
-			executeRegionCommands(hit.get(), isMirroredShot);
+	private void drawShot(DisplayShot shot) {
+		final Runnable drawShotAction = () -> {
+			canvasGroup.getChildren().add(shot.getMarker());
+			shot.getMarker().setVisible(showShots);
+		};
+
+		if (Platform.isFxApplicationThread()) {
+			drawShotAction.run();
+		} else {
+			Platform.runLater(drawShotAction);
 		}
+	}
 
-		if (!isMirroredShot) {
-			if (currentExercise.isPresent()) {
-				notifyExercise(currentExercise.get(), shot, hit);
-				return true;
-			}
-		}
-
-		return false;
+	protected Optional<Hit> checkHit(DisplayShot shot, Optional<String> videoString, boolean isMirroredShot) {
+		return shotPipeline.hitTest(shot, videoString, isMirroredShot).flatMap(hit -> toHit(shot, hit));
 	}
 
 	/**
@@ -730,67 +590,13 @@ public class CanvasManager implements CameraView {
 		}
 	}
 
-	private void drawShot(DisplayShot shot) {
-		final Runnable drawShotAction = () -> {
-			canvasGroup.getChildren().add(shot.getMarker());
-			shot.getMarker().setVisible(showShots);
-		};
-
-		if (Platform.isFxApplicationThread()) {
-			drawShotAction.run();
-		} else {
-			Platform.runLater(drawShotAction);
-		}
-	}
-
-	protected Optional<Hit> checkHit(DisplayShot shot, Optional<String> videoString, boolean isMirroredShot) {
-		// An ArenaShot's getX/getY are its arena coordinates
-		final double x = shot.getX();
-		final double y = shot.getY();
-
-		// The model checks visible targets topmost (last added) first, so shots register for the
-		// top target when targets overlap
-		final Optional<com.shootoff.targets.model.Hit> modelHit = HitTester.hit(targetSet, x, y);
-		final Optional<TargetView> target = modelHit.flatMap(h -> targetFor(h.targetId()));
-
-		if (modelHit.isPresent() && target.isPresent()) {
-			final Hit hit = target.get().toHit(modelHit.get(), x, y);
+	// The v1 hit for a hit on this canvas's targets; empty if another thread removed the target meanwhile
+	private Optional<Hit> toHit(DisplayShot shot, com.shootoff.targets.model.Hit modelHit) {
+		return targetFor(modelHit.targetId()).map(target -> {
+			final Hit hit = target.toHit(modelHit, shot.getX(), shot.getY());
 			hit.setShot(shot);
-
-			final TargetRegion region = hit.getHitRegion();
-
-			if (config.inDebugMode()) {
-				final Map<String, String> tags = region.getAllTags();
-
-				final StringBuilder tagList = new StringBuilder();
-				for (final Iterator<Entry<String, String>> it = tags.entrySet().iterator(); it.hasNext();) {
-					final Entry<String, String> entry = it.next();
-					tagList.append(entry.getKey());
-					tagList.append(":");
-					tagList.append(entry.getValue());
-					if (it.hasNext()) tagList.append(", ");
-				}
-
-				logger.debug("Processing Shot: Found Hit Region For Shot ({}, {}), Type ({}), Tags ({})",
-						shot.getX(), shot.getY(), region.getType(), tagList.toString());
-			}
-
-			if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
-				config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), false, false,
-						Optional.of(target.get().getTargetRef()), Optional.of(modelHit.get().region().index()), videoString);
-			}
-
-			return Optional.of(hit);
-		}
-
-		logger.debug("Processing Shot: Did Not Find Hit For Shot ({}, {})", shot.getX(), shot.getY());
-
-		if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
-			config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), false, false, Optional.empty(),
-					Optional.empty(), videoString);
-		}
-
-		return Optional.empty();
+			return hit;
+		});
 	}
 
 	// The view of a target in this canvas's set; empty if another thread removed it meanwhile
@@ -809,6 +615,95 @@ public class CanvasManager implements CameraView {
 		else
 			TargetView.parseCommandTag(hit.getHitRegion(), new TargetCommands(this, targets, resetter, hit, isMirroredShot));
 
+	}
+
+	// This canvas, as the shot pipeline sees it
+	private final class PipelineSurface implements ShotPipeline.Surface<DisplayShot> {
+		@Override
+		public String name() {
+			return cameraName;
+		}
+
+		@Override
+		public TargetSet targets() {
+			return targetSet;
+		}
+
+		@Override
+		public Optional<com.shootoff.targets.model.Hit> hitTest(double x, double y) {
+			// The model checks visible targets topmost (last added) first, so shots register for the
+			// top target when targets overlap
+			return HitTester.hit(targetSet, x, y).filter(hit -> targetFor(hit.targetId()).isPresent());
+		}
+
+		@Override
+		public Optional<ShotTimer<DisplayShot>> shotTimer() {
+			if (shotEntries == null) return Optional.empty();
+
+			return Optional.of(CanvasManager.this::appendShotEntry);
+		}
+
+		@Override
+		public void show(DisplayShot shot) {
+			shots.add(shot);
+			drawShot(shot);
+		}
+
+		@Override
+		public int markerRadius(DisplayShot shot) {
+			return (int) shot.getMarker().getRadiusX();
+		}
+
+		@Override
+		public void runRegionCommands(DisplayShot shot, com.shootoff.targets.model.Hit hit, boolean mirrored) {
+			toHit(shot, hit).ifPresent(v1Hit -> executeRegionCommands(v1Hit, mirrored));
+		}
+
+		@Override
+		public boolean deliver(DisplayShot shot, Optional<com.shootoff.targets.model.Hit> hit, boolean arenaShot) {
+			final Optional<TrainingExercise> currentExercise = config.getExercise();
+			if (currentExercise.isEmpty()) return false;
+
+			// If the canvas is mirrored, use the one without the camera manager for exercises because
+			// that is the one for the arena window. If we use the arena tab canvas manager the targets
+			// will be copies and will not be the versions of the targets added by exercises.
+			if (!arenaShot && CanvasManager.this instanceof MirroredCanvasManager && cameraManager != null) return false;
+
+			notifyExercise(currentExercise.get(), shot, hit.flatMap(h -> toHit(shot, h)));
+			return true;
+		}
+
+		@Override
+		public Optional<ShotPipeline.Arena<DisplayShot>> arena() {
+			if (arenaPane.isEmpty() || CanvasManager.this instanceof MirroredCanvasManager) return Optional.empty();
+
+			return Optional.of(new ArenaLink());
+		}
+	}
+
+	// The projector arena, as this camera feed's canvas passes shots on to it
+	private final class ArenaLink implements ShotPipeline.Arena<DisplayShot> {
+		@Override
+		public Optional<Rect> projection() {
+			return projectionBounds;
+		}
+
+		@Override
+		public Size size() {
+			return new Size(arenaPane.get().getWidth(), arenaPane.get().getHeight());
+		}
+
+		@Override
+		public DisplayShot toArenaShot(DisplayShot shot, Point arenaPoint) {
+			final ArenaShot arenaShot = new ArenaShot(shot);
+			arenaShot.setArenaCoords(arenaPoint.getX(), arenaPoint.getY());
+			return arenaShot;
+		}
+
+		@Override
+		public boolean addArenaShot(DisplayShot shot, Optional<String> videoString, boolean mirrored) {
+			return arenaPane.get().getCanvasManager().addArenaShot((ArenaShot) shot, videoString, mirrored);
+		}
 	}
 
 	protected Optional<TargetComponents> loadTarget(File targetFile, boolean playAnimations) {
