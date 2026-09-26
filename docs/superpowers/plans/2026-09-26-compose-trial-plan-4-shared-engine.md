@@ -5,8 +5,9 @@
 **Goal:** Move the four UI-neutral pieces the Compose app would otherwise copy (arena geometry, the shot pipeline, the calibration flow and exercise host support) out of `javafx-app` into `core` and `plugin-api`, switch the JavaFX app onto each in the same task, and pin `JavaFxExerciseHost` with a shared `ExerciseHost` contract suite, with the JavaFX app behaving exactly as before.
 
 **Architecture:**
+- **Task 0: tests keep off `shootoff.properties`.** The three tests that wrote the working tree's `shootoff.properties` (the owner's settings) build their configuration on a scratch file, and fail if the working tree's file changes while they run.
 - **Task 1: arena geometry.** `core`'s `com.shootoff.geom.ArenaGeometry` holds the camera ↔ canvas ↔ arena arithmetic that was in `CanvasManager`, operation for operation. `CanvasManager`'s translate helpers and `scaleShotToArenaBounds` call it.
-- **Task 2: one shot queue.** `ShotDetector.submitShot` hands every detected shot to `core`'s `ShotQueue`: one thread, detection order. It replaces a new "Shot Notifier" thread per shot, which let two shots from one camera frame change the JavaFX shot timer at once.
+- **Task 2: one shot queue.** `ShotDetector.submitShot` hands every detected shot to `core`'s `ShotQueue`: one thread, detection order. It replaces a new "Shot Notifier" thread per shot, which let two shots from one camera frame change the JavaFX shot timer at once. A v1 exercise's `shotListener` still runs on a thread of its own, after the shot's row is in the timer, so a v1 exercise that blocks can't hold up later shots.
 - **Task 3: the shot pipeline.** `core`'s `ShotPipeline` does everything between a detected shot and the exercise: processors, laser sound, the timer row, the marker, passing shots inside the projection to the arena in arena coordinates, hit-testing on the right `TargetSet`, session recording, region commands and delivery. A user interface supplies a `ShotPipeline.Surface`; `CanvasManager` is the JavaFX one. The session recorder and recording cameras move from `Configuration` to `Settings`. The shot timer's text moves to `TimerRow`, and `poi_adjust`'s arithmetic to `PoiAdjustment`.
 - **Task 4: the calibration flow.** `core`'s `CalibrationFlow` is the state machine: stop the projector exercise → full screen → pattern and auto-detect → success, or timeout to the manual box → save bounds → restore, then restart the exercise. `CalibrationManager` keeps only the JavaFX drawing and input, behind `CalibrationFlow.View`. `CameraManager` implements `CalibrationCamera`.
 - **Task 5: exercise host support.** `plugin-api`'s `ExerciseHostSupport` (package `com.shootoff.exercise.host`) holds the UI-neutral half of `JavaFxExerciseHost`: the exercise thread and callbacks, exactly-once stop with the targets to remove, name resolution (jar first), timer rows, and the par/delay listeners. `SavedBackground` holds background save/restore. `JavaFxExerciseHost` becomes a JavaFX layer over them.
@@ -23,8 +24,14 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
 
 1. **Packages.** `core` gains `com.shootoff.geom.ArenaGeometry` (next to `Rect`, `Size` and `Point`), `com.shootoff.shots` (`ShotQueue`, `ShotPipeline`, `ShotTimer`, `TimerRow`, `PoiAdjustment`) and `com.shootoff.calibration` (`CalibrationFlow`, `CalibrationCamera`). `plugin-api` gains `com.shootoff.exercise.host` (`ExerciseHostSupport`, `SavedBackground`). That package is for hosts, not exercise authors, so it stays out of `com.shootoff.exercise`. *Cost if wrong:* renames before Plan 5 uses them.
 2. **The session recorder and the recording cameras move from `Configuration` to `Settings`**, with the same six methods (`register…`, `unregister…`, `unregisterAll…`, `getRecordingManagers`, `setSessionRecorder`, `getSessionRecorder`). The pipeline in `core` records shots and needs them. Code compiled against `Configuration` still links: the JVM finds the methods in the superclass. *Cost:* none known; Task 7 Step 1 checks the descriptors.
-3. **One shot queue for every camera.** Detected shots are handled on one daemon thread, `Shot Notifier`, in detection order (`ShotQueue.shared()`). This is how the spec's "rows are appended on one thread in order" is met, for the JavaFX app too. Behavior change: a v1 exercise that blocks inside `shotListener` now delays the next shot's marker and row, though not its time. For example, Shoot Don't Shoot's "Bad shoot!" speech, or its `NewRound` run in place. Before, each shot had its own thread. *Cost if wrong:* a visible lag after a don't-shoot hit. Task 7 looks for it.
-4. **Rows stay on the shot thread.** The JavaFX row is still appended on the thread that handles the shot, now the queue's, before the exercise hears the shot. So a v1 exercise's `setShotTimerColumnText` from `shotListener` fills that shot's row, as before. Moving appends to the JavaFX thread would reorder them against v1 code. *Cost:* the `TableView` still reads a list changed off the JavaFX thread, as it always has.
+3. **One shot queue for the pipeline; v1 shot callbacks stay off it.**
+   - Every camera's detected shots are handled on one daemon thread, `Shot Notifier`, in detection order (`ShotQueue.shared()`): processors, the row, the marker, hit-testing, session recording and region commands. This is how the spec's "rows are appended on one thread in order" is met, for the JavaFX app too.
+   - A v1 exercise's `shotListener` is handed off the queue to a new thread per shot (`Shot Listener`), as the old per-shot thread ran it. So a v1 exercise that blocks there, for example Shoot Don't Shoot speaking "Bad shoot!" or running its `NewRound` in place, can't delay later shots. `CanvasManager.notifyExercise` does the hand-off, in Task 2 for the old code and in Task 3 inside the pipeline's `deliver`.
+   - A v2 exercise (`HostedExercise`) is called on the queue: its host only queues the shot onto the exercise's own thread, in order.
+   - On any other thread (click-to-shoot on the JavaFX thread, a v1 exercise adding a shot itself, tests calling `addShot`), the exercise is called in place, as before.
+
+   *Cost:* as before this plan, two quick shots' v1 callbacks may run at the same time or out of order; v1 exercises lived with that.
+4. **Rows stay on the shot thread.** The JavaFX row is still appended on the thread that handles the shot, now the queue's, before the exercise's listener is dispatched. So a v1 exercise's `setShotTimerColumnText` from `shotListener` fills that shot's row, as before. Moving appends to the JavaFX thread would reorder them against v1 code. *Cost:* the `TableView` still reads a list changed off the JavaFX thread, as it always has.
 5. **The ignored laser color stays in `ShotDetector`.** It is already in `core` (`checkIgnoreColor`, covered by `TestShotDetector.ignoredLaserColorIsDropped`), and it runs before a shot reaches the pipeline. *Cost:* none.
 6. **The pipeline keeps the JavaFX canvases' rules through its `Surface` port:**
    - A *mirrored* shot is a copy on the arena tab: no processors, sound or recording, and its region commands know it is a copy.
@@ -56,7 +63,7 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
     - `CanvasManager` keeps `addShot`, `addArenaShot`, `checkHit`, `scaleShotToArenaBounds` and the translate helpers (tests call them). They now delegate.
     - `JavaFxExerciseHost` keeps its API.
 
-    No existing test changes. *Cost:* thin delegating methods stay in the JavaFX classes.
+    No existing test changes, apart from the setup of the three configuration-writing tests (ruling 15). *Cost:* thin delegating methods stay in the JavaFX classes.
 12. **Host support is generic in the UI's target type** (`ExerciseHostSupport<T>`). It tracks targets. The UI host still tracks its own nodes (labels, buttons, panes, columns, markers) and removes them when `stop()` returns a `Stopped`. `stop()` on the JavaFX thread still tears down synchronously (the fix in `521e9bcb`), and a jar target on the arena is still added by file on the projector canvas and hidden on both copies (`bc444821`). *Cost:* none known.
 13. **The contract suite lives in `plugin-api`'s test fixtures** (`com.shootoff.exercise.ExerciseHostContract`):
     - JUnit is `testFixturesCompileOnly`, so the published fixtures still depend on nothing new. The drill fetches them with `isTransitive = false` and never loads the class.
@@ -66,10 +73,16 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
 
     *Cost:* Plan 5's Compose test module needs the same `testFixtures` dependency.
 14. **Log text.** Moved code logs the same messages, with one exception. The debug line for a hit now names the model region's class ("RectangleRegion") where it named the v1 `RegionType` ("RECTANGLE"). *Cost:* none; debug only.
-15. **New tests never write `shootoff.properties`.** `TestPoiAdjustment` overrides `Settings.writeConfigurationFile`. Existing tests (`TestTargetCommands`, `TestCanvasManager.testPOIAdjust`) write it as they always have. So Task 1 saves the owner's copy, and Task 7 puts it back before the hardware check.
-16. **Order.** Tasks 1–5 follow the spec's order. The race fix (Task 2) comes before the rest of the pipeline (Task 3) because a reviewer can judge it on its own, and its reproduction test must fail first against today's code. The contract suite (Task 6) comes last, once the host it pins is on the shared support.
+15. **No test reads or writes the working tree's `shootoff.properties`** (Task 0).
+    - A probe of the whole gate found three tests that wrote it, all through `updatePOIAdjustment`: `TestConfiguration.testPOIAdjustment`, `TestCanvasManager.testPOIAdjust` and `TestTargetCommands.testPOIAdjust`.
+    - Their classes now build their configuration on an empty scratch file (`ScratchConfig.emptyFile()`). This changes only `setUp` (and adds `IOException` to its `throws`) and adds an `@After` guard; class and test method names and test bodies stay.
+    - The guard fails the test if the working tree's file changed while it ran. The new `TestPoiAdjustment` does the same.
+    - No test reads the file: `new Settings(new String[0])` never does.
 
-**v1 API breaks: none.** Every change to a type a v1 plugin can see is internal or additive (see "The v1 surface"). **Nothing in the spec's Plan 4 is infeasible.** Ruling 3 is the one visible behavior change, and it is the fix the spec asks for.
+    *Cost:* a future test that writes the configuration without a scratch file is caught only if it is in a guarded class; the gate's checksum check in Task 0 Step 5 and Task 7 Step 2 is the backstop.
+16. **Order.** Task 0 comes first, so no gate run of this plan writes the owner's settings. Tasks 1–5 follow the spec's order. The race fix (Task 2) comes before the rest of the pipeline (Task 3) because a reviewer can judge it on its own, and its reproduction test must fail first against today's code. The contract suite (Task 6) comes last, once the host it pins is on the shared support.
+
+**v1 API breaks: none.** Every change to a type a v1 plugin can see is internal or additive (see "The v1 surface"). **Nothing in the spec's Plan 4 is infeasible.** Ruling 3 changes only which thread handles a shot's rows, markers and hits (one, in order), which is the fix the spec asks for.
 
 ## Global Constraints
 
@@ -83,7 +96,7 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
 - Package names stay `com.shootoff.*`.
 - `core` and `plugin-api` must not depend on OpenJFX. `TestNoJavaFxInCore` and `TestNoJavaFxInPluginApi` enforce it for `core`, `plugin-api` and `plugin-api`'s test fixtures, so `ExerciseHostContract` must not reference `javafx.*` either.
 - Unchanged formats: `.target`, `.course`, the session formats (XML/JSON), `shootoff.properties`, and `shootoff.xml` descriptors.
-- Existing test classes and methods keep their package, class, method names and bodies: the baseline compares tests by `class.method`, and this plan changes no existing test (ruling 11).
+- Existing test classes and methods keep their package, class and method names: the baseline compares tests by `class.method`. Test bodies stay; only Task 0 changes the setup of three classes (ruling 15).
 - No new third-party dependencies, and the version catalog stays as it is. Kotlin and Compose come in Plan 5. Task 6 only adds existing catalog entries to the `testFixturesCompileOnly` configuration (ruling 13).
 - In verification steps use `command grep`: the interactive `grep` may be a ugrep wrapper with different options.
 - `javafx-app/src/test/resources/targets/hit-parity.txt` is never hand-edited.
@@ -92,7 +105,7 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
   - `exercises/RandomTargetParDrill.jar` and `exercises/RandomTargetParDrill-v2.jar` (Task 7 Step 3 moves the v2 jar aside and back, as Plan 3's check did)
   - anything under `exercise-data/`
   - any file the owner added under `targets/` or `courses/`
-- New tests must not write `shootoff.properties` (ruling 15).
+- No test may read or write the working tree's `shootoff.properties` (ruling 15). A test whose configuration can be written builds it on `ScratchConfig.emptyFile()`.
 - **Behavior stays identical** for the owner's settings (`shootoff.arena.show.markers=false`, calibrated behavior `ONLY_IN_BOUNDS`) and for every other value: every moved method keeps its arithmetic operation for operation, and its calls in the same order.
 - **Publishing:** only to `build/m2` (`-Dmaven.repo.local=/home/bfears/projects/ShootOFF/build/m2`), never to the owner's `~/.m2`.
 - **Test gate** (unchanged from Plans 1–3; run it in ShootOFF):
@@ -101,7 +114,7 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
   mkdir -p build; ./gradlew cleanTest test --continue --console=plain > build/gate.log 2>&1; python3 scripts/test_summary.py compare */build/test-results/test docs/superpowers/baseline/java8-tests.txt
   ```
 
-  It must print `0 regressions; 0 new failures`. A full run takes several minutes, so use a Bash timeout of 600000 ms. The `N/M passing` count starts at **371** (end of Plan 3). Each task states "passing = previous + N", where N is the number of test methods the task adds. A lower count means tests silently stopped running.
+  It must print `0 regressions; 0 new failures`. A full run takes several minutes, so use a Bash timeout of 600000 ms. The `N/M passing` count starts at **371** (end of Plan 3). From Task 0 on, the gate leaves `shootoff.properties` unchanged. Each task states "passing = previous + N", where N is the number of test methods the task adds. A lower count means tests silently stopped running.
 - **v1 plugins keep loading and running.** The v1 surface of Plan 3 stays source- and binary-compatible (next section). The installed `exercises/RandomTargetParDrill.jar` (v1.1) and `exercises/RandomTargetParDrill-v2.jar` must keep working. Task 7 Step 1 checks the drill's members with `javap`.
 
 ## The v1 surface
@@ -137,11 +150,11 @@ Plan 3's list stands unchanged: `javap -c -p` of the installed `exercises/Random
    *Tests:*
    - `TestShotPipeline.aShotOnTheProjectionsEdgeGoesToTheArenaAtTheArenasCurrentSize` (Task 3)
    - `TestArenaGeometry.projectionCornersLandOnArenaCorners` (Task 1)
-5. **An exercise's shot callback throws, or a v1 exercise blocks in it.** Expected: the shot queue logs the exception and handles later shots. A blocking callback delays later shots but loses none (ruling 3).
+5. **An exercise's shot callback throws, or a v1 exercise blocks in it.** Expected: the shot queue logs the exception and handles later shots. A v1 exercise blocking in `shotListener` (Shoot Don't Shoot's "Bad shoot!") delays no later shot: the next shot still gets its row, marker and callback (ruling 3).
 
    *Tests:*
+   - `TestShotTimerRowOrder.aBlockingV1ShotListenerDoesNotHoldUpTheNextShot`: it fails once the queue is in and passes with the hand-off (Task 2)
    - `TestShotQueue.aShotThatFailsDoesNotStopLaterOnes` (Task 2)
-   - `TestShotQueue.shotsAreHandledOneAtATimeInTheOrderTheyArrive`: a slow first shot (Task 2)
    - owner check, Task 7 Step 3, items 5 and 8
 
 The owner's check (Task 7) covers what no unit test reaches: the webcam and projector, real calibration, the real menus, sounds, and a session recorded and replayed.
@@ -150,15 +163,208 @@ The owner's check (Task 7) covers what no unit test reaches: the webcam and proj
 
 | Where | What | Task |
 |---|---|---|
+| `core/src/testFixtures/.../config/ScratchConfig.java`; `TestConfiguration`, `TestCanvasManager`, `TestTargetCommands` (setup) | tests off `shootoff.properties` | 0 |
 | `core/.../geom/ArenaGeometry.java`; `javafx-app/.../gui/CanvasManager.java` (translate helpers, `scaleShotToArenaBounds`) | camera ↔ canvas ↔ arena arithmetic | 1 |
-| `core/.../shots/ShotQueue.java`; `core/.../camera/shotdetection/ShotDetector.java` (`submitShot`) | one thread for shots | 2 |
+| `core/.../shots/ShotQueue.java`; `core/.../camera/shotdetection/ShotDetector.java` (`submitShot`); `javafx-app/.../gui/CanvasManager.java` (`notifyExercise`) | one thread for shots, v1 callbacks off it | 2 |
 | `core/.../shots/{ShotPipeline,ShotTimer,TimerRow,PoiAdjustment}.java`; `core/.../config/Settings.java`; `javafx-app/.../config/Configuration.java`, `gui/CanvasManager.java`, `gui/ShotEntry.java`, `gui/targets/TargetCommands.java` | the shot pipeline | 3 |
 | `core/.../calibration/{CalibrationFlow,CalibrationCamera}.java`; `core/.../camera/CameraManager.java` (implements); `javafx-app/.../gui/CalibrationManager.java` | the calibration flow | 4 |
 | `plugin-api/.../exercise/host/{ExerciseHostSupport,SavedBackground}.java`; `javafx-app/.../gui/exercise/JavaFxExerciseHost.java` | host support | 5 |
 | `plugin-api/src/testFixtures/.../exercise/ExerciseHostContract.java`; `plugin-api/build.gradle.kts`, `javafx-app/build.gradle.kts`; `javafx-app/src/test/.../gui/exercise/{JavaFxHostHarness,TestJavaFxExerciseHostContract,TestJavaFxExerciseHostContractOnArena}.java` | the contract suite | 6 |
 | none | owner check | 7 |
 
-New tests: `core`: `geom/TestArenaGeometry` (5), `shots/TestShotQueue` (2), `shots/TestShotPipeline` (10), `shots/TestTimerRow` (1), `shots/TestPoiAdjustment` (2), `calibration/TestCalibrationFlow` (7). `plugin-api`: `exercise/host/TestExerciseHostSupport` (11). `javafx-app`: `gui/TestShotTimerRowOrder` (1), `gui/exercise/TestJavaFxExerciseHostContract` (8), `gui/exercise/TestJavaFxExerciseHostContractOnArena` (8). The gate ends at **426**.
+New tests: `core`: `config/TestScratchConfig` (1), `geom/TestArenaGeometry` (5), `shots/TestShotQueue` (2), `shots/TestShotPipeline` (10), `shots/TestTimerRow` (1), `shots/TestPoiAdjustment` (2), `calibration/TestCalibrationFlow` (7). `plugin-api`: `exercise/host/TestExerciseHostSupport` (11). `javafx-app`: `gui/TestShotTimerRowOrder` (2), `gui/exercise/TestJavaFxExerciseHostContract` (8), `gui/exercise/TestJavaFxExerciseHostContractOnArena` (8). The gate ends at **428**.
+
+---
+### Task 0: Keep the owner's `shootoff.properties` out of the tests
+
+**Files:**
+- Create: `core/src/testFixtures/java/com/shootoff/config/ScratchConfig.java`
+- Modify (setup and teardown only; class and method names unchanged, ruling 15):
+  - `core/src/test/java/com/shootoff/config/TestConfiguration.java`
+  - `javafx-app/src/test/java/com/shootoff/gui/TestCanvasManager.java`
+  - `javafx-app/src/test/java/com/shootoff/gui/targets/TestTargetCommands.java`
+- Test: `core/src/test/java/com/shootoff/config/TestScratchConfig.java` (new)
+
+**Interfaces:**
+- Consumes: `Settings(String name, String[] args)` and `Configuration(String name, String[] args)`, which read the named file and write back to it.
+- Produces: `public final class com.shootoff.config.ScratchConfig` (core test fixtures, so core, plugin-api and javafx-app tests see it):
+  - `static File emptyFile() throws IOException`: a new, empty configuration file in the temporary folder, deleted when the JVM exits
+  - `static String workingTreeFingerprint()`: the working tree's `shootoff.properties` as a SHA-256 of its bytes plus its modification time, or `"absent"`
+
+  Task 3's `TestPoiAdjustment` uses both.
+
+**Which tests write the working tree's file.** Every write goes through `Settings.writeConfigurationFile()`, which writes to the name the settings were built with. A `Settings`/`Configuration` built with `new …(new String[0])` has the name `shootoff.properties`, the working tree's file. A probe run of the whole gate (a stack trace logged on every write) found exactly three tests that reach it, all through `updatePOIAdjustment`:
+- `TestConfiguration.testPOIAdjustment`
+- `TestCanvasManager.testPOIAdjust`
+- `TestTargetCommands.testPOIAdjust` (through `TargetCommands`' `poi_adjust`)
+
+Every other write already goes to a temporary file (`TestSettings`, `TestConfiguration.testWriteConfigFile`, `testUnwritableConfigNotifiesUser`). No test reads the working tree's file: `new Settings(new String[0])` reads nothing. Each of the three classes now builds its configuration on a scratch file. Its teardown fails the test if the working tree's file changed while the test ran, so any later test that brings the write back fails the gate.
+
+- [ ] **Step 0: Record the owner's files**
+
+```bash
+cd /home/bfears/projects/ShootOFF
+sha256sum RandomTargetParDrill-bests.properties exercises/RandomTargetParDrill.jar exercises/RandomTargetParDrill-v2.jar shootoff.properties > build/plan4-owner-files.sha256
+cat build/plan4-owner-files.sha256
+```
+
+Expected: four checksum lines. From this task on, no gate run changes any of them; Task 7 Step 5 checks.
+
+- [ ] **Step 1: Write the fixture's test**
+
+`core/src/test/java/com/shootoff/config/TestScratchConfig.java`:
+
+```java
+package com.shootoff.config;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.nio.file.Files;
+
+import org.junit.jupiter.api.Test;
+
+class TestScratchConfig {
+	@Test
+	void settingsOnAScratchFileWriteThereAndNotToTheWorkingTree() throws Exception {
+		final String before = ScratchConfig.workingTreeFingerprint();
+		final File scratch = ScratchConfig.emptyFile();
+		final Settings settings = new Settings(scratch.getPath(), new String[0]);
+
+		// Five POI hits turn the adjustment on and write the configuration
+		for (int hit = 0; hit < 5; hit++) {
+			settings.updatePOIAdjustment(-1, -1);
+		}
+
+		assertTrue(settings.isAdjustingPOI());
+		assertTrue(Files.readString(scratch.toPath()).contains("shootoff.poiadjust.x"));
+		assertEquals(before, ScratchConfig.workingTreeFingerprint());
+	}
+}
+```
+
+Run: `./gradlew :core:test --tests 'com.shootoff.config.TestScratchConfig' --console=plain`
+Expected: FAIL at compile time: `cannot find symbol` … `ScratchConfig`.
+
+- [ ] **Step 2: Write `ScratchConfig`**
+
+`core/src/testFixtures/java/com/shootoff/config/ScratchConfig.java` (a test fixture, so no GPL header):
+
+```java
+package com.shootoff.config;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
+/**
+ * Configuration files for tests. The working tree's <tt>shootoff.properties</tt> holds the owner's
+ * settings, so no test may read or write it: a test whose configuration can be written
+ * ({@link Settings#writeConfigurationFile()}, which POI adjustment calls) builds it on
+ * {@link #emptyFile()} instead, and checks {@link #workingTreeFingerprint()} is unchanged afterwards.
+ */
+public final class ScratchConfig {
+	private static final File WORKING_TREE_FILE = new File("shootoff.properties");
+
+	private ScratchConfig() {}
+
+	/**
+	 * @return a new, empty configuration file in the temporary folder, deleted when the JVM exits
+	 */
+	public static File emptyFile() throws IOException {
+		final File file = Files.createTempFile("shootoff-test", ".properties").toFile();
+		file.deleteOnExit();
+		return file;
+	}
+
+	/**
+	 * @return the working tree's <tt>shootoff.properties</tt> (tests run in the repository root): a hash
+	 *         of its bytes and its modification time, or "absent"
+	 */
+	public static String workingTreeFingerprint() {
+		if (!WORKING_TREE_FILE.exists()) return "absent";
+
+		try {
+			final byte[] hash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(WORKING_TREE_FILE.toPath()));
+			return HexFormat.of().formatHex(hash) + " " + WORKING_TREE_FILE.lastModified();
+		} catch (final IOException e) {
+			throw new UncheckedIOException(e);
+		} catch (final NoSuchAlgorithmException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+}
+```
+
+Run: `./gradlew :core:test --tests 'com.shootoff.config.TestScratchConfig' --console=plain`
+Expected: `BUILD SUCCESSFUL`.
+
+- [ ] **Step 3: Build the three tests' configurations on scratch files, and guard them**
+
+There is no failing run first: it would write the owner's file, which is what this task stops. In the prototype, the guard caught all three tests when their old setup was put back (`TestConfiguration > testPOIAdjustment FAILED`, `TestCanvasManager > testPOIAdjust FAILED`, `TestTargetCommands > testPOIAdjust FAILED`, each on the fingerprint).
+
+In `core/src/test/java/com/shootoff/config/TestConfiguration.java`:
+- add `import org.junit.After;` before `import org.junit.Assume;`
+- after the field `Settings defaultConfig;` add `private String workingTreeConfig;`
+- in `setUp()`, replace `defaultConfig = new Settings(emptyArgs);` with:
+
+```java
+		workingTreeConfig = ScratchConfig.workingTreeFingerprint();
+		// testPOIAdjustment writes the configuration: never to the owner's shootoff.properties
+		defaultConfig = new Settings(ScratchConfig.emptyFile().getPath(), emptyArgs);
+```
+
+- after `setUp()` add:
+
+```java
+	@After
+	public void checkTheWorkingTreeConfigIsUntouched() {
+		assertEquals(workingTreeConfig, ScratchConfig.workingTreeFingerprint());
+	}
+```
+
+In `javafx-app/src/test/java/com/shootoff/gui/TestCanvasManager.java` and in `javafx-app/src/test/java/com/shootoff/gui/targets/TestTargetCommands.java`:
+- add `import java.io.IOException;` after `import java.io.File;`
+- add `import org.junit.After;` before `import org.junit.Before;`
+- add `import com.shootoff.config.ScratchConfig;` after `import com.shootoff.config.ConfigurationException;`
+- after the field `private Configuration config;` add `private String workingTreeConfig;`
+- change `public void setUp() throws ConfigurationException {` to `public void setUp() throws ConfigurationException, IOException {`
+- in `setUp()`, replace `config = new Configuration(new String[0]);` with:
+
+```java
+		workingTreeConfig = ScratchConfig.workingTreeFingerprint();
+		// testPOIAdjust writes the configuration: never to the owner's shootoff.properties
+		config = new Configuration(ScratchConfig.emptyFile().getPath(), new String[0]);
+```
+
+- after `setUp()` add the same `checkTheWorkingTreeConfigIsUntouched()` method as above (in `TestTargetCommands`, in place of the blank line between `setUp()` and `testPOIAdjust()`)
+
+Reading an empty file leaves every setting at its default, so `testConfirmDefaults` and the other tests see the same configuration as before.
+
+- [ ] **Step 4: Run the changed tests**
+
+Run: `sha256sum shootoff.properties; ./gradlew :core:test --tests 'com.shootoff.config.*' :javafx-app:test --tests 'com.shootoff.gui.TestCanvasManager' --tests 'com.shootoff.gui.targets.TestTargetCommands' --console=plain; sha256sum shootoff.properties`
+Expected: `BUILD SUCCESSFUL`, and the same checksum before and after.
+
+- [ ] **Step 5: Run the gate**
+
+Run the gate (Global Constraints), with `sha256sum shootoff.properties` before and after it.
+Expected: `372/372 passing; 0 regressions; 0 new failures` (passing = 371 + 1), and the same checksum before and after.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add core/src/testFixtures/java/com/shootoff/config/ScratchConfig.java core/src/test/java/com/shootoff/config/TestScratchConfig.java core/src/test/java/com/shootoff/config/TestConfiguration.java javafx-app/src/test/java/com/shootoff/gui/TestCanvasManager.java javafx-app/src/test/java/com/shootoff/gui/targets/TestTargetCommands.java
+git commit -m "Keep tests off the working tree's shootoff.properties"
+git log -1 --format=%B
+```
+
+Expected: the message alone, with no trailer.
 
 ---
 ### Task 1: Arena geometry in `core`
@@ -177,19 +383,6 @@ New tests: `core`: `geom/TestArenaGeometry` (5), `shots/TestShotQueue` (2), `sho
   - `Point arenaToCamera(double x, double y, Rect projection, Size arena)`: `projection` on the camera feed
 
   Task 3's pipeline and Task 4's calibration flow use them.
-
-- [ ] **Step 0: Save the owner's settings file and checksums**
-
-The gate's existing POI tests rewrite `shootoff.properties` (ruling 15). Save the owner's copy once, before the first gate run of this plan:
-
-```bash
-cd /home/bfears/projects/ShootOFF
-test -f build/plan4-shootoff.properties || cp shootoff.properties build/plan4-shootoff.properties
-sha256sum RandomTargetParDrill-bests.properties exercises/RandomTargetParDrill.jar exercises/RandomTargetParDrill-v2.jar > build/plan4-owner-files.sha256
-cat build/plan4-owner-files.sha256
-```
-
-Expected: three checksum lines.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -504,7 +697,7 @@ Expected: `BUILD SUCCESSFUL`. `TestTargetCommands.testPOIAdjust` goes through `s
 - [ ] **Step 7: Run the gate**
 
 Run the gate (Global Constraints).
-Expected: `376/376 passing; 0 regressions; 0 new failures` (passing = 371 + 5).
+Expected: `377/377 passing; 0 regressions; 0 new failures` (passing = 372 + 5).
 
 - [ ] **Step 8: Commit**
 
@@ -517,11 +710,12 @@ git log -1 --format=%B
 Expected: the message alone, with no trailer.
 
 ---
-### Task 2: One shot queue (two lasers in one frame)
+### Task 2: One shot queue (two lasers in one frame), with v1 callbacks off it
 
 **Files:**
 - Create: `core/src/main/java/com/shootoff/shots/ShotQueue.java`
 - Modify: `core/src/main/java/com/shootoff/camera/shotdetection/ShotDetector.java` (`submitShot`, one import)
+- Modify: `javafx-app/src/main/java/com/shootoff/gui/CanvasManager.java` (`notifyExercise`, used by `addShot` and `addArenaShot`; two imports)
 - Test: `javafx-app/src/test/java/com/shootoff/gui/TestShotTimerRowOrder.java` (new), `core/src/test/java/com/shootoff/shots/TestShotQueue.java` (new)
 
 **Interfaces:**
@@ -532,11 +726,15 @@ Expected: the message alone, with no trailer.
   - `void submit(Runnable work)`: runs after everything submitted before; a `RuntimeException` is logged and later work still runs
   - `boolean isQueueThread()`
 
-  Task 3's pipeline runs on it.
+  - `CanvasManager`'s private `static void notifyExercise(TrainingExercise, Shot, Optional<Hit>)`: on the queue's thread, a v1 exercise hears the shot on a new `Shot Listener` thread; a `HostedExercise`, or any call off the queue, is called in place (ruling 3)
 
-- [ ] **Step 1: Write the test that reproduces the race**
+  Task 3's pipeline runs on the queue, and its JavaFX `deliver` calls `notifyExercise`.
 
-`javafx-app/src/test/java/com/shootoff/gui/TestShotTimerRowOrder.java` makes two shots through the real path, `CameraManager.injectShot` → `ShotDetector.addShot` → `submitShot` → `CanvasManager.addShot`. The shot timer's listener gives a second thread time to change the list while the first change is still being made:
+- [ ] **Step 1: Write the tests that reproduce the race and pin the v1 callback thread**
+
+`javafx-app/src/test/java/com/shootoff/gui/TestShotTimerRowOrder.java` makes shots through the real path, `CameraManager.injectShot` → `ShotDetector.addShot` → `submitShot` → `CanvasManager.addShot`. It has two tests:
+- In `twoShotsInOneFrameMakeTwoRowsInOrderOnOneThread`, the shot timer's listener gives a second thread time to change the list while the first change is still being made.
+- In `aBlockingV1ShotListenerDoesNotHoldUpTheNextShot`, a v1 exercise blocks on a latch in its first `shotListener` call; the second shot must still get its row and callback. It also checks that each shot's row is in the timer when the exercise hears the shot (ruling 4).
 
 ```java
 package com.shootoff.gui;
@@ -546,41 +744,80 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CamerasSupervisor;
 import com.shootoff.camera.MockCamera;
+import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.controller.ShootOFFController;
+import com.shootoff.plugins.ExerciseMetadata;
+import com.shootoff.plugins.TrainingExercise;
+import com.shootoff.targets.Hit;
+import com.shootoff.targets.Target;
 
 import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.scene.Group;
 
+/**
+ * Detected shots through the real path: CameraManager.injectShot, ShotDetector, then CanvasManager on
+ * the shot thread.
+ */
 class TestShotTimerRowOrder {
+	private Configuration config;
+	private final ObservableList<ShotEntry> shotEntries = FXCollections.observableArrayList();
+	private CameraManager camera;
+
+	@BeforeEach
+	void setUp() throws Exception {
+		System.setProperty("shootoff.home", System.getProperty("user.dir"));
+		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
+		config = new Configuration(new String[0]);
+	}
+
+	@AfterEach
+	void tearDown() {
+		config.setExercise(null);
+	}
+
+	private void startCamera() {
+		final CanvasManager canvas = new CanvasManager(new Group(), new ShootOFFController(), "test", shotEntries);
+		final CamerasSupervisor cameras = new CamerasSupervisor(config);
+		camera = cameras.addCameraManager(new MockCamera(), null, canvas).get();
+		cameras.setDetectingAll(false);
+		canvas.setCameraManager(camera);
+	}
+
+	private static void waitFor(BooleanSupplier condition, String failure) throws InterruptedException {
+		final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (!condition.getAsBoolean()) {
+			if (System.nanoTime() > deadline) fail(failure);
+			Thread.sleep(10);
+		}
+	}
+
 	// Two lasers seen in the same camera frame: the camera's thread submits both shots at once
 	@Test
 	void twoShotsInOneFrameMakeTwoRowsInOrderOnOneThread() throws Exception {
-		System.setProperty("shootoff.home", System.getProperty("user.dir"));
-		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
-		final Configuration config = new Configuration(new String[0]);
-
-		final ObservableList<ShotEntry> shotEntries = FXCollections.observableArrayList();
 		final AtomicInteger changing = new AtomicInteger();
 		final AtomicBoolean overlapped = new AtomicBoolean();
 		final List<Thread> threads = new CopyOnWriteArrayList<>();
 		final CountDownLatch secondArrived = new CountDownLatch(1);
-		shotEntries.addListener((ListChangeListener<ShotEntry>) change -> {
+		shotEntries.addListener((javafx.collections.ListChangeListener<ShotEntry>) change -> {
 			threads.add(Thread.currentThread());
 			if (changing.incrementAndGet() > 1) {
 				overlapped.set(true);
@@ -595,21 +832,12 @@ class TestShotTimerRowOrder {
 			}
 			changing.decrementAndGet();
 		});
-
-		final CanvasManager canvas = new CanvasManager(new Group(), new ShootOFFController(), "test", shotEntries);
-		final CamerasSupervisor cameras = new CamerasSupervisor(config);
-		final CameraManager camera = cameras.addCameraManager(new MockCamera(), null, canvas).get();
-		cameras.setDetectingAll(false);
-		canvas.setCameraManager(camera);
+		startCamera();
 
 		camera.injectShot(ShotColor.RED, 100, 100, false);
 		camera.injectShot(ShotColor.GREEN, 400, 300, false);
 
-		final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-		while (shotEntries.size() < 2) {
-			if (System.nanoTime() > deadline) fail("rows: " + shotEntries.size());
-			Thread.sleep(10);
-		}
+		waitFor(() -> shotEntries.size() >= 2, "rows: " + shotEntries.size());
 
 		assertFalse(overlapped.get(), "two threads changed the shot timer at once");
 		assertEquals(1, Set.copyOf(threads).size());
@@ -617,13 +845,69 @@ class TestShotTimerRowOrder {
 		assertEquals(List.of("red", "green"), shotEntries.stream().map(ShotEntry::getColor).toList());
 		assertEquals(config.getMarkerRadius(), (int) shotEntries.get(0).getShot().getMarker().getRadiusX());
 	}
+
+	// Shoot Don't Shoot speaks "Bad shoot!" inside shotListener: the next shot must not wait for it
+	@Test
+	void aBlockingV1ShotListenerDoesNotHoldUpTheNextShot() throws Exception {
+		final CountDownLatch release = new CountDownLatch(1);
+		final List<Double> heard = new CopyOnWriteArrayList<>();
+		final List<Integer> rowsWhenHeard = new CopyOnWriteArrayList<>();
+		config.setExercise(new TrainingExercise() {
+			@Override
+			public void init() {}
+
+			@Override
+			public void targetUpdate(Target target, TargetChange change) {}
+
+			@Override
+			public ExerciseMetadata getInfo() {
+				return new ExerciseMetadata("Blocking drill", "1.0", "ShootOFF tests", "Blocks on its first shot");
+			}
+
+			@Override
+			public void shotListener(Shot shot, Optional<Hit> hit) {
+				heard.add(shot.getX());
+				rowsWhenHeard.add(shotEntries.size());
+				if (heard.size() == 1) {
+					try {
+						release.await(20, TimeUnit.SECONDS);
+					} catch (final InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+				}
+			}
+
+			@Override
+			public void reset(List<Target> targets) {}
+
+			@Override
+			public void destroy() {}
+		});
+		startCamera();
+
+		try {
+			camera.injectShot(ShotColor.RED, 100, 100, false);
+			waitFor(() -> heard.size() == 1, "the exercise never heard the first shot");
+			camera.injectShot(ShotColor.GREEN, 400, 300, false);
+
+			// While the first shot's listener still blocks, the second shot gets its row and is heard
+			waitFor(() -> shotEntries.size() == 2 && heard.size() == 2,
+					"rows: " + shotEntries.size() + ", heard: " + heard);
+			assertEquals(1, release.getCount());
+			assertEquals(List.of(100.0, 400.0), heard);
+			// Each shot's row was already in the shot timer when the exercise heard the shot
+			assertEquals(List.of(1, 2), rowsWhenHeard);
+		} finally {
+			release.countDown();
+		}
+	}
 }
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `./gradlew :javafx-app:test --tests 'com.shootoff.gui.TestShotTimerRowOrder' --console=plain`
-Expected: FAIL. The message varies with timing, but it is one of:
+Expected: `aBlockingV1ShotListenerDoesNotHoldUpTheNextShot` passes (each shot has its own thread today), and `twoShotsInOneFrameMakeTwoRowsInOrderOnOneThread` FAILS. The message varies with timing, but it is one of:
 - `rows: 1`: a notifier thread died on "Called endChange before beginChange", and its row was lost
 - `two threads changed the shot timer at once`
 - `expected: <[100.0, 400.0]> but was: <[400.0, 100.0]>`
@@ -796,19 +1080,54 @@ with:
 
 and add `import com.shootoff.shots.ShotQueue;` after `import com.shootoff.config.Settings;`.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 6: See the queue hold up the next shot behind a blocking v1 exercise**
+
+Run: `./gradlew :javafx-app:test --tests 'com.shootoff.gui.TestShotTimerRowOrder' --console=plain`
+Expected: `twoShotsInOneFrameMakeTwoRowsInOrderOnOneThread` passes now, and `aBlockingV1ShotListenerDoesNotHoldUpTheNextShot` FAILS with `rows: 1, heard: [100.0]`: the queue waits for the blocked listener.
+
+- [ ] **Step 7: Hand v1 callbacks off the queue**
+
+In `javafx-app/src/main/java/com/shootoff/gui/CanvasManager.java`:
+- add `import com.shootoff.gui.exercise.HostedExercise;` before `import com.shootoff.gui.pane.ProjectorArenaPane;`
+- add `import com.shootoff.shots.ShotQueue;` after `import com.shootoff.session.TargetRef;`
+- in `addShot(DisplayShot, boolean)`, in the two branches at the end, replace each `currentExercise.get().shotListener(shot, hit);` with `notifyExercise(currentExercise.get(), shot, hit);`
+- in `addArenaShot`, replace `currentExercise.get().shotListener(shot, hit);` (before `return true;`) with `notifyExercise(currentExercise.get(), shot, hit);`
+- just before `	private void drawShot(DisplayShot shot) {` insert:
+
+```java
+	/**
+	 * Hands a shot to the running exercise. On the shot queue's thread, a v1 exercise hears it on a
+	 * thread of its own, as every shot had before the queue: a v1 exercise may block in shotListener
+	 * (Shoot Don't Shoot speaks "Bad shoot!" there), and later shots must not wait for it. The shot's
+	 * row is already in the shot timer. A v2 exercise's host passes the shot to the exercise's own
+	 * thread in order, so it is called here. Called on any other thread (click-to-shoot on the JavaFX
+	 * thread, a v1 exercise adding a shot itself), the exercise hears the shot there, as before.
+	 */
+	private static void notifyExercise(TrainingExercise exercise, Shot shot, Optional<Hit> hit) {
+		if (exercise instanceof HostedExercise || !ShotQueue.shared().isQueueThread()) {
+			exercise.shotListener(shot, hit);
+		} else {
+			new Thread(() -> exercise.shotListener(shot, hit), "Shot Listener").start();
+		}
+	}
+
+```
+
+`Hit` here is `com.shootoff.targets.Hit`, which `CanvasManager` already imports.
+
+- [ ] **Step 8: Run the tests to verify they pass**
 
 Run: `./gradlew :core:test --tests 'com.shootoff.shots.TestShotQueue' --tests 'com.shootoff.camera.shotdetection.TestShotDetector' :javafx-app:test --tests 'com.shootoff.gui.TestShotTimerRowOrder' --tests 'com.shootoff.gui.TestCanvasManager' --console=plain`
 Expected: `BUILD SUCCESSFUL`. `TestShotDetector` and `TestCanvasManager`'s `injectShot` tests still see their shots, now from the queue.
 
-- [ ] **Step 7: Run the gate**
+- [ ] **Step 9: Run the gate**
 
-Expected: `379/379 passing; 0 regressions; 0 new failures` (passing = 376 + 3).
+Expected: `381/381 passing; 0 regressions; 0 new failures` (passing = 377 + 4).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add core/src/main/java/com/shootoff/shots/ShotQueue.java core/src/main/java/com/shootoff/camera/shotdetection/ShotDetector.java core/src/test/java/com/shootoff/shots/TestShotQueue.java javafx-app/src/test/java/com/shootoff/gui/TestShotTimerRowOrder.java
+git add core/src/main/java/com/shootoff/shots/ShotQueue.java core/src/main/java/com/shootoff/camera/shotdetection/ShotDetector.java core/src/test/java/com/shootoff/shots/TestShotQueue.java javafx-app/src/main/java/com/shootoff/gui/CanvasManager.java javafx-app/src/test/java/com/shootoff/gui/TestShotTimerRowOrder.java
 git commit -m "Handle detected shots one at a time on one thread, fixing two shots in one frame"
 git log -1 --format=%B
 ```
@@ -831,6 +1150,7 @@ Expected: the message alone, with no trailer.
 - Consumes:
   - `ArenaGeometry.canvasToArena` (Task 1)
   - `ShotQueue` (Task 2): the pipeline runs on whatever thread calls it, which for detected shots is the queue's
+  - `CanvasManager.notifyExercise` (Task 2): the JavaFX `deliver` hands shots to the exercise through it
   - core's `Settings`, `SessionRecorder`, `TargetRef`, `HitTester`, `Hit`, `Region`, `RegionCommand`, `SoundPlayer`, and the shot processors
 - Produces:
   - `Settings`: `registerRecordingCameraManager(CameraManager)`, `unregisterRecordingCameraManager(CameraManager)`, `unregisterAllRecordingCameraManagers()`, `Set<CameraManager> getRecordingManagers()`, `setSessionRecorder(SessionRecorder)` (`null` for none), `Optional<SessionRecorder> getSessionRecorder()`
@@ -859,7 +1179,7 @@ Expected: the message alone, with no trailer.
 4. the marker
 5. the video string
 6. inside the projection: an `ArenaShot` in arena coordinates, handed to the arena canvas (`addArenaShot`), and done
-7. otherwise: hit test and record, region commands, and delivery
+7. otherwise: hit test and record, region commands, and delivery (through Task 2's `notifyExercise`)
 
 `addArenaShot` and `checkHit` move the same way. The JavaFX specifics become `CanvasManager`'s private `PipelineSurface` and `ArenaLink`: `DisplayShot` markers, `ShotEntry` rows, v1 `Hit`s for `TargetCommands` and v1 exercises, the mirrored-canvas delivery rule and `ArenaShot`.
 
@@ -1277,7 +1597,7 @@ class TestTimerRow {
 }
 ```
 
-`core/src/test/java/com/shootoff/shots/TestPoiAdjustment.java` (it never writes `shootoff.properties`, ruling 15):
+`core/src/test/java/com/shootoff/shots/TestPoiAdjustment.java`. Five hits write the configuration, so it builds on `ScratchConfig.emptyFile()` and checks the working tree's file afterwards (ruling 15):
 
 ```java
 package com.shootoff.shots;
@@ -1286,6 +1606,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -1293,6 +1614,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.shootoff.config.ConfigurationException;
+import com.shootoff.config.ScratchConfig;
 import com.shootoff.config.Settings;
 import com.shootoff.geom.Point;
 import com.shootoff.sound.SoundPlayer;
@@ -1300,16 +1622,13 @@ import com.shootoff.sound.SoundPlayer;
 class TestPoiAdjustment {
 	private Settings settings;
 	private boolean wasSilenced;
+	private String workingTreeConfig;
 
 	@BeforeEach
-	void setUp() throws ConfigurationException {
-		// Never write the working directory's shootoff.properties
-		settings = new Settings(new String[0]) {
-			@Override
-			public boolean writeConfigurationFile() {
-				return true;
-			}
-		};
+	void setUp() throws ConfigurationException, IOException {
+		workingTreeConfig = ScratchConfig.workingTreeFingerprint();
+		// Five hits write the configuration: never to the owner's shootoff.properties
+		settings = new Settings(ScratchConfig.emptyFile().getPath(), new String[0]);
 		wasSilenced = SoundPlayer.isSilenced();
 		SoundPlayer.silence(true);
 	}
@@ -1317,6 +1636,7 @@ class TestPoiAdjustment {
 	@AfterEach
 	void tearDown() {
 		SoundPlayer.silence(wasSilenced);
+		assertEquals(workingTreeConfig, ScratchConfig.workingTreeFingerprint());
 	}
 
 	@Test
@@ -1887,10 +2207,11 @@ In `javafx-app/src/main/java/com/shootoff/gui/CanvasManager.java`:
 
 (a) Imports:
 - delete `java.util.Iterator`, `java.util.Map.Entry`, `com.shootoff.camera.processors.MalfunctionsProcessor`, `com.shootoff.camera.processors.ShotProcessor`, `com.shootoff.camera.processors.VirtualMagazineProcessor` and `com.shootoff.camera.recorders.ShotRecorder`
-- after `import com.shootoff.session.TargetRef;` add:
+- replace `import com.shootoff.shots.ShotQueue;` (Task 2 added it) with:
 
 ```java
 import com.shootoff.shots.ShotPipeline;
+import com.shootoff.shots.ShotQueue;
 import com.shootoff.shots.ShotTimer;
 ```
 
@@ -1916,7 +2237,7 @@ with:
 (d) Replace everything from `	private void notifyShot(Shot shot) {` up to, not including, `	protected Optional<TargetComponents> loadTarget(File targetFile, boolean playAnimations) {` with the block below.
 - `getShots`, `addShot(ScaledShot)`, `scaleShotToArenaBounds` (as Task 1 left it), `drawShot`, `targetFor` and `executeRegionCommands` are unchanged; they are repeated so the block is complete.
 - The row code is the old `addShot`'s, now `appendShotEntry`.
-- `deliver` is the old exercise rule. `ArenaLink` is the old arena hand-off.
+- `notifyExercise` is Task 2's, unchanged, now above `toHit`. `deliver` is the old exercise rule and calls it, so a v1 exercise still hears shots off the queue (ruling 3). `ArenaLink` is the old arena hand-off.
 
 ```java
 	// A shot's row in the shot timer, after the latest row
@@ -1995,6 +2316,22 @@ with:
 
 	protected Optional<Hit> checkHit(DisplayShot shot, Optional<String> videoString, boolean isMirroredShot) {
 		return shotPipeline.hitTest(shot, videoString, isMirroredShot).flatMap(hit -> toHit(shot, hit));
+	}
+
+	/**
+	 * Hands a shot to the running exercise. On the shot queue's thread, a v1 exercise hears it on a
+	 * thread of its own, as every shot had before the queue: a v1 exercise may block in shotListener
+	 * (Shoot Don't Shoot speaks "Bad shoot!" there), and later shots must not wait for it. The shot's
+	 * row is already in the shot timer. A v2 exercise's host passes the shot to the exercise's own
+	 * thread in order, so it is called here. Called on any other thread (click-to-shoot on the JavaFX
+	 * thread, a v1 exercise adding a shot itself), the exercise hears the shot there, as before.
+	 */
+	private static void notifyExercise(TrainingExercise exercise, Shot shot, Optional<Hit> hit) {
+		if (exercise instanceof HostedExercise || !ShotQueue.shared().isQueueThread()) {
+			exercise.shotListener(shot, hit);
+		} else {
+			new Thread(() -> exercise.shotListener(shot, hit), "Shot Listener").start();
+		}
 	}
 
 	// The v1 hit for a hit on this canvas's targets; empty if another thread removed the target meanwhile
@@ -2076,7 +2413,7 @@ with:
 			// will be copies and will not be the versions of the targets added by exercises.
 			if (!arenaShot && CanvasManager.this instanceof MirroredCanvasManager && cameraManager != null) return false;
 
-			currentExercise.get().shotListener(shot, hit.flatMap(h -> toHit(shot, h)));
+			notifyExercise(currentExercise.get(), shot, hit.flatMap(h -> toHit(shot, h)));
 			return true;
 		}
 
@@ -2157,7 +2494,7 @@ Expected: `BUILD SUCCESSFUL`. `TestCanvasManager`, `TestCanvasManagerHits`, `Tes
 
 - [ ] **Step 9: Run the gate**
 
-Expected: `392/392 passing; 0 regressions; 0 new failures` (passing = 379 + 13).
+Expected: `394/394 passing; 0 regressions; 0 new failures` (passing = 381 + 13).
 
 - [ ] **Step 10: Commit**
 
@@ -3408,7 +3745,7 @@ Expected: `BUILD SUCCESSFUL`. `TestAutoCalibration` builds `CalibrationManager` 
 
 - [ ] **Step 7: Run the gate**
 
-Expected: `399/399 passing; 0 regressions; 0 new failures` (passing = 392 + 7).
+Expected: `401/401 passing; 0 regressions; 0 new failures` (passing = 394 + 7).
 
 - [ ] **Step 8: Commit**
 
@@ -4966,7 +5303,7 @@ Expected: `BUILD SUCCESSFUL`. All of `TestJavaFxExerciseHost` (13), `TestJavaFxE
 
 - [ ] **Step 7: Run the gate**
 
-Expected: `410/410 passing; 0 regressions; 0 new failures` (passing = 399 + 11).
+Expected: `412/412 passing; 0 regressions; 0 new failures` (passing = 401 + 11).
 
 - [ ] **Step 8: Commit**
 
@@ -5967,7 +6304,7 @@ Expected: `{'apiElements': ['core'], 'runtimeElements': ['core'], 'testFixturesA
 
 - [ ] **Step 8: Run the gate**
 
-Expected: `426/426 passing; 0 regressions; 0 new failures` (passing = 410 + 16).
+Expected: `428/428 passing; 0 regressions; 0 new failures` (passing = 412 + 16).
 
 - [ ] **Step 9: Commit**
 
@@ -6040,15 +6377,15 @@ echo "missing=$missing"
 
 Expected: no `MISSING` line, and `missing=0`. `javap` lists a class's own members only, so the moved methods (and `getMarkerRadius`, which the drill calls on `Configuration`) are checked on `Settings`, where the JVM finds them.
 
-- [ ] **Step 2: Put back the owner's settings and launch**
+- [ ] **Step 2: Check that no gate run touched the owner's files, and launch**
 
 ```bash
 cd /home/bfears/projects/ShootOFF
-cp build/plan4-shootoff.properties shootoff.properties
+sha256sum -c build/plan4-owner-files.sha256
 command grep -E "^shootoff.arena.(show.markers|calibrated.behavior)=" shootoff.properties
 ```
 
-Expected: `shootoff.arena.calibrated.behavior=ONLY_IN_BOUNDS` and `shootoff.arena.show.markers=false`.
+Expected: four `OK` lines, `shootoff.properties` among them (Task 0 recorded it before any gate run of this plan). Then `shootoff.arena.calibrated.behavior=ONLY_IN_BOUNDS` and `shootoff.arena.show.markers=false`.
 
 Run `./gradlew run --args="-d" --console=plain > build/plan4-run.log 2>&1` in the background, with the webcam and projector attached.
 
@@ -6074,7 +6411,7 @@ Run `./gradlew run --args="-d" --console=plain > build/plan4-run.log 2>&1` in th
    - a round without a shot shows "Par missed!" and adds the **coral row** (Time, Split, "red", Length about the par time, Score 0)
    - Pause/Resume works; the summary shows the hit factor and personal best; a shot 4 s after the summary restarts the drill
    - pick "None": the drill leaves nothing behind (buttons, spinner, par/delay controls, columns, texts, target, markers) and the background is back
-5. **Shoot Don't Shoot.** On the arena, hit "shoot" and "don't shoot" targets. It plays as before. After a don't-shoot hit ("Bad shoot!"), note whether the next shot's marker appears late (ruling 3). A marker may arrive after the speech; no shot may go missing.
+5. **Shoot Don't Shoot.** On the arena, hit "shoot" and "don't shoot" targets. It plays as before. Right after a don't-shoot hit, while "Bad shoot!" is still speaking, fire again: the next marker and row appear at once, not after the speech (ruling 3).
 6. **POI adjust.** Add `POI_Offset_Adjustment` to the arena, shoot its regions until the double beep turns the adjustment on, then shoot a target: the shots move by the adjustment. A sixth shot on the POI target turns it off (the double beep again).
 7. **Session record and replay.** Press Record Session, add IPSC to the arena, move it, fire hits and misses, then press Stop Recording. In View Sessions the target and the shot markers replay as recorded, including the hits' regions.
 8. **Two lasers in one frame** (if the owner can do it, for example two lasers held side by side): two rows, in order, and no "Called endChange before beginChange" in the log.
@@ -6093,13 +6430,13 @@ Expected: nothing. A `NoSuchMethodError` or `AbstractMethodError` naming a v1 me
 ```bash
 cd /home/bfears/projects/ShootOFF
 ls exercises/
-sha256sum -c build/plan4-owner-files.sha256
+command grep -v " shootoff.properties$" build/plan4-owner-files.sha256 | sha256sum -c
 git status --short
 ```
 
 Expected:
 - `RandomTargetParDrill-v2.jar` and `RandomTargetParDrill.jar` listed
-- three `OK` lines
+- three `OK` lines (`shootoff.properties` is left out: the app itself saves preferences, such as the arena's position, while the owner uses it)
 - `git status --short` lists only `shootoff.properties` (the owner's edits, as before this plan) and `.superpowers/`, plus anything the owner added. It lists no file this plan changed.
 
 Things this machine can't exercise: the PS3 Eye camera, and a second camera feed. Note them as unchecked in the report.
@@ -6124,3 +6461,5 @@ Things this machine can't exercise: the PS3 Eye camera, and a second camera feed
 | §5: existing JavaFX tests unchanged and passing | every task (ruling 11) |
 | §5 / §6: a short JavaFX regression check | Task 7 |
 | §6 Plan 4: shippable on its own | the gate after every task; Task 7 |
+| Owner amendment: no test reads or writes the owner's `shootoff.properties` | Task 0 (ruling 15), `TestScratchConfig` and the `@After` guards |
+| Owner amendment: a blocking v1 `shotListener` doesn't hold up later shots | Task 2 (ruling 3), `TestShotTimerRowOrder.aBlockingV1ShotListenerDoesNotHoldUpTheNextShot` |
