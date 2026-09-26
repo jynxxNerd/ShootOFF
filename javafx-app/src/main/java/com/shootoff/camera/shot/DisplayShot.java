@@ -71,4 +71,19 @@ public class DisplayShot extends ScaledShot {
 	public Ellipse getDisplayMarker() {
 		return this.marker;
 	}
+
+	/**
+	 * Restores the pre-{@link ScaledShot} behavior for copies whose source is already a
+	 * DisplayShot (or a subclass, e.g. ArenaShot): the copy's origin carries over {@link #getX()},
+	 * exactly as it did before ScaledShot's override of this hook existed.
+	 */
+	@Override
+	protected double getCameraX() {
+		return getX();
+	}
+
+	@Override
+	protected double getCameraY() {
+		return getY();
+	}
 }

@@ -44,8 +44,8 @@ public class Shot {
 	public Shot(Shot shot)
 	{
 		this.color = shot.color;
-		this.x = shot.getX();
-		this.y = shot.getY();
+		this.x = shot.getCameraX();
+		this.y = shot.getCameraY();
 		this.timestamp = shot.timestamp;
 		this.frame = shot.frame;
 	}
@@ -85,7 +85,24 @@ public class Shot {
 	public double getY() {
 		return y;
 	}
-	
+
+	/**
+	 * The x/y a copy constructor should carry over as the copy's own (undisplayed) position.
+	 * Defaults to {@link #getX()}/{@link #getY()}, same as before this hook existed.
+	 * {@link com.shootoff.camera.shot.ScaledShot} overrides this to hand over its bounds-adjusted
+	 * but not display-scaled position, so copying an already display-scaled shot doesn't bake the
+	 * display scaling into the copy's {@link #getOrigX()}/{@link #getOrigY()} or (when the copy
+	 * has no bounds of its own) {@link com.shootoff.camera.shot.BoundsShot#getBoundsX()
+	 * getBoundsX()}/{@code getBoundsY()}.
+	 */
+	protected double getCameraX() {
+		return getX();
+	}
+
+	protected double getCameraY() {
+		return getY();
+	}
+
 
 	public long getTimestamp() {
 		return timestamp;

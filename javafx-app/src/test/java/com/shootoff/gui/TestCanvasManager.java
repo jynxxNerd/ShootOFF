@@ -257,4 +257,39 @@ public class TestCanvasManager {
 		assertEquals(ShotColor.GREEN, shown.getColor());
 	}
 
+	@Test
+	public void testDetectedShotKeepsCameraSpaceOrigAndBoundsWhenDisplayIsScaled() {
+		// display scaled 2x relative to feed, no projection bounds
+		final ScaledShot detected = new ScaledShot(ShotColor.GREEN, 100, 50, 0);
+		detected.setDisplayVals(1280, 960, 640, 480);
+
+		cm.addShot(detected);
+
+		final DisplayShot shown = cm.getShots().get(cm.getShots().size() - 1);
+		assertEquals(100, shown.getBoundsX(), 0.1);
+		assertEquals(50, shown.getBoundsY(), 0.1);
+		assertEquals(100, shown.getOrigX(), 0.1);
+		assertEquals(50, shown.getOrigY(), 0.1);
+		assertEquals(200, shown.getX(), 0.1);
+		assertEquals(100, shown.getY(), 0.1);
+	}
+
+	@Test
+	public void testDetectedShotWithBoundsKeepsCameraSpaceOrigAndBoundsWhenDisplayIsScaled() {
+		// projection bounds offset the shot before display scaling is applied
+		final ScaledShot detected = new ScaledShot(ShotColor.GREEN, 10, 10, 0);
+		detected.adjustBounds(100, 40);
+		detected.setDisplayVals(1280, 960, 640, 480);
+
+		cm.addShot(detected);
+
+		final DisplayShot shown = cm.getShots().get(cm.getShots().size() - 1);
+		assertEquals(110, shown.getBoundsX(), 0.1);
+		assertEquals(50, shown.getBoundsY(), 0.1);
+		assertEquals(110, shown.getOrigX(), 0.1);
+		assertEquals(50, shown.getOrigY(), 0.1);
+		assertEquals(220, shown.getX(), 0.1);
+		assertEquals(100, shown.getY(), 0.1);
+	}
+
 }

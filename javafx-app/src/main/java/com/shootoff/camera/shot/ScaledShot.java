@@ -97,4 +97,19 @@ public class ScaledShot extends BoundsShot {
 		if (!displayY.isPresent()) return super.getY();
 		return displayY.get();
 	}
+
+	/**
+	 * Hands a copy this shot's bounds-adjusted, not display-scaled position (i.e. {@link
+	 * BoundsShot#getX()}), so copying a scaled shot doesn't bake the display scaling into the
+	 * copy's origin.
+	 */
+	@Override
+	protected double getCameraX() {
+		return super.getX();
+	}
+
+	@Override
+	protected double getCameraY() {
+		return super.getY();
+	}
 }

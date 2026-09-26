@@ -94,4 +94,21 @@ public class TestShot {
 		assertEquals(5.0, dshot.getMarker().getRadiusX(), .1);
 		assertEquals(110.0, dshot.getBoundsX(), .1);
 	}
+
+	@Test
+	public void testDisplayShotCopyFromDisplayShotKeepsExistingBehavior() {
+		// Pins the pre-existing (Task 8 unaffected) DisplayShot-to-DisplayShot copy behavior:
+		// when the source is already a DisplayShot, the copy's getOrigX/Y still carries over
+		// the source's getX()/getY() (its display position, if scaled), same as before ScaledShot
+		// existed.
+		DisplayShot source = new DisplayShot(ShotColor.RED, 100, 100, 0, 5);
+		source.adjustBounds(10, 10);
+		source.setDisplayVals(100, 100, 200, 200);
+
+		DisplayShot copy = new DisplayShot(source, 5);
+
+		assertEquals(55.0, copy.getOrigX(), .1);
+		assertEquals(110.0, copy.getBoundsX(), .1);
+		assertEquals(55.0, copy.getX(), .1);
+	}
 }
