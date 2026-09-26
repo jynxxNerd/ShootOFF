@@ -127,6 +127,9 @@ public class CanvasManager implements CameraView {
 	// so each target is recorded once
 	private boolean recordsSessionEvents = true;
 	private final ShotPipeline<DisplayShot> shotPipeline;
+	// The v1 hit the pipeline's latest hit test on each thread made, for that shot's region commands
+	// and exercise (see toHit)
+	private final ThreadLocal<Hit> lastHit = new ThreadLocal<>();
 
 	private static final int MAX_FEED_FPS = 15;
 	private static final int MINIMUM_FRAME_DELTA = 1000 / MAX_FEED_FPS; // ms
@@ -590,8 +593,19 @@ public class CanvasManager implements CameraView {
 		}
 	}
 
-	// The v1 hit for a hit on this canvas's targets; empty if another thread removed the target meanwhile
+	/**
+	 * The v1 hit for a hit on this canvas's targets. It is the one {@link PipelineSurface#hitTest} made
+	 * when the shot hit the target, so region commands and the exercise get the same hit, even after a
+	 * command (e.g. <tt>reset</tt>) or another thread removed the target. Otherwise it is made now, and
+	 * empty if the target is gone.
+	 */
 	private Optional<Hit> toHit(DisplayShot shot, com.shootoff.targets.model.Hit modelHit) {
+		final Hit found = lastHit.get();
+		if (found != null && found.getModelHit().orElse(null) == modelHit) {
+			found.setShot(shot);
+			return Optional.of(found);
+		}
+
 		return targetFor(modelHit.targetId()).map(target -> {
 			final Hit hit = target.toHit(modelHit, shot.getX(), shot.getY());
 			hit.setShot(shot);
@@ -633,7 +647,13 @@ public class CanvasManager implements CameraView {
 		public Optional<com.shootoff.targets.model.Hit> hitTest(double x, double y) {
 			// The model checks visible targets topmost (last added) first, so shots register for the
 			// top target when targets overlap
-			return HitTester.hit(targetSet, x, y).filter(hit -> targetFor(hit.targetId()).isPresent());
+			final Optional<com.shootoff.targets.model.Hit> modelHit = HitTester.hit(targetSet, x, y);
+
+			// The v1 hit is made now, while the target is on the canvas, as it always was
+			final Optional<Hit> hit = modelHit.flatMap(h -> targetFor(h.targetId()).map(target -> target.toHit(h, x, y)));
+			lastHit.set(hit.orElse(null));
+
+			return hit.isPresent() ? modelHit : Optional.empty();
 		}
 
 		@Override
