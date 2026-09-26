@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.ObservableCloseable;
+import com.shootoff.calibration.CalibrationCamera;
 import com.shootoff.camera.autocalibration.AutoCalibrationManager;
 import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.cameratypes.Camera.CameraState;
@@ -66,7 +67,8 @@ import com.shootoff.geom.Size;
  *
  * @author phrack and dmaul
  */
-public class CameraManager implements ObservableCloseable, CameraEventListener, CameraCalibrationListener {
+public class CameraManager
+		implements ObservableCloseable, CameraEventListener, CameraCalibrationListener, CalibrationCamera {
 	private static final int MAXIMUM_CONSECUTIVE_CAMERA_ERRORS = 5;
 	private static final Logger logger = LoggerFactory.getLogger(CameraManager.class);
 	public static final int DEFAULT_FEED_WIDTH = 640;

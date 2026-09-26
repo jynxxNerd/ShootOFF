@@ -22,15 +22,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.shootoff.calibration.CalibrationFlow;
+import com.shootoff.calibration.CalibrationFlow.Message;
 import com.shootoff.camera.CameraCalibrationListener;
 import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
@@ -55,43 +53,42 @@ import javafx.scene.control.Label;
 import javafx.scene.paint.Color;
 import javafx.stage.WindowEvent;
 
+/**
+ * Calibrates the projector arena in the JavaFX app: the calibration flow itself is core's {@link
+ * CalibrationFlow}; this draws it (the pattern, the messages on the calibrating camera's feed and the
+ * manual box) and passes the user's actions to it.
+ */
 public class CalibrationManager implements CameraCalibrationListener {
-	private static final int MAX_AUTO_CALIBRATION_TIME = 12 * 1000;
-	private static final int MAX_AUTO_CALIBRATION_TIME_HEADLESS = 45 * 1000;
-	private static final Logger logger = LoggerFactory.getLogger(CalibrationManager.class);
+	private static final int DEFAULT_BOX_DIM = 75;
+	private static final int DEFAULT_BOX_POS = 150;
 
 	private final CalibrationConfigurator calibrationConfigurator;
-	private final CameraManager calibratingCameraManager;
 	private final CanvasManager calibratingCanvasManager;
 	private final CameraViews cameraViews;
 	private final Configuration config;
-	private final Optional<AutocalibrationListener> autocalibrationListener;
 	private final ExerciseListener exerciseListener;
 	private final List<CalibrationListener> calibrationListeners = new ArrayList<>();
 	private final ProjectorArenaPane arenaPane;
+	private final CalibrationFlow flow;
 
-	private ScheduledFuture<?> autoCalibrationFuture = null;
-
-	private Optional<TrainingExercise> savedExercise = Optional.empty();
 	private Optional<TargetView> calibrationTarget = Optional.empty();
 	private Optional<CameraView> originalView = Optional.empty();
-	private Optional<Size> perspectivePaperDims = Optional.empty();
-
-	private final AtomicBoolean isCalibrating = new AtomicBoolean(false);
-	private final AtomicBoolean isShowingPattern = new AtomicBoolean(false);
+	private final Map<Message, Label> messages = new EnumMap<>(Message.class);
 
 	public CalibrationManager(CalibrationConfigurator calibrationConfigurator, CameraManager calibratingCameraManager,
 			ProjectorArenaPane arenaPane, CameraViews cameraViews, AutocalibrationListener autocalibrationListener,
 			ExerciseListener exerciseListener) {
 		this.calibrationConfigurator = calibrationConfigurator;
-		this.calibratingCameraManager = calibratingCameraManager;
 		calibratingCanvasManager = (CanvasManager) calibratingCameraManager.getCameraView();
 		calibrationListeners.add(arenaPane);
 		this.arenaPane = arenaPane;
 		this.cameraViews = cameraViews;
 		config = Configuration.getConfig();
-		this.autocalibrationListener = Optional.ofNullable(autocalibrationListener);
 		this.exerciseListener = exerciseListener;
+
+		flow = new CalibrationFlow(calibratingCameraManager, new FxView(), this::stopProjectorExercise, config,
+				TimerPool::schedule, Optional.ofNullable(autocalibrationListener)
+						.map(listener -> (Runnable) listener::autocalibrationTimedOut));
 
 		arenaPane.setFeedCanvasManager(calibratingCanvasManager);
 		calibratingCameraManager.setCalibrationManager(this);
@@ -104,126 +101,53 @@ public class CalibrationManager implements CameraCalibrationListener {
 	}
 
 	public void enableCalibration() {
-		// Projector exercises can alter what is on the arena, thereby
-		// interfearing with calibration. Thus, if an projector exercise
-		// is set, we unset it for calibration, and reset it afterwards.
-		if (config.getExercise().isPresent() && HostedExercise.isProjectorExercise(config.getExercise().get())) {
-			savedExercise = config.getExercise();
-			exerciseListener.setExercise(null);
-		} else {
-			// CalibrationManager is re-used when the user hits the
-			// calibration button on the projector slide, thus we need
-			// be sure to have clean state
-			savedExercise = Optional.empty();
-		}
-
-		arenaPane.getCanvasManager().setShowShots(false);
-
-		isCalibrating.set(true);
-
-		calibrationConfigurator.toggleCalibrating(true);
-
-		// Sets calibrating and not detecting
-		calibratingCameraManager.setCalibrating(true);
-		calibratingCameraManager.setProjectionBounds(null);
-
-		if (arenaPane.isFullScreen()) {
-			enableAutoCalibration();
-		} else {
-			showFullScreenRequest();
-		}
+		flow.start();
 	}
 
 	public void stopCalibration() {
-		isCalibrating.set(false);
-
-		if (calibrationTarget.isPresent())
-			calibrate(FxGeometry.toRect(calibrationTarget.get().getTargetGroup().getBoundsInParent()), Optional.empty(), true, -1);
-
-		calibratingCameraManager.disableAutoCalibration();
-
-		TimerPool.cancelTimer(autoCalibrationFuture);
-
-		calibrationConfigurator.toggleCalibrating(false);
-
-		removeFullScreenRequest();
-		removeAutoCalibrationMessage();
-		removeManualCalibrationRequestMessage();
-		removeCalibrationTargetIfPresent();
-
-		if (originalView.isPresent()) {
-			cameraViews.selectCameraView(originalView.get());
-		}
-
-		PerspectiveManager pm = null;
-
-		final Size feedDim = new Size(calibratingCameraManager.getFeedWidth(),
-				calibratingCameraManager.getFeedHeight());
-
-		if (calibratingCameraManager.getProjectionBounds().isPresent()) {
-			if (PerspectiveManager.isCameraSupported(calibratingCameraManager.getName(), feedDim)) {
-				if (perspectivePaperDims.isPresent()) {
-					pm = new PerspectiveManager(calibratingCameraManager.getName(),
-							calibratingCameraManager.getProjectionBounds().get(), feedDim, perspectivePaperDims.get(),
-							FxGeometry.toSize(arenaPane.getArenaStageResolution()));
-				} else {
-					pm = new PerspectiveManager(calibratingCameraManager.getName(),
-							calibratingCameraManager.getProjectionBounds().get(), feedDim,
-							FxGeometry.toSize(arenaPane.getArenaStageResolution()));
-				}
-			} else {
-				if (perspectivePaperDims.isPresent()) {
-					pm = new PerspectiveManager(calibratingCameraManager.getProjectionBounds().get(), feedDim,
-							perspectivePaperDims.get(), FxGeometry.toSize(arenaPane.getArenaStageResolution()));
-				} else {
-					logger.debug("Too many perspective parameters are unknown to create a perspective manager.");
-				}
-			}
-		}
-
-		for (final CalibrationListener c : calibrationListeners)
-			c.calibrated(Optional.ofNullable(pm));
-
-		arenaPane.restoreCurrentBackground();
-
-		calibratingCameraManager.setCalibrating(false);
-
-		isShowingPattern.set(false);
-
-		// We disable shot detection briefly because the pattern going away can
-		// cause false shots. This statement applies to all the cam feeds rather
-		// than just the arena. I don't think that should be a problem?
-		calibratingCameraManager.setDetecting(false);
-		TimerPool.schedule(() -> calibratingCameraManager.setDetecting(true), 600);
-
-		arenaPane.getCanvasManager().setShowShots(config.showArenaShotMarkers());
-
-		if (savedExercise.isPresent()) exerciseListener.setProjectorExercise(savedExercise.get());
+		flow.stop();
 	}
 
 	@Override
 	public void calibrate(Rect arenaBounds, Optional<Size> perspectivePaperDims, boolean calibratedFromCanvas,
 			long delay) {
-		removeCalibrationTargetIfPresent();
-
-		if (!calibratedFromCanvas) arenaBounds = calibratingCanvasManager.translateCameraToCanvas(arenaBounds);
-
-		configureArenaCamera(calibrationConfigurator.getCalibratedFeedBehavior(), arenaBounds);
-
-		logger.debug("calibrate {} {} {}", arenaBounds, perspectivePaperDims, calibratedFromCanvas);
-
-		this.perspectivePaperDims = perspectivePaperDims;
-
-		if (isCalibrating()) stopCalibration();
+		flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas);
 	}
 
 	public void configureArenaCamera(CalibrationOption option) {
-		calibratingCameraManager.setCropFeedToProjection(CalibrationOption.CROP.equals(option));
-		calibratingCameraManager.setLimitDetectProjection(CalibrationOption.ONLY_IN_BOUNDS.equals(option));
+		flow.configureArenaCamera(option);
 	}
 
 	public void arenaClosing() {
-		calibratingCameraManager.setProjectionBounds(null);
+		flow.arenaClosing();
+	}
+
+	public void setFullScreenStatus(boolean fullScreen) {
+		flow.setFullScreen(fullScreen);
+	}
+
+	public boolean isCalibrating() {
+		return flow.isCalibrating();
+	}
+
+	@Override
+	public void setArenaBackground(String resourceFilename) {
+		if (resourceFilename != null) {
+			final InputStream is = this.getClass().getClassLoader().getResourceAsStream(resourceFilename);
+			final LocatedImage img = new LocatedImage(is, resourceFilename);
+			arenaPane.setArenaBackground(img);
+		} else {
+			arenaPane.setArenaBackground(null);
+		}
+	}
+
+	// Projector exercises can alter what is on the arena, thereby interfering with calibration
+	private Optional<Runnable> stopProjectorExercise() {
+		final Optional<TrainingExercise> exercise = config.getExercise();
+		if (exercise.isEmpty() || !HostedExercise.isProjectorExercise(exercise.get())) return Optional.empty();
+
+		exerciseListener.setExercise(null);
+		return Optional.of(() -> exerciseListener.setProjectorExercise(exercise.get()));
 	}
 
 	private void createCalibrationTarget(double x, double y, double width, double height) {
@@ -243,199 +167,130 @@ public class CalibrationManager implements CameraCalibrationListener {
 		calibrationTarget.get().setKeepInBounds(true);
 	}
 
-	private void removeCalibrationTargetIfPresent() {
-		if (calibrationTarget.isPresent()) {
-			calibratingCanvasManager.removeTarget(calibrationTarget.get());
-			calibrationTarget = Optional.empty();
+	// The flow, drawn in the JavaFX app
+	private final class FxView implements CalibrationFlow.View {
+		@Override
+		public boolean isArenaFullScreen() {
+			return arenaPane.isFullScreen();
 		}
-	}
 
-	private void configureArenaCamera(CalibrationOption option, Rect bounds) {
-		final Rect translatedToCameraBounds = calibratingCanvasManager.translateCanvasToCamera(bounds);
-
-		calibratingCanvasManager.setProjectorArena(arenaPane, bounds);
-		configureArenaCamera(option);
-		calibratingCameraManager.setProjectionBounds(translatedToCameraBounds);
-	}
-
-	private void enableManualCalibration() {
-		logger.trace("enableManualCalibration");
-
-		final int DEFAULT_DIM = 75;
-		final int DEFAULT_POS = 150;
-
-		removeAutoCalibrationMessage();
-
-		originalView = Optional.of(cameraViews.getSelectedCameraView());
-		cameraViews.selectCameraView(calibratingCanvasManager);
-
-		showManualCalibrationRequestMessage();
-
-		if (!calibrationTarget.isPresent()) {
-			createCalibrationTarget(DEFAULT_DIM, DEFAULT_DIM, DEFAULT_POS, DEFAULT_POS);
-		} else {
-			calibratingCanvasManager.addTarget(calibrationTarget.get());
+		@Override
+		public void setArenaShotsVisible(boolean visible) {
+			arenaPane.getCanvasManager().setShowShots(visible);
 		}
-	}
 
-	private void disableManualCalibration() {
-		removeCalibrationTargetIfPresent();
-
-		removeManualCalibrationRequestMessage();
-	}
-
-	private Label manualCalibrationRequestMessage = null;
-	private volatile boolean showingManualCalibrationRequestMessage = false;
-
-	private void showManualCalibrationRequestMessage() {
-		if (showingManualCalibrationRequestMessage) return;
-
-		showingManualCalibrationRequestMessage = true;
-		manualCalibrationRequestMessage = calibratingCanvasManager
-				.addDiagnosticMessage("Please manually calibrate the projection region", 20000, Color.ORANGE);
-	}
-
-	private void removeManualCalibrationRequestMessage() {
-		logger.trace("removeFullScreenRequest {}", manualCalibrationRequestMessage);
-
-		if (showingManualCalibrationRequestMessage) {
-			showingManualCalibrationRequestMessage = false;
-			calibratingCanvasManager.removeDiagnosticMessage(manualCalibrationRequestMessage);
-			manualCalibrationRequestMessage = null;
+		@Override
+		public void setCalibrating(boolean calibrating) {
+			calibrationConfigurator.toggleCalibrating(calibrating);
 		}
-	}
 
-	private Label fullScreenRequestMessage = null;
-	private volatile boolean showingFullScreenRequestMessage = false;
-
-	private void showFullScreenRequest() {
-		if (showingFullScreenRequestMessage) return;
-
-		showingFullScreenRequestMessage = true;
-		fullScreenRequestMessage = calibratingCanvasManager
-				.addDiagnosticMessage("Please move the arena to your projector and hit F11", Color.YELLOW);
-	}
-
-	private void removeFullScreenRequest() {
-		logger.trace("removeFullScreenRequest {}", fullScreenRequestMessage);
-
-		if (showingFullScreenRequestMessage) {
-			showingFullScreenRequestMessage = false;
-
-			calibratingCanvasManager.removeDiagnosticMessage(fullScreenRequestMessage);
-			fullScreenRequestMessage = null;
+		@Override
+		public void calibrationStarted() {
+			for (final CalibrationListener c : calibrationListeners)
+				c.startCalibration();
+			arenaPane.setCalibrationMessageVisible(false);
 		}
-	}
 
-	private void enableAutoCalibration() {
-		logger.trace("enableAutoCalibration");
-
-		for (final CalibrationListener c : calibrationListeners)
-			c.startCalibration();
-		arenaPane.setCalibrationMessageVisible(false);
-		// We may already be calibrating if the user decided to move the arena
-		// to another screen while calibrating. If we save the background in
-		// that case we are saving the calibration pattern as the background.
-		if (!isShowingPattern.get()) arenaPane.saveCurrentBackground();
-		setArenaBackground("pattern.png");
-		isShowingPattern.set(true);
-
-		calibratingCameraManager.enableAutoCalibration(false);
-
-		showAutoCalibrationMessage();
-
-		launchAutoCalibrationTimer();
-	}
-
-	private void launchAutoCalibrationTimer() {
-		TimerPool.cancelTimer(autoCalibrationFuture);
-
-		autoCalibrationFuture = TimerPool.schedule(() -> {
-			Platform.runLater(() -> {
-				if (isCalibrating.get() && isFullScreen) {
-					if (autocalibrationListener.isPresent()) {
-						autocalibrationListener.get().autocalibrationTimedOut();
-						stopCalibration();
-					} else {
-						calibratingCameraManager.disableAutoCalibration();
-						enableManualCalibration();
-					}
-				}
-				// Keep waiting
-				else if (!isFullScreen) launchAutoCalibrationTimer();
-			});
-		}, autocalibrationListener.isPresent() ? MAX_AUTO_CALIBRATION_TIME_HEADLESS : MAX_AUTO_CALIBRATION_TIME);
-	}
-
-	@Override
-	public void setArenaBackground(String resourceFilename) {
-		if (resourceFilename != null) {
-			final InputStream is = this.getClass().getClassLoader().getResourceAsStream(resourceFilename);
-			final LocatedImage img = new LocatedImage(is, resourceFilename);
-			arenaPane.setArenaBackground(img);
-		} else {
-			arenaPane.setArenaBackground(null);
+		@Override
+		public void saveArenaBackground() {
+			arenaPane.saveCurrentBackground();
 		}
-	}
 
-	private Label autoCalibrationMessage = null;
-	private volatile boolean showingAutoCalibrationMessage = false;
-
-	private void showAutoCalibrationMessage() {
-		logger.trace("showAutoCalibrationMessage - showingAutoCalibrationMessage {} autoCalibrationMessage {}",
-				showingAutoCalibrationMessage, autoCalibrationMessage);
-
-		if (showingAutoCalibrationMessage) return;
-
-		showingAutoCalibrationMessage = true;
-		autoCalibrationMessage = calibratingCanvasManager.addDiagnosticMessage("Attempting autocalibration", 11000,
-				Color.CYAN);
-	}
-
-	private void removeAutoCalibrationMessage() {
-		logger.trace("removeAutoCalibrationMessage - showingAutoCalibrationMessage {} autoCalibrationMessage {}",
-				showingAutoCalibrationMessage, autoCalibrationMessage);
-
-		if (showingAutoCalibrationMessage) {
-			showingAutoCalibrationMessage = false;
-
-			if (logger.isTraceEnabled()) logger.trace("removeAutoCalibrationMessage {} ", autoCalibrationMessage);
-			calibratingCanvasManager.removeDiagnosticMessage(autoCalibrationMessage);
-			autoCalibrationMessage = null;
+		@Override
+		public void restoreArenaBackground() {
+			arenaPane.restoreCurrentBackground();
 		}
-	}
 
-	private boolean isFullScreen = false;
-
-	public void setFullScreenStatus(boolean fullScreen) {
-		isFullScreen = fullScreen;
-
-		logger.trace("setFullScreenStatus - {} {}", fullScreen, isCalibrating);
-
-		if (!isCalibrating.get()) {
-			enableCalibration();
-		} else if (!fullScreen) {
-			calibratingCameraManager.disableAutoCalibration();
-
-			removeCalibrationTargetIfPresent();
-
-			removeAutoCalibrationMessage();
-
-			disableManualCalibration();
-
-			showFullScreenRequest();
-		} else {
-			removeFullScreenRequest();
-			// Delay slightly to prevent #444 bug
-			TimerPool.schedule(() -> {
-				Platform.runLater(() -> {
-					if (isCalibrating.get()) enableAutoCalibration();
-				});
-			}, 100);
+		@Override
+		public void showPattern() {
+			setArenaBackground("pattern.png");
 		}
-	}
 
-	public boolean isCalibrating() {
-		return isCalibrating.get();
+		@Override
+		public void showMessage(Message message) {
+			final Label label = switch (message) {
+			case FULL_SCREEN_REQUEST -> calibratingCanvasManager
+					.addDiagnosticMessage("Please move the arena to your projector and hit F11", Color.YELLOW);
+			case AUTO_CALIBRATING -> calibratingCanvasManager.addDiagnosticMessage("Attempting autocalibration", 11000,
+					Color.CYAN);
+			case MANUAL_REQUEST -> calibratingCanvasManager
+					.addDiagnosticMessage("Please manually calibrate the projection region", 20000, Color.ORANGE);
+			};
+
+			synchronized (messages) {
+				messages.put(message, label);
+			}
+		}
+
+		@Override
+		public void hideMessage(Message message) {
+			final Label label;
+			synchronized (messages) {
+				label = messages.remove(message);
+			}
+
+			if (label != null) calibratingCanvasManager.removeDiagnosticMessage(label);
+		}
+
+		@Override
+		public void showCalibratingFeed() {
+			originalView = Optional.of(cameraViews.getSelectedCameraView());
+			cameraViews.selectCameraView(calibratingCanvasManager);
+		}
+
+		@Override
+		public void restoreSelectedView() {
+			if (originalView.isPresent()) {
+				cameraViews.selectCameraView(originalView.get());
+			}
+		}
+
+		@Override
+		public void showManualBox() {
+			if (!calibrationTarget.isPresent()) {
+				createCalibrationTarget(DEFAULT_BOX_DIM, DEFAULT_BOX_DIM, DEFAULT_BOX_POS, DEFAULT_BOX_POS);
+			} else {
+				calibratingCanvasManager.addTarget(calibrationTarget.get());
+			}
+		}
+
+		@Override
+		public Optional<Rect> manualBox() {
+			return calibrationTarget.map(target -> FxGeometry.toRect(target.getTargetGroup().getBoundsInParent()));
+		}
+
+		@Override
+		public void removeManualBox() {
+			if (calibrationTarget.isPresent()) {
+				calibratingCanvasManager.removeTarget(calibrationTarget.get());
+				calibrationTarget = Optional.empty();
+			}
+		}
+
+		@Override
+		public void projectionCalibrated(Rect canvasBounds) {
+			calibratingCanvasManager.setProjectorArena(arenaPane, canvasBounds);
+		}
+
+		@Override
+		public CalibrationOption calibratedFeedBehavior() {
+			return calibrationConfigurator.getCalibratedFeedBehavior();
+		}
+
+		@Override
+		public Size arenaResolution() {
+			return FxGeometry.toSize(arenaPane.getArenaStageResolution());
+		}
+
+		@Override
+		public void calibrated(Optional<PerspectiveManager> perspectiveManager) {
+			for (final CalibrationListener c : calibrationListeners)
+				c.calibrated(perspectiveManager);
+		}
+
+		@Override
+		public void runOnUiThread(Runnable action) {
+			Platform.runLater(action);
+		}
 	}
 }
