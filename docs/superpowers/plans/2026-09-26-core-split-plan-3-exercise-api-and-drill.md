@@ -89,12 +89,13 @@ Where the spec is silent or disagrees with the code, the plan decides as follows
 
     *Cost:* a jar resource shadows a same-named ShootOFF file.
 12. **`dataDirectory()` is `<shootoff.home>/exercise-data/<exercise class name>/`**, created on first use and ignored by git. The drill's first v2 run **copies** `<shootoff.home>/RandomTargetParDrill-bests.properties` there, and only when the copy doesn't exist yet. It never moves, deletes or overwrites either file, so the v1 jar keeps its own bests. *Cost:* bests set with v2 don't show up in v1 and the other way round.
-13. **A par miss no longer adds a coral shot-timer row.**
-    - v1 made the row by injecting a fake red shot at (−10, −10) into the arena canvas. That shot was hit-tested, sent back to the drill's own shot listener, and written to session files as a real shot.
-    - The v2 drill records the par miss itself, shows "Par missed!", and counts it in the summary.
-    - `styleLastRow` still exists for exercises that color real rows.
+13. **A par miss keeps its coral shot-timer row** (the owner's decision after reviewing this plan).
+    - v1 made the row by injecting a fake red shot at (−10, −10) into the arena canvas. The row read: Time = milliseconds since the drill's first beep, in seconds; Split = against the previous row; Laser = red; highlighted coral. The drill then set Length (the par time taken) and Score (`0`) on it.
+    - The fake shot was also hit-tested, sent back to the drill's own shot listener, and written to session files as a real shot.
+    - v2 adds `ExerciseHost.addTimerRow(long timeMillis, RowStyle style)`: a row that no shot made. It reads exactly like the fake shot's row (Time from `timeMillis`, Split against the previous row, Laser "red", the style's highlight) and becomes the latest row, so `setColumnValue` fills it. It is not a shot: no marker, no hit test, no exercise callback, no session event.
+    - The v2 drill calls `addTimerRow(millisSinceFirstBeep, new RowStyle("coral"))` on a par miss, then sets Length and Score as v1 did.
 
-    *Cost:* the owner loses the coral row. A host method `addTimerRow(RowStyle)` would restore it.
+    *Cost:* one more host method. The Laser column reads "red" for a row no laser made, as it did in v1.
 14. **Drill pause/resume.** Pause cancels the pending round start, and resume replaces it. v1 only flagged the pending round. A pause and resume within the start delay then ran two round chains at once. *Cost:* none known.
 15. **Published coordinates.**
     - The JavaFX app stays `com.shootoff:shootoff`, not the spec's `com.shootoff:javafx-app`, so the v1 drill's `master` build keeps resolving.
@@ -431,7 +432,7 @@ Runs in ShootOFF on `compose-ui`.
     - Targets: `Optional<TargetHandle> addTarget(String, double, double)`, `List<TargetHandle> targets()`
     - Text: `TextHandle showText(String, double, double, TextStyle)`, `void showMessage(String)`
     - Controls: `ButtonHandle addButton(String, Runnable)`, `void addNumberSetting(String, double initial, double min, double max, double step, DoubleConsumer)`
-    - Shot timer: `void addColumn(String)`, `void setColumnValue(String, String)`, `void styleLastRow(RowStyle)`
+    - Shot timer: `void addColumn(String)`, `void setColumnValue(String, String)`, `void styleLastRow(RowStyle)`, `void addTimerRow(long timeMillis, RowStyle style)`
     - Shots: `ShotMarkerHandle showShotMarker(double, double, ShotStyle)`, `void clearShots()`, `void pauseShotDetection(boolean)`
     - Sound: `void playSound(String)`, `void playSounds(List<String>)`, `void say(String)`
     - Time: `long currentTimeMillis()`, `Cancellable schedule(Runnable, Duration)`, `Cancellable scheduleRepeating(Runnable, Duration, Duration)`
@@ -1057,7 +1058,8 @@ public interface ExerciseHost {
 	void addColumn(String name);
 
 	/**
-	 * Sets a column's value in the shot timer's latest row, which is the row of the latest shot.
+	 * Sets a column's value in the shot timer's latest row: the latest shot's, or the latest
+	 * {@link #addTimerRow} row.
 	 */
 	void setColumnValue(String name, String value);
 
@@ -1065,6 +1067,14 @@ public interface ExerciseHost {
 	 * Highlights the shot timer's latest row.
 	 */
 	void styleLastRow(RowStyle style);
+
+	/**
+	 * Adds a shot timer row that no shot made, for example for a par time that ran out, and makes it
+	 * the latest row. It reads like a red shot's row: Time shows <tt>timeMillis</tt> in seconds, Split
+	 * the time since the previous row, Laser "red". It is highlighted with <tt>style</tt>. It is not a
+	 * shot: no marker, no hit, no {@link Exercise#onShot} and no session event.
+	 */
+	void addTimerRow(long timeMillis, RowStyle style);
 
 	/**
 	 * Draws a shot marker, for example to replay shots on a summary target.
@@ -1513,7 +1523,7 @@ Runs in ShootOFF on `compose-ui`.
     - `List<String> columns()`, `List<Row> rows()`, `List<ShownMarker> shotMarkers()`
     - `List<String> sounds()`, `List<String> spoken()`, `Optional<String> background()`
     - `boolean isShotDetectionPaused()`, `boolean isStopped()`, `boolean isVisible(TargetHandle)`, `boolean isListeningForParTime()`, `boolean isListeningForDelayedStart()`
-  - Records: `ShownText(String text, double x, double y, TextStyle style)`, `ShownMarker(double x, double y, ShotStyle style)`, `Row(Shot shot, Map<String,String> values, Optional<RowStyle> style)`
+  - Records: `ShownText(String text, double x, double y, TextStyle style)`, `ShownMarker(double x, double y, ShotStyle style)`, `Row(Optional<Shot> shot, long timeMillis, Map<String,String> values, Optional<RowStyle> style)`. A shot's row has the shot and its timestamp; an `addTimerRow` row has no shot and the given time.
   - An exercise's own `setParTime`/`setDelayedStart` don't call its listeners; `changeParTime`/`changeDelayedStart` (the user) do.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1720,7 +1730,26 @@ class TestFakeExerciseHost {
 				host.rows().stream().map(FakeExerciseHost.Row::values).toList());
 		assertEquals(Optional.empty(), host.rows().get(0).style());
 		assertEquals(Optional.of(new RowStyle("coral")), host.rows().get(1).style());
-		assertEquals(ShotColor.GREEN, host.rows().get(1).shot().getColor());
+		assertEquals(ShotColor.GREEN, host.rows().get(1).shot().get().getColor());
+	}
+
+	@Test
+	void timerRowsWithoutAShotBecomeTheLatestRow() {
+		host.start(new Recorder());
+		host.addColumn("Score");
+		host.shoot(ShotColor.RED, 1, 1);
+
+		host.addTimerRow(2000, new RowStyle("coral"));
+		host.setColumnValue("Score", "0");
+
+		assertEquals(2, host.rows().size());
+		final FakeExerciseHost.Row row = host.rows().get(1);
+		assertEquals(Optional.empty(), row.shot());
+		assertEquals(2000, row.timeMillis());
+		assertEquals(Map.of("Score", "0"), row.values());
+		assertEquals(Optional.of(new RowStyle("coral")), row.style());
+		assertEquals(Optional.empty(), host.rows().get(0).style());
+		assertEquals(FakeExerciseHost.START_TIME, host.rows().get(0).timeMillis());
 	}
 
 	@Test
@@ -1932,9 +1961,10 @@ public class FakeExerciseHost implements ExerciseHost {
 	public record ShownMarker(double x, double y, ShotStyle style) {}
 
 	/**
-	 * A shot timer row: the shot, the exercise's column values, and its highlight
+	 * A shot timer row: the shot (none for an {@link #addTimerRow} row), its time, the exercise's
+	 * column values, and its highlight
 	 */
-	public record Row(Shot shot, Map<String, String> values, Optional<RowStyle> style) {}
+	public record Row(Optional<Shot> shot, long timeMillis, Map<String, String> values, Optional<RowStyle> style) {}
 
 	private final Size surfaceSize;
 	private final boolean projector;
@@ -2055,7 +2085,7 @@ public class FakeExerciseHost implements ExerciseHost {
 	public boolean shoot(Shot shot, Optional<Hit> hit) {
 		if (detectionPaused || stopped || exercise.isEmpty()) return false;
 
-		rows.add(new FakeRow(shot));
+		rows.add(new FakeRow(Optional.of(shot), shot.getTimestamp()));
 		exercise.get().onShot(shot, hit);
 		return true;
 	}
@@ -2167,7 +2197,7 @@ public class FakeExerciseHost implements ExerciseHost {
 	}
 
 	public List<Row> rows() {
-		return rows.stream().map(r -> new Row(r.shot, Map.copyOf(r.values), r.style)).toList();
+		return rows.stream().map(r -> new Row(r.shot, r.timeMillis, Map.copyOf(r.values), r.style)).toList();
 	}
 
 	public List<ShownMarker> shotMarkers() {
@@ -2330,6 +2360,15 @@ public class FakeExerciseHost implements ExerciseHost {
 	@Override
 	public void styleLastRow(RowStyle style) {
 		if (!stopped && !rows.isEmpty()) rows.get(rows.size() - 1).style = Optional.of(style);
+	}
+
+	@Override
+	public void addTimerRow(long timeMillis, RowStyle style) {
+		if (stopped) return;
+
+		final FakeRow row = new FakeRow(Optional.empty(), timeMillis);
+		row.style = Optional.of(style);
+		rows.add(row);
 	}
 
 	@Override
@@ -2534,12 +2573,14 @@ public class FakeExerciseHost implements ExerciseHost {
 	}
 
 	private static final class FakeRow {
-		final Shot shot;
+		final Optional<Shot> shot;
+		final long timeMillis;
 		final Map<String, String> values = new LinkedHashMap<>();
 		Optional<RowStyle> style = Optional.empty();
 
-		FakeRow(Shot shot) {
+		FakeRow(Optional<Shot> shot, long timeMillis) {
 			this.shot = shot;
+			this.timeMillis = timeMillis;
 		}
 	}
 
@@ -2564,11 +2605,11 @@ public class FakeExerciseHost implements ExerciseHost {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `./gradlew :plugin-api:test --console=plain`
-Expected: `BUILD SUCCESSFUL`. `TestFakeExerciseHost` (10) passes, and `TestNoJavaFxInPluginApi` (2) passes, now scanning the plugin-api and test-fixtures jars.
+Expected: `BUILD SUCCESSFUL`. `TestFakeExerciseHost` (11) passes, and `TestNoJavaFxInPluginApi` (2) passes, now scanning the plugin-api and test-fixtures jars.
 
 - [ ] **Step 6: Gate**
 
-Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 11 (**331**).
+Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 12 (**332**).
 
 - [ ] **Step 7: Commit**
 
@@ -3885,7 +3926,7 @@ Expected: `BUILD SUCCESSFUL`, with these passing:
 
 - [ ] **Step 9: Gate**
 
-Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 14 (**345**).
+Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 14 (**346**).
 
 - [ ] **Step 10: Check the installed v1 drill still loads through the engine**
 
@@ -4335,7 +4376,7 @@ Expected: `BUILD SUCCESSFUL`, with these passing:
 
 - [ ] **Step 7: Gate**
 
-Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 3 (**348**).
+Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 3 (**349**).
 
 - [ ] **Step 8: Commit**
 
@@ -4772,6 +4813,29 @@ class TestJavaFxExerciseHost {
 	}
 
 	@Test
+	void timerRowsReachTheShotTimerLikeAShotsRow() throws Exception {
+		host.addColumn("Score");
+		onFx(() -> table.getItems().add(new ShotEntry(new DisplayShot(new Shot(ShotColor.RED, 1, 2, 1000), 2),
+				Optional.empty(), Optional.empty(), false, false)));
+
+		host.addTimerRow(2500, new RowStyle("coral"));
+		host.setColumnValue("Score", "0");
+		fxSync();
+
+		final List<ShotEntry> rows = onFx(() -> List.copyOf(table.getItems()));
+		assertEquals(2, rows.size());
+		final ShotEntry row = rows.get(1);
+		// What v1's fake par-miss shot showed: its time, the split since the previous row, red, coral
+		assertEquals(String.format("%.2f", 2.5f), row.getTimestamp());
+		assertEquals(String.format("%.2f", 1.5f), row.getSplit().getSplit());
+		assertEquals("red", row.getColor());
+		assertEquals(Optional.of(Color.CORAL), row.getRowColor());
+		assertEquals("0", row.getExerciseValue("Score"));
+		// Not a shot: nothing drawn on the canvas
+		assertEquals(canvasBefore, onFx(() -> List.copyOf(canvas.getCanvasGroup().getChildren())));
+	}
+
+	@Test
 	void soundsReachTheSoundOutput() {
 		host.playSound("sounds/beep.wav");
 		host.playSound("/sounds/cue.wav");
@@ -5157,6 +5221,7 @@ import org.slf4j.LoggerFactory;
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ArenaShot;
 import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.exercise.ButtonHandle;
 import com.shootoff.exercise.Cancellable;
 import com.shootoff.exercise.DelayRange;
@@ -5705,6 +5770,22 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		});
 	}
 
+	// The row v1's drill got from a fake red shot at (-10, -10): the shot timer computes Time, Split and
+	// Laser from the shot as usual, but nothing draws, hit-tests or records it
+	@Override
+	public void addTimerRow(long timeMillis, RowStyle style) {
+		final Color color = Color.web(style.highlightColor());
+		final DisplayShot noShot = new DisplayShot(new Shot(ShotColor.RED, -10, -10, timeMillis),
+				context.config().getMarkerRadius());
+
+		fx(() -> {
+			final ObservableList<ShotEntry> rows = context.view().getShotEntryTable().getItems();
+			final Optional<Shot> previous = rows.isEmpty() ? Optional.empty()
+					: Optional.of(rows.get(rows.size() - 1).getShot());
+			rows.add(new ShotEntry(noShot, previous, Optional.of(color), false, false));
+		});
+	}
+
 	// ---- Shots
 
 	@Override
@@ -6109,12 +6190,12 @@ Add to `.gitignore`, under `# Ignore ShootOFF Folders`:
 
 Run: `./gradlew :javafx-app:test --tests 'com.shootoff.gui.*' --tests 'com.shootoff.plugins.*' --console=plain`
 Expected: `BUILD SUCCESSFUL`, with these passing:
-- `TestJavaFxExerciseHost` (11), `TestHostedExercise` (1), `TestExerciseSlide` (2)
+- `TestJavaFxExerciseHost` (12), `TestHostedExercise` (1), `TestExerciseSlide` (2)
 - the ten built-in exercise tests, and the calibration and canvas tests
 
 - [ ] **Step 8: Gate**
 
-Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 13 (**361**).
+Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 14 (**363**).
 
 - [ ] **Step 9: Commit**
 
@@ -6283,7 +6364,7 @@ Every call the host makes on the exercise runs on one thread per running exercis
 | Targets | `addTarget(file, x, y)` → `Optional<TargetHandle>`; `targets()`. `TargetHandle`: `id`, `move`, `resize`, `setVisible` (hidden targets take no hits), `remove`, `position`, `size`, `definition` |
 | Text | `showText(text, x, y, TextStyle)` → `TextHandle` (`setText`, `move`, `remove`); `showMessage(text)`, the banner on every camera feed, also recorded in sessions |
 | Controls | `addButton(label, onClick)` → `ButtonHandle` (`setLabel`, `remove`); `addNumberSetting(label, initial, min, max, step, onChange)` |
-| Shot timer | `addColumn(name)`, `setColumnValue(name, value)` (latest row), `styleLastRow(RowStyle)` |
+| Shot timer | `addColumn(name)`, `setColumnValue(name, value)` (latest row), `styleLastRow(RowStyle)`, `addTimerRow(timeMillis, RowStyle)` (a row no shot made, e.g. a par miss) |
 | Shots | `showShotMarker(x, y, ShotStyle)` → `ShotMarkerHandle`; `clearShots()`; `pauseShotDetection(paused)` |
 | Sound | `playSound(name)`, `playSounds(names)` (one after another), `say(text)` |
 | Time | `currentTimeMillis()`, `schedule(task, delay)`, `scheduleRepeating(task, initialDelay, period)` → `Cancellable` |
@@ -6377,7 +6458,7 @@ Expected: `BUILD SUCCESSFUL`. `git archive master` exports the drill's `master` 
 
 - [ ] **Step 6: Gate**
 
-Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 0 (**361**).
+Run the gate. Expected: `0 regressions; 0 new failures`, and passing = previous + 0 (**363**).
 
 - [ ] **Step 7: Commit**
 
@@ -6420,7 +6501,7 @@ git log -1 --format=%B
 | `SetupWait`: pause detection, "make ready", round after the random delay | same, through `schedule` |
 | `doRound`: beep, random placement, show, round label, detection on, `Thread.sleep(par)`, par-miss check, buzzer, detection off, completion check | `startRound` (up to detection on and the round timer), then `endRound` scheduled after the par time. The exercise thread never sleeps, so shots during the par time are delivered and timed at once. |
 | shot: ignore green hits, time it (Length column), shoot-to-reset, show the marker, track it, score points (Score column, score label), "Missed!" | same. Times come from `host.currentTimeMillis()`, and markers are `showShotMarker` handles. |
-| par miss: coral row from a fake shot at (−10, −10), "Par missed!" | "Par missed!", and the miss is tracked; no timer row (ruling 13) |
+| par miss: coral row from a fake shot at (−10, −10) (Time since the first beep, Split, red), Length and Score `0` on it, "Par missed!" | `addTimerRow(millis since the first beep, RowStyle("coral"))`, then Length and Score `0` on it, "Par missed!"; the miss is tracked. No fake shot (ruling 13) |
 | between rounds: hide target and markers | same; the round's marker handles are removed |
 | summary: target in the middle, markers moved to target-relative positions, hit factor with personal best, statistics on the score label and camera feeds | same text. Markers are drawn at `summaryTargetPosition − targetPositionAtShot + shotPosition`. The text goes to the score text and `showMessage`. |
 | pause/resume: flags; resume after 5 s | same, and the pending round start is cancelled or replaced (ruling 14) |
@@ -6551,6 +6632,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.exercise.DelayRange;
 import com.shootoff.exercise.FakeExerciseHost;
+import com.shootoff.exercise.RowStyle;
 import com.shootoff.exercise.ShotStyle;
 import com.shootoff.exercise.TargetHandle;
 import com.shootoff.geom.Point;
@@ -6658,7 +6740,15 @@ class TestRandomTargetParDrill {
 
 		host.advance(Duration.ofSeconds(2));
 		assertEquals("Par missed!", timeText());
-		assertTrue(host.rows().isEmpty());
+
+		// The coral row v1 showed, 2 s after the drill's first beep, with no shot behind it
+		assertEquals(1, host.rows().size());
+		final FakeExerciseHost.Row row = host.rows().get(0);
+		assertEquals(Optional.empty(), row.shot());
+		assertEquals(2000, row.timeMillis());
+		assertEquals(Optional.of(new RowStyle("coral")), row.style());
+		assertEquals("2.00", row.values().get(RandomTargetParDrill.LENGTH_COL_NAME));
+		assertEquals("0", row.values().get(RandomTargetParDrill.POINTS_COL_NAME));
 
 		host.advance(Duration.ofSeconds(1));
 		assertEquals("Hit Factor: 0.00   (1 rounds, 2.00 s par)\nNew personal best!\n\n"
@@ -6769,6 +6859,7 @@ import com.shootoff.exercise.Cancellable;
 import com.shootoff.exercise.DelayRange;
 import com.shootoff.exercise.Exercise;
 import com.shootoff.exercise.ExerciseHost;
+import com.shootoff.exercise.RowStyle;
 import com.shootoff.exercise.ShotMarkerHandle;
 import com.shootoff.exercise.ShotStyle;
 import com.shootoff.exercise.TargetHandle;
@@ -6814,6 +6905,7 @@ public class RandomTargetParDrill implements Exercise {
 
 	private static final TextStyle LABEL_STYLE = new TextStyle(40, "white", "transparent");
 	private static final TextStyle TIME_STYLE = new TextStyle(60, "white", "transparent");
+	private static final RowStyle PAR_MISS_ROW = new RowStyle("coral");
 
 	private final Random random;
 	private ExerciseHost host;
@@ -7094,9 +7186,12 @@ public class RandomTargetParDrill implements Exercise {
 		return hit.flatMap(h -> h.region().tag("points")).map(Integer::parseInt).orElse(0);
 	}
 
+	// v1 added a fake red shot for this row; it is the same row, without the shot
 	private void parMissed() {
-		shotTime = (float) (host.currentTimeMillis() - beepTime) / 1000f;
+		host.addTimerRow(host.currentTimeMillis() - roundStartTime, PAR_MISS_ROW);
+		setLength();
 		trackedShots.add(new TrackedShot(Optional.empty(), target.position(), ShotColor.RED, false, 0, shotTime, true));
+		setPoints(ShotColor.RED, "0");
 		setLastTime("Par missed!");
 	}
 
@@ -7618,7 +7713,7 @@ Run `./gradlew run --args="-d" --console=plain > build/plan3-run.log 2>&1` in th
    - "make ready" voice, then a beep, and the target somewhere new each round
    - the par/delay controls show PAR 4.0 and Min 5 / Max 8, and "Shots per round" shows 10
    - a hit fills Length and Score in the shot timer and raises "Score: N" on the arena and the camera feed; the time appears bottom left
-   - a round without a shot shows "Par missed!" and sounds the buzzer at the par time
+   - a round without a shot shows "Par missed!" and sounds the buzzer at the par time, and the shot timer gets a **coral row** as in v1: Time, Split, "red", Length about the par time, Score 0
    - Pause shows "Resume" and stops the rounds; Resume says "make ready" 5 s later and carries on; Clear Shots clears the markers and the shot timer
 4. **The summary.** Set "Shots per round" to 3 and restart the drill (pick None, then the drill), or play a full 10 rounds at the default 4.0 s par:
    - the text shows the hit factor
@@ -7705,7 +7800,7 @@ Things this Linux machine can't exercise: the PS3 Eye camera, and Windows paths 
 | §7 Plan 3 step 4: publishing | Task 7 |
 | §7 Plan 3 step 5: the drill port on `plugin-api-v2` | Tasks 8–9 |
 | §7 Plan 3 step 6: owner hardware check | Task 10 |
-| §8 `JavaFxExerciseHost` tests: targets, texts, buttons, columns, sounds; one exercise thread; `stop()` | Task 6, `TestJavaFxExerciseHost` (11 tests) |
+| §8 `JavaFxExerciseHost` tests: targets, texts, buttons, columns, sounds; one exercise thread; `stop()` | Task 6, `TestJavaFxExerciseHost` (12 tests) |
 | §8 plugin loading: v2 jar built in the test, v1 jar through the legacy path, classpath descriptor ignored | Task 4, `TestPluginLoading`, `TestPluginDescriptor` |
 | §8 owner check list, plus a session recorded and replayed | Task 10 Step 2 |
 | Plan 1 deferred: the app's POM hides `core` | Task 7 Steps 1–2, 4 |
