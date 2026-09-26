@@ -177,6 +177,13 @@ public class Settings {
 	}
 
 	/**
+	 * @return who tells the user about problems found by code without a UI of its own
+	 */
+	public static UserNotifier getUserNotifier() {
+		return userNotifier;
+	}
+
+	/**
 	 * @return the most recently constructed settings (in the JavaFX app, its Configuration)
 	 */
 	public static Settings getSettings() {

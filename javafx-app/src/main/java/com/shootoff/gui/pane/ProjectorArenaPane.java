@@ -20,7 +20,9 @@ package com.shootoff.gui.pane;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 
@@ -31,7 +33,10 @@ import com.shootoff.Closeable;
 import com.shootoff.camera.perspective.PerspectiveManager;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
+import com.shootoff.config.Settings;
 import com.shootoff.courses.Course;
+import com.shootoff.courses.CourseBackground;
+import com.shootoff.courses.CourseTarget;
 import com.shootoff.gui.CalibrationListener;
 import com.shootoff.gui.CalibrationManager;
 import com.shootoff.gui.CanvasManager;
@@ -40,7 +45,10 @@ import com.shootoff.gui.MirroredCanvasManager;
 import com.shootoff.gui.Resetter;
 import com.shootoff.gui.ShotEntry;
 import com.shootoff.gui.controller.ShootOFFController;
+import com.shootoff.gui.targets.TargetView;
 import com.shootoff.targets.Target;
+import com.shootoff.targets.io.TargetIO;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
 import com.shootoff.util.TimerPool;
 import com.shootoff.geom.Point;
 import com.shootoff.geom.Size;
@@ -398,9 +406,37 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 		return config;
 	}
 
-	public void setCourse(final Course course) {
+	/**
+	 * @return the arena as a course: its background, its targets (files relative to the ShootOFF
+	 *         home folder) and its size
+	 */
+	public Course getCourse() {
+		final Optional<CourseBackground> courseBackground = background
+				.map(b -> new CourseBackground(b.getURL(), b.isResource()));
+
+		final List<CourseTarget> targets = new ArrayList<>();
+		for (final Target t : canvasManager.getTargets()) {
+			if (t.getTargetFile() == null) continue;
+
+			final File relativeTargetFile = new File(t.getTargetFile().getAbsolutePath()
+					.replace(System.getProperty("shootoff.home") + File.separator, ""));
+			targets.add(new CourseTarget(relativeTargetFile, t.getPosition().getX(), t.getPosition().getY(),
+					t.getDimension().getWidth(), t.getDimension().getHeight()));
+		}
+
+		return new Course(courseBackground, targets, Optional.of(new Size(getWidth(), getHeight())));
+	}
+
+	/**
+	 * Replaces the arena's targets (and its background, if the course has one) with a course's,
+	 * scaled from the arena size the course was saved at. Targets whose files are missing are
+	 * skipped and reported once.
+	 *
+	 * @return the course's targets now on the arena
+	 */
+	public List<Target> setCourse(final Course course) {
 		if (course.getBackground().isPresent()) {
-			setArenaBackground(course.getBackground().get());
+			setArenaBackground(toLocatedImage(course.getBackground().get()));
 		}
 
 		canvasManager.clearTargets();
@@ -417,13 +453,47 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 			heightScaleFactor = getHeight() / course.getResolution().get().getHeight();
 		}
 
-		for (final Target t : course.getTargets()) {
+		final List<Target> added = new ArrayList<>();
+		final List<String> missing = new ArrayList<>();
+
+		for (final CourseTarget courseTarget : course.getTargets()) {
+			final Optional<TargetComponents> components = TargetIO.loadTarget(courseTarget.file());
+
+			if (!components.isPresent()) {
+				missing.add(courseTarget.file().getPath());
+				continue;
+			}
+
+			final TargetView t = new TargetView(components.get(), canvasManager, true);
+			t.setPosition(courseTarget.x(), courseTarget.y());
+			t.setDimensions(courseTarget.width(), courseTarget.height());
+
 			if (scaleCourse) {
 				t.scale(widthScaleFactor, heightScaleFactor);
 			}
 
-			canvasManager.addTarget(t);
+			added.add(canvasManager.addTarget(t));
 		}
+
+		if (!missing.isEmpty()) {
+			Settings.getUserNotifier().showError("Missing Target", "Missing Required Target File",
+					"This course requires these target files, but they are missing, so they will not appear in "
+							+ "your projector arena:\n" + String.join("\n", missing));
+		}
+
+		return added;
+	}
+
+	/**
+	 * @return the image for a course's background
+	 */
+	public static LocatedImage toLocatedImage(CourseBackground courseBackground) {
+		if (courseBackground.isResource()) {
+			return new LocatedImage(ProjectorArenaPane.class.getResourceAsStream(courseBackground.url()),
+					courseBackground.url());
+		}
+
+		return new LocatedImage(courseBackground.url());
 	}
 
 	public void canvasKeyPressed(KeyEvent event) {

@@ -21,52 +21,37 @@ package com.shootoff.courses;
 import java.util.List;
 import java.util.Optional;
 
-import com.shootoff.gui.LocatedImage;
-import com.shootoff.targets.Target;
+import com.shootoff.geom.Size;
 
-import javafx.geometry.Dimension2D;
-
+/**
+ * A saved projector arena: its background, its targets with their positions and sizes, and the
+ * arena's size when it was saved.
+ */
 public class Course {
-	private final Optional<LocatedImage> background;
-	private final List<Target> targets;
-	private final Optional<Dimension2D> resolution;
+	private final Optional<CourseBackground> background;
+	private final List<CourseTarget> targets;
+	private final Optional<Size> resolution;
 
-	public Course(final List<Target> targets) {
-		background = Optional.empty();
-		this.targets = targets;
-		resolution = Optional.empty();
-	}
-
-	public Course(final LocatedImage background, final List<Target> targets) {
-		this.background = Optional.of(background);
-		this.targets = targets;
-		resolution = Optional.empty();
-	}
-
-	public Course(final Optional<LocatedImage> background, final List<Target> targets, final Dimension2D resolution) {
+	public Course(Optional<CourseBackground> background, List<CourseTarget> targets, Optional<Size> resolution) {
 		this.background = background;
-		this.targets = targets;
-		this.resolution = Optional.of(resolution);
+		this.targets = List.copyOf(targets);
+		this.resolution = resolution;
 	}
 
-	public Optional<LocatedImage> getBackground() {
+	public Optional<CourseBackground> getBackground() {
 		return background;
 	}
 
-	public List<Target> getTargets() {
+	public List<CourseTarget> getTargets() {
 		return targets;
 	}
 
 	/**
 	 * The dimensions of the arena when the course was saved.
-	 * 
+	 *
 	 * @return Optional.empty for courses saved prior to 3.7
 	 */
-	public Optional<Dimension2D> getResolution() {
-		if (resolution.isPresent()) {
-			return resolution;
-		} else {
-			return Optional.empty();
-		}
+	public Optional<Size> getResolution() {
+		return resolution;
 	}
 }

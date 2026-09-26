@@ -25,14 +25,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.courses.Course;
-import com.shootoff.gui.LocatedImage;
-import com.shootoff.gui.pane.ProjectorArenaPane;
-import com.shootoff.targets.Target;
+import com.shootoff.courses.CourseTarget;
 
 public class CourseIO {
 	private static final Logger logger = LoggerFactory.getLogger(CourseIO.class);
 
-	public static void saveCourse(ProjectorArenaPane arenaPane, final File courseFile) {
+	public static void saveCourse(Course course, final File courseFile) {
 		CourseVisitor visitor;
 
 		if (courseFile.getName().endsWith("course")) {
@@ -42,29 +40,27 @@ public class CourseIO {
 			return;
 		}
 
-		if (arenaPane.getArenaBackground().isPresent()) {
-			final LocatedImage background = arenaPane.getArenaBackground().get();
-			visitor.visitBackground(background.getURL(), background.isResource());
+		if (course.getBackground().isPresent()) {
+			visitor.visitBackground(course.getBackground().get().url(), course.getBackground().get().isResource());
 		}
 
-		for (final Target t : arenaPane.getCanvasManager().getTargets()) {
-			final File relativeTargetFile = new File(t.getTargetFile().getAbsolutePath()
-					.replace(System.getProperty("shootoff.home") + File.separator, ""));
-			visitor.visitTarget(relativeTargetFile, t.getPosition().getX(), t.getPosition().getY(),
-					t.getDimension().getWidth(), t.getDimension().getHeight());
+		for (final CourseTarget t : course.getTargets()) {
+			visitor.visitTarget(t.file(), t.x(), t.y(), t.width(), t.height());
 		}
 
-		visitor.visitResolution(arenaPane.getWidth(), arenaPane.getHeight());
+		if (course.getResolution().isPresent()) {
+			visitor.visitResolution(course.getResolution().get().getWidth(), course.getResolution().get().getHeight());
+		}
 
 		visitor.visitEnd();
 	}
 
-	public static Optional<Course> loadCourse(ProjectorArenaPane arenaPane, final File courseFile) {
+	public static Optional<Course> loadCourse(final File courseFile) {
 		if (!courseFile.getName().endsWith("course")) {
 			logger.error("Unknown course file type.");
 			return Optional.empty();
 		}
 
-		return new XMLCourseReader(arenaPane, courseFile).load();
+		return new XMLCourseReader(courseFile).load();
 	}
 }

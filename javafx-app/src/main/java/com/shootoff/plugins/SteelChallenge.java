@@ -30,7 +30,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.shootoff.camera.Shot;
-import com.shootoff.courses.Course;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
@@ -74,12 +73,12 @@ public class SteelChallenge extends ProjectorTrainingExerciseBase implements Tra
 	}
 
 	// For testing
-	public void init(final Course course) {
+	public void init(final List<Target> courseTargets) {
 		testing = true;
 		thisSuper = super.getInstance();
 
 		targets = new ArrayList<>();
-		targets.addAll(course.getTargets());
+		targets.addAll(courseTargets);
 
 		repeatExercise = checkTargets(targets);
 		startRound();

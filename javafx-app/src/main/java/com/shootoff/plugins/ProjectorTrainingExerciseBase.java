@@ -299,9 +299,8 @@ public class ProjectorTrainingExerciseBase extends TrainingExerciseBase {
 	 * @since 3.8
 	 */
 	public List<Target> setCourse(File courseFile) {
-		final Optional<Course> newCourse = CourseIO.loadCourse(arenaPane, courseFile);
-		arenaPane.setCourse(newCourse.get());
-		return newCourse.get().getTargets();
+		final Optional<Course> newCourse = CourseIO.loadCourse(courseFile);
+		return arenaPane.setCourse(newCourse.get());
 	}
 
 	/**

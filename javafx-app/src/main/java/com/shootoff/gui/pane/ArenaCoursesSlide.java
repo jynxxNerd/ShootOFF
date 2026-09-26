@@ -21,6 +21,7 @@ package com.shootoff.gui.pane;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FilenameFilter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -29,11 +30,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.courses.Course;
+import com.shootoff.courses.CourseTarget;
 import com.shootoff.courses.io.CourseIO;
+import com.shootoff.geom.Size;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.targets.Target;
+import com.shootoff.targets.io.TargetIO;
+import com.shootoff.targets.io.TargetIO.TargetComponents;
 
-import javafx.geometry.Dimension2D;
 import javafx.scene.Group;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.TitledPane;
@@ -94,7 +98,7 @@ public class ArenaCoursesSlide extends Slide implements ItemSelectionListener<Fi
 
 			courseFile = new File(path);
 
-			CourseIO.saveCourse(arenaPane, courseFile);
+			CourseIO.saveCourse(arenaPane.getCourse(), courseFile);
 
 			// Add the course to the list in the appropriate category
 			ItemSelectionPane<File> itemPane;
@@ -175,23 +179,23 @@ public class ArenaCoursesSlide extends Slide implements ItemSelectionListener<Fi
 	}
 
 	private ImageView getCourseThumbnail(File courseFile) {
-		final Optional<Course> course = CourseIO.loadCourse(arenaPane, courseFile);
+		final Optional<Course> course = CourseIO.loadCourse(courseFile);
 
 		if (course.isPresent()) {
 			final Group courseGroup = new Group();
-
 			final Course c = course.get();
 
 			if (c.getBackground().isPresent()) {
-				final Dimension2D courseDimensions;
+				final Size courseDimensions;
 
 				if (c.getResolution().isPresent()) {
 					courseDimensions = c.getResolution().get();
 				} else {
-					courseDimensions = new Dimension2D(arenaPane.getWidth(), arenaPane.getWidth());
+					courseDimensions = new Size(arenaPane.getWidth(), arenaPane.getWidth());
 				}
 
-				final ImageView backgroundImageView = new ImageView(c.getBackground().get());
+				final ImageView backgroundImageView = new ImageView(
+						ProjectorArenaPane.toLocatedImage(c.getBackground().get()));
 				backgroundImageView.setFitWidth(courseDimensions.getWidth());
 				backgroundImageView.setFitHeight(courseDimensions.getHeight());
 				backgroundImageView.setSmooth(true);
@@ -199,12 +203,19 @@ public class ArenaCoursesSlide extends Slide implements ItemSelectionListener<Fi
 				courseGroup.getChildren().add(backgroundImageView);
 			}
 
-			for (final Target t : c.getTargets()) {
-				courseGroup.getChildren().add(((TargetView) t).getTargetGroup());
+			for (final CourseTarget t : c.getTargets()) {
+				final Optional<TargetComponents> components = TargetIO.loadTarget(t.file(), false);
+				if (!components.isPresent()) continue;
+
+				final TargetView view = new TargetView(components.get(), new ArrayList<Target>());
+				view.setPosition(t.x(), t.y());
+				view.setDimensions(t.width(), t.height());
+				courseGroup.getChildren().add(view.getTargetGroup());
 			}
 
 			final Image courseThumbnail = courseGroup.snapshot(new SnapshotParameters(), null);
 			final ImageView courseImageView = new ImageView(courseThumbnail);
+
 			courseImageView.setFitWidth(60);
 			courseImageView.setFitHeight(60);
 			courseImageView.setPreserveRatio(true);
@@ -218,7 +229,7 @@ public class ArenaCoursesSlide extends Slide implements ItemSelectionListener<Fi
 
 	@Override
 	public void onItemClicked(File courseFile) {
-		final Optional<Course> course = CourseIO.loadCourse(arenaPane, courseFile);
+		final Optional<Course> course = CourseIO.loadCourse(courseFile);
 
 		if (course.isPresent()) {
 			arenaPane.setCourse(course.get());
