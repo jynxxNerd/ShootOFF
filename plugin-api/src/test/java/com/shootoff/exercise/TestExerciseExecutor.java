@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -13,6 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -125,7 +127,8 @@ class TestExerciseExecutor {
 			}
 		});
 		executor.execute(() -> ran.add("queued"));
-		executor.schedule(() -> ran.add("scheduled"), Duration.ofMillis(200));
+		// Long enough that a loaded machine can't make it already due before shutdown purges it
+		executor.schedule(() -> ran.add("scheduled"), Duration.ofSeconds(10));
 		new Thread(() -> {
 			try {
 				Thread.sleep(50);
@@ -165,5 +168,89 @@ class TestExerciseExecutor {
 		// It returned at once instead of waiting for itself, and the last callback still ran after it
 		assertFalse(result.get(5, TimeUnit.SECONDS));
 		assertTrue(last.await(5, TimeUnit.SECONDS));
+	}
+
+	@Test
+	void submissionRacingWithShutdownNeverRunsAfterLast() throws Exception {
+		final List<String> ran = new CopyOnWriteArrayList<>();
+		final CountDownLatch go = new CountDownLatch(1);
+		final AtomicBoolean stop = new AtomicBoolean();
+
+		// Hammers execute() the moment it's released, so some calls land exactly around the
+		// shutdown() call below instead of relying on a sleep to line them up
+		final Thread racer = new Thread(() -> {
+			try {
+				go.await();
+			} catch (final InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			while (!stop.get()) {
+				executor.execute(() -> ran.add("race"));
+			}
+		});
+		racer.start();
+
+		go.countDown();
+		assertTrue(executor.shutdown(() -> ran.add("last"), Duration.ofSeconds(5)));
+		stop.set(true);
+		racer.join(5000);
+
+		final int lastIndex = ran.indexOf("last");
+		assertTrue(lastIndex >= 0, "last never ran");
+		assertEquals(lastIndex, ran.size() - 1, "something ran after last: " + ran);
+	}
+
+	@Test
+	void concurrentShutdownCallsRunLastExactlyOnce() throws Exception {
+		final int callers = 10;
+		final AtomicInteger lastRuns = new AtomicInteger();
+		final CountDownLatch ready = new CountDownLatch(callers);
+		final CountDownLatch go = new CountDownLatch(1);
+		final List<Thread> threads = new ArrayList<>();
+
+		for (int i = 0; i < callers; i++) {
+			final Thread t = new Thread(() -> {
+				ready.countDown();
+				try {
+					go.await();
+				} catch (final InterruptedException e) {
+					Thread.currentThread().interrupt();
+					return;
+				}
+				executor.shutdown(lastRuns::incrementAndGet, Duration.ofSeconds(5));
+			});
+			threads.add(t);
+			t.start();
+		}
+
+		assertTrue(ready.await(5, TimeUnit.SECONDS));
+		go.countDown();
+		for (final Thread t : threads) t.join(5000);
+
+		assertEquals(1, lastRuns.get());
+	}
+
+	@Test
+	void repeatingTaskThatCancelsItselfStops() throws Exception {
+		final AtomicInteger runs = new AtomicInteger();
+		final AtomicReference<Cancellable> self = new AtomicReference<>();
+		final CountDownLatch cancelledFromWithin = new CountDownLatch(1);
+
+		// A generous initial delay so self is set before the first run, without a sleep
+		final Cancellable repeating = executor.scheduleRepeating(() -> {
+			if (runs.incrementAndGet() == 3) {
+				self.get().cancel();
+				cancelledFromWithin.countDown();
+			}
+		}, Duration.ofMillis(200), Duration.ofMillis(20));
+		self.set(repeating);
+
+		assertTrue(cancelledFromWithin.await(5, TimeUnit.SECONDS));
+		sync();
+		final int afterCancel = runs.get();
+		Thread.sleep(100);
+
+		assertEquals(afterCancel, runs.get());
 	}
 }

@@ -34,10 +34,14 @@ import org.slf4j.LoggerFactory;
  */
 public final class ExerciseExecutor {
 	private static final Logger logger = LoggerFactory.getLogger(ExerciseExecutor.class);
+	private static final Cancellable NO_OP = () -> {};
 
 	private final String exerciseName;
 	private final ScheduledThreadPoolExecutor executor;
+	private final Object lock = new Object();
 	private volatile Thread thread;
+	// Guarded by lock: once true, no further submission is accepted and shutdown has begun
+	private boolean stopping;
 
 	public ExerciseExecutor(String exerciseName) {
 		this.exerciseName = exerciseName;
@@ -62,23 +66,30 @@ public final class ExerciseExecutor {
 	}
 
 	public Cancellable schedule(Runnable task, Duration delay) {
-		try {
-			final ScheduledFuture<?> future = executor.schedule(guarded(task), delay.toNanos(), TimeUnit.NANOSECONDS);
-			return () -> future.cancel(false);
-		} catch (final RejectedExecutionException e) {
-			logger.debug("Ignoring a task for {}, which has stopped", exerciseName);
-			return () -> {};
+		synchronized (lock) {
+			if (stopping) return NO_OP;
+			try {
+				final ScheduledFuture<?> future = executor.schedule(guarded(task), delay.toNanos(),
+						TimeUnit.NANOSECONDS);
+				return () -> future.cancel(false);
+			} catch (final RejectedExecutionException e) {
+				logger.debug("Ignoring a task for {}, which has stopped", exerciseName);
+				return NO_OP;
+			}
 		}
 	}
 
 	public Cancellable scheduleRepeating(Runnable task, Duration initialDelay, Duration period) {
-		try {
-			final ScheduledFuture<?> future = executor.scheduleAtFixedRate(guarded(task), initialDelay.toNanos(),
-					period.toNanos(), TimeUnit.NANOSECONDS);
-			return () -> future.cancel(false);
-		} catch (final RejectedExecutionException e) {
-			logger.debug("Ignoring a repeating task for {}, which has stopped", exerciseName);
-			return () -> {};
+		synchronized (lock) {
+			if (stopping) return NO_OP;
+			try {
+				final ScheduledFuture<?> future = executor.scheduleAtFixedRate(guarded(task), initialDelay.toNanos(),
+						period.toNanos(), TimeUnit.NANOSECONDS);
+				return () -> future.cancel(false);
+			} catch (final RejectedExecutionException e) {
+				logger.debug("Ignoring a repeating task for {}, which has stopped", exerciseName);
+				return NO_OP;
+			}
 		}
 	}
 
@@ -92,17 +103,26 @@ public final class ExerciseExecutor {
 
 	/**
 	 * Stops the exercise thread: callbacks already submitted run, then <tt>last</tt> (for example
-	 * the exercise's <tt>stop()</tt>), and every scheduled task is cancelled. Waits up to
-	 * <tt>timeout</tt> for that, and interrupts the thread if it takes longer. Called on the exercise
-	 * thread itself, it can't wait: <tt>last</tt> then runs when the current callback returns.
+	 * the exercise's <tt>stop()</tt>), and every scheduled task is cancelled. Nothing submitted after
+	 * <tt>shutdown</tt> begins runs. Waits up to <tt>timeout</tt> for that, and interrupts the thread
+	 * if it takes longer. Called on the exercise thread itself, it can't wait: <tt>last</tt> then runs
+	 * when the current callback returns.
+	 * <p>
+	 * However many threads call this concurrently, <tt>last</tt> runs exactly once, on the exercise
+	 * thread.
 	 *
 	 * @return <tt>true</tt> if the thread finished within <tt>timeout</tt>
 	 */
 	public boolean shutdown(Runnable last, Duration timeout) {
-		if (executor.isShutdown()) return executor.isTerminated();
-
-		execute(last);
-		executor.shutdown();
+		synchronized (lock) {
+			if (!stopping) {
+				stopping = true;
+				// Submitting last and shutting down together, under the same lock submissions check,
+				// keeps a concurrent execute()/schedule() from ever queuing behind last
+				executor.schedule(guarded(last), 0, TimeUnit.NANOSECONDS);
+				executor.shutdown();
+			}
+		}
 
 		if (isExerciseThread()) return false;
 
