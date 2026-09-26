@@ -18,24 +18,16 @@
 
 package com.shootoff.gui.exercise;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.net.URLConnection;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 
@@ -45,7 +37,6 @@ import org.slf4j.LoggerFactory;
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ArenaShot;
 import com.shootoff.camera.shot.DisplayShot;
-import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.exercise.ButtonHandle;
 import com.shootoff.exercise.Cancellable;
 import com.shootoff.exercise.DelayRange;
@@ -59,6 +50,12 @@ import com.shootoff.exercise.ShotStyle;
 import com.shootoff.exercise.TargetHandle;
 import com.shootoff.exercise.TextHandle;
 import com.shootoff.exercise.TextStyle;
+import com.shootoff.exercise.host.ExerciseHostSupport;
+import com.shootoff.exercise.host.ExerciseHostSupport.FileTarget;
+import com.shootoff.exercise.host.ExerciseHostSupport.JarTarget;
+import com.shootoff.exercise.host.ExerciseHostSupport.MissingTarget;
+import com.shootoff.exercise.host.ExerciseHostSupport.Stopped;
+import com.shootoff.exercise.host.SavedBackground;
 import com.shootoff.geom.Point;
 import com.shootoff.geom.Size;
 import com.shootoff.gui.CanvasManager;
@@ -96,7 +93,10 @@ import javafx.scene.shape.Ellipse;
 import javafx.scene.text.Font;
 
 /**
- * Runs one v2 {@link Exercise} in the JavaFX app, on the projector arena or on a camera feed.
+ * Runs one v2 {@link Exercise} in the JavaFX app, on the projector arena or on a camera feed. What
+ * every user interface's host shares (the exercise's thread, stopping, names, timer rows, the shared
+ * par time and start delay) is plugin-api's {@link ExerciseHostSupport}; this draws the exercise on the
+ * JavaFX scene.
  * <ul>
  * <li>Every exercise callback (start, shots, target changes, resets, stop, scheduled tasks, buttons,
  * settings and listeners) runs on the exercise's own thread, an {@link ExerciseExecutor}.</li>
@@ -110,25 +110,10 @@ import javafx.scene.text.Font;
 public final class JavaFxExerciseHost implements ExerciseHost {
 	private static final Logger logger = LoggerFactory.getLogger(JavaFxExerciseHost.class);
 
-	private static final Duration STOP_TIMEOUT = Duration.ofSeconds(2);
-	// What the shared timing controls show until an exercise sets its own values, as for v1 exercises
-	private static final double DEFAULT_PAR_TIME = 2.0;
-	private static final DelayRange DEFAULT_DELAYED_START = new DelayRange(4, 8);
 	private static final int COLUMN_WIDTH = 60;
 
-	private final Exercise exercise;
 	private final ExerciseHostContext context;
-	private final ExerciseExecutor executor;
-
-	// Guarded by this
-	private final List<TargetView> addedTargets = new ArrayList<>();
-	private boolean stopped = false;
-	private boolean detectionPaused = false;
-
-	private volatile double parTime = DEFAULT_PAR_TIME;
-	private volatile DelayRange delayedStart = DEFAULT_DELAYED_START;
-	private final List<DoubleConsumer> parListeners = new CopyOnWriteArrayList<>();
-	private final List<Consumer<DelayRange>> delayListeners = new CopyOnWriteArrayList<>();
+	private final ExerciseHostSupport<TargetView> support;
 
 	// JavaFX thread only
 	private final List<Node> canvasNodes = new ArrayList<>();
@@ -138,46 +123,31 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	private final List<Button> buttons = new ArrayList<>();
 	private final List<TableColumn<ShotEntry, String>> columns = new ArrayList<>();
 	private TimingControlsPane timingControls = null;
-	private boolean changedBackground = false;
-	private Optional<LocatedImage> previousBackground = Optional.empty();
+	private final SavedBackground<LocatedImage> savedBackground = new SavedBackground<>();
 	private boolean tornDown = false;
 
 	// The shared timing controls' listener; it runs on the JavaFX thread
 	private final ParListener timingListener = new ParListener() {
 		@Override
 		public void updatedDelayedStartInterval(int min, int max) {
-			if (min > max) return;
-
-			final DelayRange range = new DelayRange(min, max);
-			if (range.equals(delayedStart)) return;
-
-			delayedStart = range;
-			for (final Consumer<DelayRange> listener : delayListeners) {
-				executor.execute(() -> listener.accept(range));
-			}
+			support.userChangedDelayedStart(min, max);
 		}
 
 		@Override
 		public void updatedParInterval(double seconds) {
-			if (Double.compare(seconds, parTime) == 0) return;
-
-			parTime = seconds;
-			for (final DoubleConsumer listener : parListeners) {
-				executor.execute(() -> listener.accept(seconds));
-			}
+			support.userChangedParTime(seconds);
 		}
 	};
 
 	public JavaFxExerciseHost(Exercise exercise, ExerciseHostContext context) {
-		this.exercise = exercise;
 		this.context = context;
-		executor = new ExerciseExecutor(exercise.metadata().getName());
+		support = new ExerciseHostSupport<>(exercise, context.resources());
 	}
 
 	// ---- Lifecycle, driven by HostedExercise
 
 	public void start() {
-		executor.execute(() -> exercise.start(this));
+		support.start(this);
 	}
 
 	/**
@@ -187,15 +157,15 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	public void deliverShot(Shot shot, Optional<Hit> hit) {
 		if (isProjector() != (shot instanceof ArenaShot)) return;
 
-		executor.execute(() -> exercise.onShot(shot, hit));
+		support.deliverShot(shot, hit);
 	}
 
 	public void targetsChanged() {
-		executor.execute(() -> exercise.onTargetsChanged(targets()));
+		support.targetsChanged(this::targets);
 	}
 
 	public void reset() {
-		executor.execute(exercise::onReset);
+		support.reset();
 	}
 
 	/**
@@ -203,26 +173,14 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	 * thread, which never waits for the JavaFX thread, so this may run on the JavaFX thread.
 	 */
 	public void stop() {
-		synchronized (this) {
-			if (stopped) return;
-			stopped = true;
-		}
+		final Optional<Stopped<TargetView>> stopped = support.stop();
+		if (stopped.isEmpty()) return;
 
-		executor.shutdown(exercise::stop, STOP_TIMEOUT);
-
-		final List<TargetView> targets;
-		final boolean restartDetection;
-		synchronized (this) {
-			targets = List.copyOf(addedTargets);
-			addedTargets.clear();
-			restartDetection = detectionPaused;
-		}
-
-		for (final TargetView target : targets) {
+		for (final TargetView target : stopped.get().addedTargets()) {
 			context.canvas().removeTarget(target);
 		}
 
-		if (restartDetection) context.cameras().setDetectingAll(true);
+		if (stopped.get().restartDetection()) context.cameras().setDetectingAll(true);
 
 		// Queued after every scene change the exercise made, so all of them are undone. When
 		// already on the FX thread, run it now instead: a caller that stops an exercise and then
@@ -257,7 +215,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		context.view().getShotEntryTable().getColumns().removeAll(columns);
 		columns.clear();
 
-		if (changedBackground) context.arena().get().setArenaBackground(previousBackground.orElse(null));
+		savedBackground.restore(previous -> context.arena().get().setArenaBackground(previous.orElse(null)));
 	}
 
 	// Queues a scene change. Changes queued after the tear down are dropped.
@@ -265,10 +223,6 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		Platform.runLater(() -> {
 			if (!tornDown) change.run();
 		});
-	}
-
-	private synchronized boolean isStopped() {
-		return stopped;
 	}
 
 	private ObservableList<Node> canvasChildren() {
@@ -295,18 +249,21 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	@Override
 	public void setBackground(String imageResource) {
 		if (context.arena().isEmpty()) {
-			logger.warn("{} set a background, but only the projector arena has one", exercise.metadata().getName());
+			logger.warn("{} set a background, but only the projector arena has one", support.exerciseName());
 			return;
 		}
 
 		final String name = ExercisePaths.resourceName(imageResource);
 		final LocatedImage background;
-		try (InputStream image = openImage(name)) {
-			if (image == null) {
+		try {
+			final Optional<InputStream> image = support.openImage(name);
+			if (image.isEmpty()) {
 				logger.error("Can't find background {}", imageResource);
 				return;
 			}
-			background = new LocatedImage(image, "/" + name);
+			try (InputStream in = image.get()) {
+				background = new LocatedImage(in, "/" + name);
+			}
 		} catch (final IOException e) {
 			logger.error("Can't read background {}", imageResource, e);
 			return;
@@ -314,27 +271,16 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 		fx(() -> {
 			final ProjectorArenaPane arena = context.arena().get();
-			if (!changedBackground) {
-				previousBackground = arena.getArenaBackground();
-				changedBackground = true;
-			}
+			savedBackground.beforeChange(arena::getArenaBackground);
 			arena.setArenaBackground(background);
 		});
-	}
-
-	// The exercise's jar first, then ShootOFF's own resources (for example arena/backgrounds/...)
-	private InputStream openImage(String name) throws IOException {
-		final Optional<URL> resource = findResource(name);
-		if (resource.isPresent()) return open(resource.get());
-
-		return JavaFxExerciseHost.class.getResourceAsStream("/" + name);
 	}
 
 	// ---- Targets
 
 	@Override
 	public Optional<TargetHandle> addTarget(String targetFile, double x, double y) {
-		if (isStopped()) return Optional.empty();
+		if (support.isStopped()) return Optional.empty();
 
 		final Optional<Target> added = loadTarget(targetFile);
 		if (added.isEmpty()) return Optional.empty();
@@ -348,12 +294,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 			arena.get().resizeTargetToDefaultPerspective(target);
 		}
 
-		synchronized (this) {
-			if (!stopped) {
-				addedTargets.add(target);
-				return Optional.of(new FxTargetHandle(target));
-			}
-		}
+		if (support.track(target)) return Optional.of(new FxTargetHandle(target));
 
 		// Stopped while loading
 		context.canvas().removeTarget(target);
@@ -361,34 +302,32 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	}
 
 	private Optional<Target> loadTarget(String targetFile) {
-		final String name = ExercisePaths.resourceName(targetFile);
-		final Optional<URL> resource = findResource(name);
+		return switch (support.findTarget(targetFile)) {
+		case JarTarget jar -> loadJarTarget(jar);
+		case FileTarget file -> context.canvas().addTarget(file.file(), false);
+		case MissingTarget missing -> {
+			logger.error("Can't find target {}", missing.requested());
+			yield Optional.empty();
+		}
+		};
+	}
 
-		if (resource.isPresent()) {
-			// The projector arena's canvas mirrors each target on the arena tab's. Add it as v1's
-			// ProjectorTrainingExerciseBase does, by file: that returns this canvas's copy, the one the
-			// projector shows and removeTarget expects. Adding the components here instead returns the
-			// tab's copy, which the exercise could neither hide on the projector nor remove.
-			if (context.canvas() instanceof MirroredCanvasManager) {
-				return context.canvas().addTarget(new File("@" + name), false);
-			}
-
-			try (InputStream in = open(resource.get())) {
-				return TargetIO.loadTarget(in, false, context.resources()).map(
-						components -> context.canvas().addTarget(components.withTargetFile(new File("@" + name)), true));
-			} catch (final IOException e) {
-				logger.error("Can't read target {} from the exercise", name, e);
-				return Optional.empty();
-			}
+	private Optional<Target> loadJarTarget(JarTarget jar) {
+		// The projector arena's canvas mirrors each target on the arena tab's. Add it as v1's
+		// ProjectorTrainingExerciseBase does, by file: that returns this canvas's copy, the one the
+		// projector shows and removeTarget expects. Adding the components here instead returns the
+		// tab's copy, which the exercise could neither hide on the projector nor remove.
+		if (context.canvas() instanceof MirroredCanvasManager) {
+			return context.canvas().addTarget(new File("@" + jar.name()), false);
 		}
 
-		final Optional<File> file = ExercisePaths.shootoffFile(targetFile, "targets");
-		if (file.isEmpty()) {
-			logger.error("Can't find target {}", targetFile);
+		try (InputStream in = ExerciseHostSupport.open(jar.url())) {
+			return TargetIO.loadTarget(in, false, context.resources()).map(
+					components -> context.canvas().addTarget(components.withTargetFile(new File("@" + jar.name())), true));
+		} catch (final IOException e) {
+			logger.error("Can't read target {} from the exercise", jar.name(), e);
 			return Optional.empty();
 		}
-
-		return context.canvas().addTarget(file.get(), false);
 	}
 
 	@Override
@@ -433,9 +372,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 		@Override
 		public void remove() {
-			synchronized (JavaFxExerciseHost.this) {
-				addedTargets.remove(view);
-			}
+			support.untrack(view);
 			context.canvas().removeTarget(view);
 		}
 
@@ -508,7 +445,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 	@Override
 	public void showMessage(String message) {
-		if (isStopped()) return;
+		if (support.isStopped()) return;
 
 		if (context.config().inDebugMode()) System.out.println(message);
 		context.config().getSessionRecorder().ifPresent(recorder -> recorder.recordExerciseFeedMessage(message));
@@ -530,7 +467,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	@Override
 	public ButtonHandle addButton(String label, Runnable onClick) {
 		final Button button = new Button(label);
-		button.setOnAction(event -> executor.execute(onClick));
+		button.setOnAction(event -> support.run(onClick));
 
 		fx(() -> {
 			final List<Node> pane = context.view().getButtonsPane().getChildren();
@@ -565,7 +502,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 			final Spinner<Double> spinner = new Spinner<>(min, max, initial, step);
 			spinner.setEditable(true);
 			spinner.valueProperty().addListener((observable, oldValue, newValue) -> {
-				if (newValue != null) executor.execute(() -> onChange.accept(newValue));
+				if (newValue != null) support.run(() -> onChange.accept(newValue));
 			});
 
 			final HBox pane = new HBox(10, new Label(label), spinner);
@@ -593,7 +530,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		fx(() -> {
 			final TableView<ShotEntry> table = context.view().getShotEntryTable();
 			if (table.getItems().isEmpty()) {
-				logger.warn("{} set {} on an empty shot timer", exercise.metadata().getName(), name);
+				logger.warn("{} set {} on an empty shot timer", support.exerciseName(), name);
 				return;
 			}
 
@@ -620,7 +557,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	@Override
 	public void addTimerRow(long timeMillis, RowStyle style) {
 		final Color color = Color.web(style.highlightColor());
-		final DisplayShot noShot = new DisplayShot(new Shot(ShotColor.RED, -10, -10, timeMillis),
+		final DisplayShot noShot = new DisplayShot(ExerciseHostSupport.noShot(timeMillis),
 				context.config().getMarkerRadius());
 
 		fx(() -> {
@@ -654,7 +591,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 	@Override
 	public void clearShots() {
-		if (isStopped()) return;
+		if (support.isStopped()) return;
 
 		context.cameras().clearShots();
 		fx(() -> {
@@ -665,58 +602,25 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	}
 
 	@Override
-	public synchronized void pauseShotDetection(boolean paused) {
-		if (stopped) return;
-
-		detectionPaused = paused;
-		context.cameras().setDetectingAll(!paused);
+	public void pauseShotDetection(boolean paused) {
+		support.pauseShotDetection(paused, context.cameras()::setDetectingAll);
 	}
 
 	// ---- Sound
 
 	@Override
 	public void playSound(String resourceOrFile) {
-		openSound(resourceOrFile).ifPresent(sound -> context.sounds().play(resourceOrFile, sound, () -> {}));
+		support.playSound(resourceOrFile, context.sounds()::play);
 	}
 
 	@Override
 	public void playSounds(List<String> resourcesOrFiles) {
-		playInOrder(List.copyOf(resourcesOrFiles), 0);
-	}
-
-	private void playInOrder(List<String> sounds, int index) {
-		if (index >= sounds.size() || isStopped()) return;
-
-		final Optional<InputStream> sound = openSound(sounds.get(index));
-		if (sound.isPresent()) {
-			context.sounds().play(sounds.get(index), sound.get(), () -> playInOrder(sounds, index + 1));
-		} else {
-			playInOrder(sounds, index + 1);
-		}
-	}
-
-	// The exercise's jar first, then ShootOFF's folder and its sounds/ folder
-	private Optional<InputStream> openSound(String resourceOrFile) {
-		if (isStopped()) return Optional.empty();
-
-		try {
-			final Optional<URL> resource = findResource(ExercisePaths.resourceName(resourceOrFile));
-			if (resource.isPresent()) return Optional.of(open(resource.get()));
-
-			final Optional<File> file = ExercisePaths.shootoffFile(resourceOrFile, "sounds");
-			if (file.isPresent()) return Optional.of(new BufferedInputStream(Files.newInputStream(file.get().toPath())));
-		} catch (final IOException e) {
-			logger.error("Can't open sound {}", resourceOrFile, e);
-			return Optional.empty();
-		}
-
-		logger.error("Can't find sound {}", resourceOrFile);
-		return Optional.empty();
+		support.playSounds(resourcesOrFiles, context.sounds()::play);
 	}
 
 	@Override
 	public void say(String text) {
-		if (!isStopped()) context.sounds().say(text);
+		if (!support.isStopped()) context.sounds().say(text);
 	}
 
 	// ---- Time
@@ -728,66 +632,36 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 	@Override
 	public Cancellable schedule(Runnable task, Duration delay) {
-		return executor.schedule(task, delay);
+		return support.schedule(task, delay);
 	}
 
 	@Override
 	public Cancellable scheduleRepeating(Runnable task, Duration initialDelay, Duration period) {
-		return executor.scheduleRepeating(task, initialDelay, period);
+		return support.scheduleRepeating(task, initialDelay, period);
 	}
 
 	// ---- Resources
 
 	@Override
 	public Optional<InputStream> resource(String path) {
-		final Optional<URL> resource = findResource(ExercisePaths.resourceName(path));
-		if (resource.isEmpty()) return Optional.empty();
-
-		try {
-			return Optional.of(open(resource.get()));
-		} catch (final IOException e) {
-			logger.error("Can't open resource {}", path, e);
-			return Optional.empty();
-		}
-	}
-
-	// A plugin's own jar only: its class loader's getResource would search ShootOFF's classpath first
-	private Optional<URL> findResource(String name) {
-		final ClassLoader loader = context.resources();
-		if (loader == null || name.isEmpty()) return Optional.empty();
-
-		return Optional.ofNullable(loader instanceof URLClassLoader jar ? jar.findResource(name) : loader.getResource(name));
-	}
-
-	// Uncached, so the exercise's jar isn't held open and can be replaced while ShootOFF runs
-	private static InputStream open(URL url) throws IOException {
-		final URLConnection connection = url.openConnection();
-		connection.setUseCaches(false);
-		return new BufferedInputStream(connection.getInputStream());
+		return support.resource(path);
 	}
 
 	@Override
 	public Path dataDirectory() {
-		final Path directory = Paths.get(System.getProperty("shootoff.home", System.getProperty("user.dir")),
-				"exercise-data", exercise.getClass().getName());
-
-		try {
-			return Files.createDirectories(directory);
-		} catch (final IOException e) {
-			throw new UncheckedIOException(e);
-		}
+		return support.dataDirectory();
 	}
 
 	// ---- Shared settings
 
 	@Override
 	public double parTime() {
-		return parTime;
+		return support.parTime();
 	}
 
 	@Override
 	public void setParTime(double seconds) {
-		parTime = seconds;
+		support.setParTime(seconds);
 		fx(() -> {
 			if (timingControls != null) timingControls.setParTime(seconds);
 		});
@@ -795,18 +669,18 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 	@Override
 	public void onParTimeChanged(DoubleConsumer listener) {
-		parListeners.add(listener);
+		support.onParTimeChanged(listener);
 		fx(() -> showTimingControls(true));
 	}
 
 	@Override
 	public DelayRange delayedStart() {
-		return delayedStart;
+		return support.delayedStart();
 	}
 
 	@Override
 	public void setDelayedStart(DelayRange range) {
-		delayedStart = range;
+		support.setDelayedStart(range);
 		fx(() -> {
 			if (timingControls != null) timingControls.setDelayRange(range.minSeconds(), range.maxSeconds());
 		});
@@ -814,7 +688,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 
 	@Override
 	public void onDelayedStartChanged(Consumer<DelayRange> listener) {
-		delayListeners.add(listener);
+		support.onDelayedStartChanged(listener);
 		fx(() -> showTimingControls(false));
 	}
 
@@ -823,14 +697,14 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	private void showTimingControls(boolean withParTime) {
 		if (timingControls == null) {
 			timingControls = new TimingControlsPane(timingListener);
-			timingControls.setDelayRange(delayedStart.minSeconds(), delayedStart.maxSeconds());
+			timingControls.setDelayRange(support.delayedStart().minSeconds(), support.delayedStart().maxSeconds());
 			context.view().getTrainingExerciseContainer().getChildren().add(timingControls);
 			panes.add(timingControls);
 		}
 
 		if (withParTime && !timingControls.hasParTime()) {
 			timingControls.addParTime(timingListener);
-			timingControls.setParTime(parTime);
+			timingControls.setParTime(support.parTime());
 		}
 	}
 }
