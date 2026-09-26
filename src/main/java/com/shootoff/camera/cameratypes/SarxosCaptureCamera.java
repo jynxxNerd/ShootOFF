@@ -276,7 +276,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private boolean manualExposureActive = false;
 
 	@Override
-	public boolean supportsExposureAdjustment() {
+	public synchronized boolean supportsExposureAdjustment() {
 		// If we already verified that it works,
 		// we have an origExposure value set
 		if (origExposure.isPresent()) return true;
@@ -303,7 +303,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	// mode (e.g. 3 = aperture priority). Switch to manual (1) first, remembering the original
 	// auto-exposure value so resetExposure() can restore it. Other backends (macOS, Windows, IP
 	// cameras) don't share V4L2's auto-exposure values/semantics and are left untouched.
-	private boolean switchToManualExposure() {
+	private synchronized boolean switchToManualExposure() {
 		if (!SystemInfo.isLinux() || manualExposureActive) return true;
 
 		final double autoExposure = camera.get(Videoio.CAP_PROP_AUTO_EXPOSURE);
@@ -321,7 +321,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	}
 
 	@Override
-	public boolean decreaseExposure() {
+	public synchronized boolean decreaseExposure() {
 		// V4L2 must be in manual exposure mode before CAP_PROP_EXPOSURE writes are honored.
 		if (!switchToManualExposure()) return false;
 
@@ -359,7 +359,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	}
 
 	@Override
-	public void resetExposure() {
+	public synchronized void resetExposure() {
 		// Set exposure while still in manual mode -- V4L2 rejects it once auto mode is restored.
 		if (origExposure.isPresent()) camera.set(Videoio.CAP_PROP_EXPOSURE, origExposure.get());
 
