@@ -39,6 +39,7 @@ import com.shootoff.camera.CamerasSupervisor;
 import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.config.Configuration;
+import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.DelayedStartListener;
 import com.shootoff.gui.ParListener;
 import com.shootoff.gui.ShotEntry;
@@ -106,7 +107,7 @@ public abstract class TrainingExerciseBase {
 			final Label exerciseLabel = new Label();
 			exerciseLabel.setTextFill(Color.WHITE);
 			final CameraView arenaView = exerciseView.getArenaView().get();
-			arenaView.addChild(exerciseLabel);
+			((CanvasManager) arenaView).addChild(exerciseLabel);
 			exerciseLabels.put(arenaView, exerciseLabel);
 		}
 	}
@@ -123,7 +124,7 @@ public abstract class TrainingExerciseBase {
 		for (final CameraView cv : camerasSupervisor.getCameraViews()) {
 			final Label exerciseLabel = new Label();
 			exerciseLabel.setTextFill(Color.WHITE);
-			cv.addChild(exerciseLabel);
+			((CanvasManager) cv).addChild(exerciseLabel);
 			exerciseLabels.put(cv, exerciseLabel);
 		}
 	}
@@ -490,7 +491,7 @@ public abstract class TrainingExerciseBase {
 		}
 
 		for (final Entry<CameraView, Label> entry : exerciseLabels.entrySet()) {
-			entry.getKey().removeChild(entry.getValue());
+			((CanvasManager) entry.getKey()).removeChild(entry.getValue());
 		}
 
 		exerciseLabels.clear();

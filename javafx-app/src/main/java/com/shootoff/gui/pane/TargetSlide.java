@@ -27,12 +27,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.camera.CameraManager;
+import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.targets.TargetListener;
 import com.shootoff.gui.controller.TargetEditorController;
 import com.shootoff.targets.CameraViews;
 import com.shootoff.targets.io.TargetIO;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
 
+import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.image.Image;
@@ -81,7 +83,7 @@ public class TargetSlide extends Slide implements TargetListener, ItemSelectionL
 					currentFrame = backgroundPane.snapshot(new SnapshotParameters(), null);
 				} else {
 					final CameraManager currentCamera = cameraViews.getSelectedCameraManager();
-					currentFrame = currentCamera.getCurrentFrame();
+					currentFrame = SwingFXUtils.toFXImage(currentCamera.getCurrentFrame(), null);
 				}
 
 				editorController.init(currentFrame, this);
@@ -159,14 +161,14 @@ public class TargetSlide extends Slide implements TargetListener, ItemSelectionL
 	@Override
 	public void onItemClicked(File ref) {
 		if (Mode.ADD.equals(mode)) {
-			cameraViews.getSelectedCameraView().addTarget(ref);
+			((CanvasManager) cameraViews.getSelectedCameraView()).addTarget(ref);
 			hide();
 		} else {
 			final Optional<FXMLLoader> loader = createTargetEditorStage();
 
 			if (loader.isPresent()) {
 				final CameraManager currentCamera = cameraViews.getSelectedCameraManager();
-				final Image currentFrame = currentCamera.getCurrentFrame();
+				final Image currentFrame = SwingFXUtils.toFXImage(currentCamera.getCurrentFrame(), null);
 				final TargetEditorController editorController = (TargetEditorController) loader.get().getController();
 				editorController.init(currentFrame, this, ref);
 

@@ -270,7 +270,7 @@ public class CalibrationManager implements CameraCalibrationListener {
 		if (!calibrationTarget.isPresent()) {
 			createCalibrationTarget(DEFAULT_DIM, DEFAULT_DIM, DEFAULT_POS, DEFAULT_POS);
 		} else {
-			calibratingCameraManager.getCameraView().addTarget(calibrationTarget.get());
+			calibratingCanvasManager.addTarget(calibrationTarget.get());
 		}
 	}
 

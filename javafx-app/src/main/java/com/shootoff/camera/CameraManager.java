@@ -57,12 +57,8 @@ import com.shootoff.camera.video.VideoWriter;
 import com.shootoff.config.Settings;
 import com.shootoff.util.TimerPool;
 
-import javafx.embed.swing.SwingFXUtils;
 import com.shootoff.geom.Rect;
 import com.shootoff.geom.Size;
-import javafx.scene.control.Label;
-import javafx.scene.image.Image;
-import javafx.scene.paint.Color;
 
 /**
  * This class is responsible for fetching frames from its assigned camera and
@@ -465,8 +461,8 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		return camera;
 	}
 
-	public Image getCurrentFrame() {
-		return SwingFXUtils.toFXImage(camera.getBufferedImage(), null);
+	public BufferedImage getCurrentFrame() {
+		return camera.getBufferedImage();
 	}
 
 	public CameraView getCameraView() {
@@ -716,18 +712,18 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		}
 	}
 
-	private Label brightnessDiagnosticWarning = null;
+	private DiagnosticMessage brightnessDiagnosticWarning = null;
 
 	public void showBrightnessWarning() {
 		if (!TimerPool.isWaiting(brightnessDiagnosticFuture)) {
-			brightnessDiagnosticWarning = cameraView.addDiagnosticMessage("Warning: Excessive brightness", Color.RED);
+			brightnessDiagnosticWarning = cameraView.addDiagnosticWarning("Warning: Excessive brightness");
 		} else {
 			// Stop the existing timer and start a new one
 			TimerPool.cancelTimer(brightnessDiagnosticFuture);
 		}
 		brightnessDiagnosticFuture = TimerPool.schedule(() -> {
 			if (brightnessDiagnosticWarning != null) {
-				cameraView.removeDiagnosticMessage(brightnessDiagnosticWarning);
+				brightnessDiagnosticWarning.remove();
 				brightnessDiagnosticWarning = null;
 			}
 		}, DIAGNOSTIC_MESSAGE_DURATION);
@@ -738,19 +734,19 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		}
 	}
 
-	private Label motionDiagnosticWarning = null;
+	private DiagnosticMessage motionDiagnosticWarning = null;
 
 	public void showMotionWarning() {
 		if (!TimerPool.isWaiting(motionDiagnosticFuture)) {
-			motionDiagnosticWarning = cameraView.addDiagnosticMessage(
-					"Warning: Excessive motion -- Try reducing the camera exposure setting", Color.RED);
+			motionDiagnosticWarning = cameraView
+					.addDiagnosticWarning("Warning: Excessive motion -- Try reducing the camera exposure setting");
 		} else {
 			// Stop the existing timer and start a new one
 			TimerPool.cancelTimer(motionDiagnosticFuture);
 		}
 		motionDiagnosticFuture = TimerPool.schedule(() -> {
 			if (motionDiagnosticWarning != null) {
-				cameraView.removeDiagnosticMessage(motionDiagnosticWarning);
+				motionDiagnosticWarning.remove();
 				motionDiagnosticWarning = null;
 			}
 		}, DIAGNOSTIC_MESSAGE_DURATION);

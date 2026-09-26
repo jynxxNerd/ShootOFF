@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
+import com.shootoff.camera.DiagnosticMessage;
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.processors.MalfunctionsProcessor;
 import com.shootoff.camera.processors.ShotProcessor;
@@ -198,12 +199,10 @@ public class CanvasManager implements CameraView {
 		return cameraManager;
 	}
 
-	@Override
 	public boolean addChild(Node c) {
 		return getCanvasGroup().getChildren().add(c);
 	}
 
-	@Override
 	public boolean removeChild(Node c) {
 		return getCanvasGroup().getChildren().remove(c);
 	}
@@ -251,12 +250,10 @@ public class CanvasManager implements CameraView {
 		return diagnosticLabel;
 	}
 
-	@Override
 	public Label addDiagnosticMessage(String message, Color backgroundColor) {
 		return addDiagnosticMessage(message, DIAGNOSTIC_CHIME_DELAY, backgroundColor);
 	}
 
-	@Override
 	public void removeDiagnosticMessage(Label diagnosticLabel) {
 		if (diagnosticFutures.containsKey(diagnosticLabel)) {
 			diagnosticFutures.get(diagnosticLabel).cancel(false);
@@ -264,6 +261,12 @@ public class CanvasManager implements CameraView {
 		}
 
 		Platform.runLater(() -> diagnosticsVBox.getChildren().remove(diagnosticLabel));
+	}
+
+	@Override
+	public DiagnosticMessage addDiagnosticWarning(String message) {
+		final Label diagnosticLabel = addDiagnosticMessage(message, Color.RED);
+		return () -> removeDiagnosticMessage(diagnosticLabel);
 	}
 
 	public static String colorToWebCode(Color color) {
@@ -828,7 +831,6 @@ public class CanvasManager implements CameraView {
 		return Optional.empty();
 	}
 
-	@Override
 	public Optional<Target> addTarget(File targetFile) {
 		return addTarget(targetFile, true);
 	}
@@ -845,7 +847,6 @@ public class CanvasManager implements CameraView {
 		return addTarget(newTarget);
 	}
 
-	@Override
 	public Target addTarget(Target newTarget) {
 		final Runnable addTargetAction = () -> canvasGroup.getChildren().add(((TargetView) newTarget).getTargetGroup());
 
