@@ -16,12 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import com.shootoff.BundledFiles;
 import com.shootoff.geom.Rect;
 import com.shootoff.gui.JavaFXThreadingRule;
 import com.shootoff.gui.targets.FxAlphaMasks;
@@ -281,9 +281,7 @@ public class TestHitParity {
 	}
 
 	private static List<Path> bundledTargets() throws IOException {
-		try (Stream<Path> paths = Files.walk(Paths.get("targets"))) {
-			return paths.filter(path -> path.toString().endsWith(".target")).sorted().collect(Collectors.toList());
-		}
+		return BundledFiles.targets();
 	}
 
 	private static String key(Path file, int placement, int row) {

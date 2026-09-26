@@ -6,17 +6,14 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import com.shootoff.BundledFiles;
 import com.shootoff.courses.Course;
 import com.shootoff.courses.CourseBackground;
 import com.shootoff.courses.CourseTarget;
@@ -61,10 +58,7 @@ public class TestCourseIO {
 
 	@Test
 	public void testEveryBundledCourseParses() throws IOException {
-		final List<Path> files;
-		try (Stream<Path> paths = Files.walk(Paths.get("courses"))) {
-			files = paths.filter(p -> p.toString().endsWith(".course")).collect(Collectors.toList());
-		}
+		final List<Path> files = BundledFiles.courses();
 
 		assertEquals(8, files.size());
 		for (final Path file : files) {

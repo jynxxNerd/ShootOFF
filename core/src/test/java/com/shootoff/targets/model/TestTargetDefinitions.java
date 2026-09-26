@@ -19,14 +19,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.shootoff.BundledFiles;
 import com.shootoff.geom.Point;
 
 class TestTargetDefinitions {
@@ -39,10 +38,7 @@ class TestTargetDefinitions {
 
 	@Test
 	void everyBundledTargetParses() throws IOException, TargetFormatException {
-		final List<Path> files;
-		try (Stream<Path> paths = Files.walk(Paths.get("targets"))) {
-			files = paths.filter(p -> p.toString().endsWith(".target")).sorted().collect(Collectors.toList());
-		}
+		final List<Path> files = BundledFiles.targets();
 
 		assertEquals(26, files.size());
 		for (final Path file : files) {
