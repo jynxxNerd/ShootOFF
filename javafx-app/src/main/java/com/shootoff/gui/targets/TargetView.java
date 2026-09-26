@@ -274,6 +274,13 @@ public class TargetView implements Target {
 				regionNodes.get(i).setScaleY(1 / p.scaleY());
 			}
 		}
+
+		// The resize anchors are selection decoration, not model regions: counter-scale them too
+		// so they keep their on-screen size as the target's scale changes
+		for (final Node anchor : resizeAnchors) {
+			anchor.setScaleX(1 / p.scaleX());
+			anchor.setScaleY(1 / p.scaleY());
+		}
 	}
 
 	// The hit tester reads each image region's current frame, which animations and resets change

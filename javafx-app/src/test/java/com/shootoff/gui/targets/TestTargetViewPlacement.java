@@ -132,4 +132,28 @@ public class TestTargetViewPlacement {
 		assertEquals(before.getWidth() + 19, after.getWidth(), 0.01);
 		assertEquals(before.getHeight(), after.getHeight(), 0.01);
 	}
+
+	// The resize anchors are selection decoration, not part of the target's model: they should
+	// keep their on-screen size as the target is resized, exactly as before Plan 2 (ffe615f1)
+	@Test
+	public void resizeAnchorsKeepTheirOnScreenSizeWhileResizing() {
+		canvas.addTarget(ipsc);
+		ipsc.toggleSelected();
+
+		final javafx.scene.Node anchor = ipsc.getTargetGroup().getChildren()
+				.get(ipsc.getTargetGroup().getChildren().size() - 1);
+		final Bounds before = ipsc.getTargetGroup().localToParent(anchor.getBoundsInParent());
+
+		final Rect bounds = ipsc.getPlacedTarget().getBounds();
+		final double y = bounds.getMinY() + bounds.getHeight() / 2;
+		final double edge = bounds.getMaxX() - 1; // inside the 5-pixel resize margin
+
+		fireMouse(MouseEvent.MOUSE_MOVED, edge, y);
+		fireMouse(MouseEvent.MOUSE_PRESSED, edge, y);
+		fireMouse(MouseEvent.MOUSE_DRAGGED, edge + 200, y);
+
+		final Bounds after = ipsc.getTargetGroup().localToParent(anchor.getBoundsInParent());
+		assertEquals(before.getWidth(), after.getWidth(), 0.01);
+		assertEquals(before.getHeight(), after.getHeight(), 0.01);
+	}
 }
