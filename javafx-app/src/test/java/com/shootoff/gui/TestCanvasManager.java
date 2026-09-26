@@ -14,6 +14,7 @@ import com.shootoff.camera.CamerasSupervisor;
 import com.shootoff.camera.MockCamera;
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
@@ -239,7 +240,21 @@ public class TestCanvasManager {
 
 		assertEquals(160, cm.getShots().get(0).getX(), 1.0);
 		assertEquals(160, cm.getShots().get(0).getY(), 1.0);
-		
+
+	}
+
+	@Test
+	public void testDetectedShotBecomesMarkerAtItsDisplayPosition() {
+		final ScaledShot detected = new ScaledShot(ShotColor.GREEN, 100, 50, 0);
+		detected.setDisplayVals(1280, 960, 640, 480);
+
+		cm.addShot(detected);
+
+		final DisplayShot shown = cm.getShots().get(cm.getShots().size() - 1);
+		assertEquals(200, shown.getMarker().getCenterX(), 0.1);
+		assertEquals(100, shown.getMarker().getCenterY(), 0.1);
+		assertEquals(config.getMarkerRadius(), shown.getMarker().getRadiusX(), 0.1);
+		assertEquals(ShotColor.GREEN, shown.getColor());
 	}
 
 }

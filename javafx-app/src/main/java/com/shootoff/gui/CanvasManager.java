@@ -50,6 +50,7 @@ import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.recorders.ShotRecorder;
 import com.shootoff.camera.shot.ArenaShot;
 import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.pane.ProjectorArenaPane;
@@ -579,6 +580,10 @@ public class CanvasManager implements CameraView {
 	}
 
 	@Override
+	public void addShot(ScaledShot shot) {
+		addShot(new DisplayShot(shot, config.getMarkerRadius()), false);
+	}
+
 	public void addShot(DisplayShot shot, boolean isMirroredShot) {
 		if (!isMirroredShot) {
 			final Optional<ShotProcessor> rejectingProcessor = processShot(shot);

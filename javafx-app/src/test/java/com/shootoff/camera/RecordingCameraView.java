@@ -9,7 +9,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.geom.Rect;
 
 /**
@@ -18,10 +18,10 @@ import com.shootoff.geom.Rect;
 public class RecordingCameraView implements CameraView {
 	private final List<String> diagnosticWarnings = new CopyOnWriteArrayList<>();
 	private final Semaphore removedWarnings = new Semaphore(0);
-	private final BlockingQueue<DisplayShot> shots = new LinkedBlockingQueue<>();
+	private final BlockingQueue<ScaledShot> shots = new LinkedBlockingQueue<>();
 
 	@Override
-	public void addShot(DisplayShot shot, boolean isMirroredShot) {
+	public void addShot(ScaledShot shot) {
 		shots.add(shot);
 	}
 
@@ -54,7 +54,7 @@ public class RecordingCameraView implements CameraView {
 		return removedWarnings.tryAcquire(count, timeout, unit);
 	}
 
-	public Optional<DisplayShot> awaitShot(long timeout, TimeUnit unit) throws InterruptedException {
+	public Optional<ScaledShot> awaitShot(long timeout, TimeUnit unit) throws InterruptedException {
 		return Optional.ofNullable(shots.poll(timeout, unit));
 	}
 }

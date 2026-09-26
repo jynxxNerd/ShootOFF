@@ -4,7 +4,7 @@ import java.awt.image.BufferedImage;
 import java.util.Optional;
 
 import com.shootoff.Closeable;
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.geom.Rect;
 
 /**
@@ -15,7 +15,11 @@ import com.shootoff.geom.Rect;
  * @author phrack
  */
 public interface CameraView extends Closeable {
-	public void addShot(DisplayShot shot, boolean isMirroredShot);
+	/**
+	 * Receives a newly detected shot on a non-UI thread. The shot is already offset for the
+	 * projection bounds and scaled to the display; the view creates its own marker for it.
+	 */
+	public void addShot(ScaledShot shot);
 
 	/**
 	 * Shows a warning until the returned message is removed.

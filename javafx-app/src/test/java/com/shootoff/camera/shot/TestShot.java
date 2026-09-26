@@ -77,6 +77,21 @@ public class TestShot {
 		
 		assertEquals(110.0, sshot.getBoundsX(), .1);
 		assertEquals(110.0, sshot.getBoundsY(), .1);
-		
+
+	}
+
+	@Test
+	public void testDisplayShotFromScaledShotKeepsDisplayPosition() {
+		ScaledShot scaled = new ScaledShot(ShotColor.RED, 100, 100, 50, 0);
+		scaled.adjustBounds(10, 10);
+		scaled.setDisplayVals(100, 100, 200, 200);
+
+		DisplayShot dshot = new DisplayShot(scaled, 5);
+
+		assertEquals(55.0, dshot.getX(), .1);
+		assertEquals(55.0, dshot.getMarker().getCenterX(), .1);
+		assertEquals(55.0, dshot.getMarker().getCenterY(), .1);
+		assertEquals(5.0, dshot.getMarker().getRadiusX(), .1);
+		assertEquals(110.0, dshot.getBoundsX(), .1);
 	}
 }

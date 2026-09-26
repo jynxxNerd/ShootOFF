@@ -6,8 +6,7 @@ import org.slf4j.LoggerFactory;
 import com.shootoff.camera.CameraManager;
 import com.shootoff.camera.CameraView;
 import com.shootoff.camera.Shot;
-import com.shootoff.camera.shot.BoundsShot;
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Settings;
 import com.shootoff.geom.Rect;
@@ -38,7 +37,7 @@ public abstract class ShotDetector {
 	 * Notify the shot detector of the dimensions of webcam frames (e.g. the
 	 * webcam's resolution). This method may be called at any time if the
 	 * webcam's resolution is changed at runtime.
-	 * 
+	 *
 	 * @param width
 	 *            the width of frames in pixels
 	 * @param height
@@ -53,7 +52,7 @@ public abstract class ShotDetector {
 	 * projectors if it's a shot on the arena, it has the appropriate
 	 * translation if the display resolution differs from the camera resolution,
 	 * and it is not a duplicate shot.
-	 * 
+	 *
 	 * @param color
 	 *            the color of the detected shot (red or green)
 	 * @param x
@@ -74,7 +73,7 @@ public abstract class ShotDetector {
 	public boolean addShot(ShotColor color, double x, double y, long timestamp, boolean scaleShot) {
 		if (!checkIgnoreColor(color)) return false;
 
-		final Shot shot = new Shot(color, x, y, cameraManager.cameraTimeToShotTime(timestamp),
+		final ScaledShot shot = new ScaledShot(color, x, y, cameraManager.cameraTimeToShotTime(timestamp),
 				cameraManager.getFrameCount());
 
 		if (config.isAdjustingPOI())
@@ -84,50 +83,45 @@ public abstract class ShotDetector {
 				logger.trace("POI Adjustment: x {} y {}", config.getPOIAdjustmentX().get(), config.getPOIAdjustmentY().get());
 				logger.trace("Adjusting offset via POI setting, coords were {} {} now {} {}", x, y, x+config.getPOIAdjustmentX().get(), y+config.getPOIAdjustmentY().get());
 			}
-			
+
 			shot.adjustPOI(config.getPOIAdjustmentX().get(), config.getPOIAdjustmentY().get());
 
 		}
-		
-		BoundsShot bShot = new BoundsShot(shot);
 
 		if (scaleShot && (cameraManager.isLimitingDetectionToProjection() || cameraManager.isCroppingFeedToProjection())
 				&& cameraManager.getProjectionBounds().isPresent()) {
 			final Rect b = cameraManager.getProjectionBounds().get();
 
 			if (handlesBounds()) {
-				bShot.adjustBounds(b.getMinX(), b.getMinY());
+				shot.adjustBounds(b.getMinX(), b.getMinY());
 			} else {
 				if (cameraManager.isLimitingDetectionToProjection() && !b.contains(x, y)) return false;
 			}
 		}
-		
-		DisplayShot dShot = new DisplayShot(bShot, config.getMarkerRadius());
-		
 
 		// If the shot didn't come from click to shoot (cameFromCanvas) and the
 		// resolution of the display and feed differ, translate shot coordinates
 		if (scaleShot && (config.getDisplayWidth() != cameraManager.getFeedWidth()
 				|| config.getDisplayHeight() != cameraManager.getFeedHeight())) {
-			dShot.setDisplayVals(config.getDisplayWidth(), config.getDisplayHeight(), cameraManager.getFeedWidth(),
+			shot.setDisplayVals(config.getDisplayWidth(), config.getDisplayHeight(), cameraManager.getFeedWidth(),
 					cameraManager.getFeedHeight());
 		}
 
-		if (!checkDuplicate(dShot)) return false;
+		if (!checkDuplicate(shot)) return false;
 
-		submitShot(dShot);
+		submitShot(shot);
 
 		return true;
 	}
 
-	protected void submitShot(final DisplayShot shot) {
+	protected void submitShot(final ScaledShot shot) {
 		if (logger.isInfoEnabled()) logger.info("Suspected shot accepted: Center ({}, {}), cl {} fr {}", shot.getX(),
 				shot.getY(), shot.getColor(), cameraManager.getFrameCount());
 
 		// Notify of new shot on a non-shot detection thread because most
 		// training exercises do shot processing on whatever thread submits
 		// the shot
-		new Thread(() -> cameraView.addShot(shot, false), "Shot Notifier").start();
+		new Thread(() -> cameraView.addShot(shot), "Shot Notifier").start();
 	}
 
 	protected boolean checkDuplicate(final Shot shot) {
@@ -150,7 +144,7 @@ public abstract class ShotDetector {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return True if this shot detector only returns shots in bounds and
 	 *         offset within the bounds according to the settings in
 	 *         CameraManager
