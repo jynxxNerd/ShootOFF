@@ -19,10 +19,12 @@
 package com.shootoff.plugins;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
- * Data about what an exercise is and who wrote it.
- * 
+ * Data about what an exercise is and who wrote it. A v2 exercise also says whether it only runs on
+ * the projector arena; v1 exercises say that with their base class instead.
+ *
  * @author phrack
  */
 public class ExerciseMetadata implements Serializable {
@@ -32,12 +34,23 @@ public class ExerciseMetadata implements Serializable {
 	private final String version;
 	private final String creator;
 	private final String description;
+	private final boolean projectorOnly;
 
 	public ExerciseMetadata(final String name, final String version, final String creator, final String description) {
+		this(name, version, creator, description, false);
+	}
+
+	/**
+	 * @param projectorOnly
+	 *            <tt>true</tt> if the exercise only runs on the projector arena (v2 exercises)
+	 */
+	public ExerciseMetadata(final String name, final String version, final String creator, final String description,
+			final boolean projectorOnly) {
 		this.name = name;
 		this.version = version;
 		this.creator = creator;
 		this.description = description;
+		this.projectorOnly = projectorOnly;
 	}
 
 	public String getName() {
@@ -56,36 +69,23 @@ public class ExerciseMetadata implements Serializable {
 		return description;
 	}
 
+	public boolean isProjectorOnly() {
+		return projectorOnly;
+	}
+
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((creator == null) ? 0 : creator.hashCode());
-		result = prime * result + ((description == null) ? 0 : description.hashCode());
-		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((version == null) ? 0 : version.hashCode());
-		return result;
+		return Objects.hash(creator, description, name, version, projectorOnly);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) return true;
-		if (obj == null) return false;
-		if (getClass() != obj.getClass()) return false;
+		if (obj == null || getClass() != obj.getClass()) return false;
 		final ExerciseMetadata other = (ExerciseMetadata) obj;
-		if (creator == null) {
-			if (other.creator != null) return false;
-		} else if (!creator.equals(other.creator)) return false;
-		if (description == null) {
-			if (other.description != null) return false;
-		} else if (!description.equals(other.description)) return false;
-		if (name == null) {
-			if (other.name != null) return false;
-		} else if (!name.equals(other.name)) return false;
-		if (version == null) {
-			if (other.version != null) return false;
-		} else if (!version.equals(other.version)) return false;
-		return true;
+		return Objects.equals(creator, other.creator) && Objects.equals(description, other.description)
+				&& Objects.equals(name, other.name) && Objects.equals(version, other.version)
+				&& projectorOnly == other.projectorOnly;
 	}
 
 	@Override

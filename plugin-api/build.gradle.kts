@@ -3,9 +3,10 @@ plugins {
     `maven-publish`
 }
 
-// The UI-neutral exercise API arrives in Plan 3; until then this module is empty
 dependencies {
     api(project(":core"))
+    // JavaFxReferenceScanner for the boundary test
+    testImplementation(testFixtures(project(":core")))
 }
 
 publishing {
