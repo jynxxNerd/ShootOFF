@@ -63,10 +63,12 @@ import com.shootoff.geom.Point;
 import com.shootoff.geom.Size;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.LocatedImage;
+import com.shootoff.gui.MirroredCanvasManager;
 import com.shootoff.gui.ParListener;
 import com.shootoff.gui.ShotEntry;
 import com.shootoff.gui.TimingControlsPane;
 import com.shootoff.gui.pane.ProjectorArenaPane;
+import com.shootoff.gui.targets.MirroredTarget;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.targets.Target;
 import com.shootoff.targets.io.TargetIO;
@@ -363,6 +365,14 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		final Optional<URL> resource = findResource(name);
 
 		if (resource.isPresent()) {
+			// The projector arena's canvas mirrors each target on the arena tab's. Add it as v1's
+			// ProjectorTrainingExerciseBase does, by file: that returns this canvas's copy, the one the
+			// projector shows and removeTarget expects. Adding the components here instead returns the
+			// tab's copy, which the exercise could neither hide on the projector nor remove.
+			if (context.canvas() instanceof MirroredCanvasManager) {
+				return context.canvas().addTarget(new File("@" + name), false);
+			}
+
 			try (InputStream in = open(resource.get())) {
 				return TargetIO.loadTarget(in, false, context.resources()).map(
 						components -> context.canvas().addTarget(components.withTargetFile(new File("@" + name)), true));
@@ -415,6 +425,10 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		@Override
 		public void setVisible(boolean visible) {
 			view.setVisible(visible);
+			// MirroredTarget mirrors placement but not visibility: hide the arena tab's copy too
+			if (view instanceof MirroredTarget mirrored && mirrored.getMirroredTarget() != null) {
+				mirrored.getMirroredTarget().setVisible(visible);
+			}
 		}
 
 		@Override
