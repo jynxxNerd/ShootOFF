@@ -10,7 +10,7 @@ import com.shootoff.camera.shot.BoundsShot;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Settings;
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 
 /**
  * This interface is implemented by classes that act as the entry point to some
@@ -93,7 +93,7 @@ public abstract class ShotDetector {
 
 		if (scaleShot && (cameraManager.isLimitingDetectionToProjection() || cameraManager.isCroppingFeedToProjection())
 				&& cameraManager.getProjectionBounds().isPresent()) {
-			final Bounds b = cameraManager.getProjectionBounds().get();
+			final Rect b = cameraManager.getProjectionBounds().get();
 
 			if (handlesBounds()) {
 				bShot.adjustBounds(b.getMinX(), b.getMinY());

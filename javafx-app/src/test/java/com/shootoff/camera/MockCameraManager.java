@@ -2,7 +2,7 @@ package com.shootoff.camera;
 
 import java.util.Optional;
 
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 
 import com.shootoff.camera.autocalibration.AutoCalibrationManager;
 import com.shootoff.camera.cameratypes.CameraEventListener;
@@ -17,7 +17,7 @@ public class MockCameraManager extends CameraManager implements CameraEventListe
 	}
 	
 	protected MockCameraManager(MockCamera camera, CanvasManager canvas,
-			boolean[][] sectorStatuses, Optional<Bounds> projectionBounds, VideoFinishedListener videoFinishedListener) {
+			boolean[][] sectorStatuses, Optional<Rect> projectionBounds, VideoFinishedListener videoFinishedListener) {
 		
 		super(camera, null, canvas);
 

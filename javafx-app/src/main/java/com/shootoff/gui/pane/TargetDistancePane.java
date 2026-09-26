@@ -32,7 +32,7 @@ import com.shootoff.targets.Target;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
-import javafx.geometry.Dimension2D;
+import com.shootoff.geom.Size;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -169,10 +169,10 @@ public class TargetDistancePane extends Pane {
 					width, height, originalTargetDistance, distance);
 		}
 
-		final Optional<Dimension2D> targetDimensions = perspectiveManager.calculateObjectSize(width, height, distance);
+		final Optional<Size> targetDimensions = perspectiveManager.calculateObjectSize(width, height, distance);
 
 		if (targetDimensions.isPresent()) {
-			final Dimension2D d = targetDimensions.get();
+			final Size d = targetDimensions.get();
 			target.setDimensions(d.getWidth(), d.getHeight());
 		}
 	}

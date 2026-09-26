@@ -58,8 +58,8 @@ import com.shootoff.config.Settings;
 import com.shootoff.util.TimerPool;
 
 import javafx.embed.swing.SwingFXUtils;
-import javafx.geometry.Bounds;
-import javafx.geometry.Dimension2D;
+import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
@@ -95,7 +95,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	protected final CameraView cameraView;
 	protected final Settings config = Settings.getSettings();
 	private final Object projectionBoundsLock = new Object();
-	protected Optional<Bounds> projectionBounds = Optional.empty();
+	protected Optional<Rect> projectionBounds = Optional.empty();
 
 	private final AtomicBoolean isStreaming = new AtomicBoolean(true);
 	private final AtomicBoolean isDetectionLocked = new AtomicBoolean(false);
@@ -349,7 +349,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		return isDetecting.get();
 	}
 
-	public void setProjectionBounds(final Bounds projectionBounds) {
+	public void setProjectionBounds(final Rect projectionBounds) {
 		synchronized (projectionBoundsLock) {
 			this.projectionBounds = Optional.ofNullable(projectionBounds);
 		}
@@ -371,7 +371,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		return limitDetectProjection;
 	}
 
-	public Optional<Bounds> getProjectionBounds() {
+	public Optional<Rect> getProjectionBounds() {
 		return projectionBounds;
 	}
 
@@ -568,7 +568,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 
 		BufferedImage currentImage = processFrame(currentFrame, shouldDedistort);
 
-		Bounds b;
+		Rect b;
 
 		synchronized (projectionBoundsLock) {
 			if (projectionBounds.isPresent()) {
@@ -631,7 +631,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 
 		Mat submatFrameBGR = null;
 
-		Bounds projectionBounds;
+		Rect projectionBounds;
 
 		synchronized (projectionBoundsLock) {
 			if (this.projectionBounds.isPresent()) {
@@ -760,7 +760,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 		acm.reset();
 	}
 
-	protected void autoCalibrateSuccess(Bounds arenaBounds, Optional<Dimension2D> paperDims, long delay) {
+	protected void autoCalibrateSuccess(Rect arenaBounds, Optional<Size> paperDims, long delay) {
 		if (isAutoCalibrating.get() && cameraCalibrationListener != null) {
 			isAutoCalibrating.set(false);
 
@@ -838,7 +838,7 @@ public class CameraManager implements ObservableCloseable, CameraEventListener, 
 	}
 
 	@Override
-	public void calibrate(Bounds arenaBounds, Optional<Dimension2D> perspectivePaperDims, boolean calibratedFromCanvas,
+	public void calibrate(Rect arenaBounds, Optional<Size> perspectivePaperDims, boolean calibratedFromCanvas,
 			long delay) {
 		autoCalibrateSuccess(arenaBounds, perspectivePaperDims, delay);
 	}

@@ -6,7 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -130,7 +130,7 @@ public class ShotDetectionTestor implements VideoFinishedListener {
 	}
 
 	Object processingLock = new Object();
-	protected List<DisplayShot> findShots(String videoPath, Optional<Bounds> projectionBounds, MockCanvasManager mockManager,
+	protected List<DisplayShot> findShots(String videoPath, Optional<Rect> projectionBounds, MockCanvasManager mockManager,
 			Configuration config, boolean[][] sectorStatuses) {
 		
 		File videoFile = new File(ShotDetectionTestor.class.getResource(videoPath).getFile());

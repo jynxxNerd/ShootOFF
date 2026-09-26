@@ -15,7 +15,7 @@ import com.shootoff.targets.Target;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
 
 import javafx.collections.ObservableList;
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
@@ -147,12 +147,12 @@ public class MirroredCanvasManager extends CanvasManager {
 	}
 
 	@Override
-	public void updateBackground(BufferedImage frame, Optional<Bounds> projectionBounds) {
+	public void updateBackground(BufferedImage frame, Optional<Rect> projectionBounds) {
 		mirroredManager.mirrorUpdateBackground(frame, projectionBounds);
 		super.updateBackground(frame, projectionBounds);
 	}
 
-	public void mirrorUpdateBackground(BufferedImage frame, Optional<Bounds> projectionBounds) {
+	public void mirrorUpdateBackground(BufferedImage frame, Optional<Rect> projectionBounds) {
 		super.updateBackground(frame, projectionBounds);
 	}
 

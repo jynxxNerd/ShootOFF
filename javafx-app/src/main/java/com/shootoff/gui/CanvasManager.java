@@ -69,8 +69,7 @@ import com.shootoff.targets.io.TargetIO.TargetComponents;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.geometry.BoundingBox;
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -127,7 +126,7 @@ public class CanvasManager implements CameraView {
 	private long lastFrameTime = 0;
 
 	protected Optional<ProjectorArenaPane> arenaPane = Optional.empty();
-	private Optional<Bounds> projectionBounds = Optional.empty();
+	private Optional<Rect> projectionBounds = Optional.empty();
 
 	public CanvasManager(Group canvasGroup, Resetter resetter, String cameraName,
 			ObservableList<ShotEntry> shotEntries) {
@@ -304,7 +303,7 @@ public class CanvasManager implements CameraView {
 	}
 
 	@Override
-	public void updateBackground(BufferedImage frame, Optional<Bounds> projectionBounds) {
+	public void updateBackground(BufferedImage frame, Optional<Rect> projectionBounds) {
 		updateCanvasGroup();
 
 		if (frame == null) {
@@ -325,7 +324,7 @@ public class CanvasManager implements CameraView {
 
 		Image img;
 		if (projectionBounds.isPresent()) {
-			final Bounds translatedBounds = translateCameraToCanvas(projectionBounds.get());
+			final Rect translatedBounds = translateCameraToCanvas(projectionBounds.get());
 			background.setX(translatedBounds.getMinX());
 			background.setY(translatedBounds.getMinY());
 
@@ -377,7 +376,7 @@ public class CanvasManager implements CameraView {
 		return projectedScene;
 	}
 
-	public Bounds translateCameraToCanvas(Bounds bounds) {
+	public Rect translateCameraToCanvas(Rect bounds) {
 		if (config.getDisplayWidth() == cameraManager.getFeedWidth()
 				&& config.getDisplayHeight() == cameraManager.getFeedHeight())
 			return bounds;
@@ -393,10 +392,10 @@ public class CanvasManager implements CameraView {
 		logger.trace("translateCameraToCanvas {} {} {} {} - {} {} {} {}", bounds.getMinX(), bounds.getMinY(),
 				bounds.getWidth(), bounds.getHeight(), minX, minY, width, height);
 
-		return new BoundingBox(minX, minY, width, height);
+		return new Rect(minX, minY, width, height);
 	}
 
-	public Bounds translateCanvasToCamera(Bounds bounds) {
+	public Rect translateCanvasToCamera(Rect bounds) {
 		if (config.getDisplayWidth() == cameraManager.getFeedWidth()
 				&& config.getDisplayHeight() == cameraManager.getFeedHeight())
 			return bounds;
@@ -412,7 +411,7 @@ public class CanvasManager implements CameraView {
 		logger.trace("translateCanvasToCamera {} {} {} {} - {} {} {} {}", bounds.getMinX(), bounds.getMinY(),
 				bounds.getWidth(), bounds.getHeight(), minX, minY, width, height);
 
-		return new BoundingBox(minX, minY, width, height);
+		return new Rect(minX, minY, width, height);
 	}
 	
 	/* Takes a point x,y and translates it from an arena canvas to a camera (feed) point.
@@ -432,7 +431,7 @@ public class CanvasManager implements CameraView {
 			return new Pair<Double, Double>(x,y);
 		}
 		
-		final Bounds b = cameraManager.getProjectionBounds().get();
+		final Rect b = cameraManager.getProjectionBounds().get();
 
 		final double x_scale = b.getWidth() / arenaPane.get().getWidth();
 		final double y_scale = b.getHeight() / arenaPane.get().getHeight();
@@ -487,7 +486,7 @@ public class CanvasManager implements CameraView {
 		clearShots();
 	}
 
-	public void setProjectorArena(ProjectorArenaPane arenaPane, Bounds projectionBounds) {
+	public void setProjectorArena(ProjectorArenaPane arenaPane, Rect projectionBounds) {
 		this.arenaPane = Optional.ofNullable(arenaPane);
 		this.projectionBounds = Optional.ofNullable(projectionBounds);
 	}
@@ -635,7 +634,7 @@ public class CanvasManager implements CameraView {
 		boolean processedShot = false;
 
 		if (arenaPane.isPresent() && !(this instanceof MirroredCanvasManager) && projectionBounds.isPresent()) {
-			final Bounds b = projectionBounds.get();
+			final Rect b = projectionBounds.get();
 
 			if (b.contains(shot.getX(), shot.getY())) {
 				passedToArena = true;

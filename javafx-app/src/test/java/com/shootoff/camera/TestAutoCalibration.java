@@ -8,7 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
 
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 
 import javax.imageio.ImageIO;
 
@@ -133,7 +133,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertTrue(calibrationBounds.isPresent());
 
@@ -168,7 +168,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertTrue(calibrationBounds.isPresent());
 
@@ -205,7 +205,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertEquals(false, calibrationBounds.isPresent());
 
@@ -225,7 +225,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertTrue(calibrationBounds.isPresent());
 
@@ -246,7 +246,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertEquals(false, calibrationBounds.isPresent());
 
@@ -267,7 +267,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertTrue(calibrationBounds.isPresent());
 
@@ -304,7 +304,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertFalse(calibrationBounds.isPresent());
 
@@ -322,7 +322,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		assertTrue(boardCorners.isPresent());
 
-		Optional<Bounds> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
+		Optional<Rect> calibrationBounds = acm.calibrateFrame(boardCorners.get(), mat);
 
 		assertTrue(calibrationBounds.isPresent());
 
@@ -382,7 +382,7 @@ public class TestAutoCalibration implements VideoFinishedListener {
 
 		acm.processFrame(new Frame(testFrame, 2000));
 
-		Optional<Bounds> calibrationBounds = Optional.of(acm.getBoundsResult());
+		Optional<Rect> calibrationBounds = Optional.of(acm.getBoundsResult());
 
 		assertTrue(calibrationBounds.isPresent());
 

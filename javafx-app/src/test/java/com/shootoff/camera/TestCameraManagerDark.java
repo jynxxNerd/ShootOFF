@@ -6,8 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import javafx.geometry.BoundingBox;
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -153,7 +152,7 @@ public class TestCameraManagerDark extends ShotDetectionTestor {
 			sectorStatuses[0][x] = false;
 		}
 
-		Bounds projectionBounds = new BoundingBox(109, 104, 379, 297);
+		Rect projectionBounds = new Rect(109, 104, 379, 297);
 
 		List<DisplayShot> shots = findShots("/shotsearcher/ps3eye_hardware_defaults_bright_room.mp4",
 				Optional.of(projectionBounds), mockManager, config, sectorStatuses);
@@ -172,7 +171,7 @@ public class TestCameraManagerDark extends ShotDetectionTestor {
 	@Test
 	// DARK
 	public void testPS3EyeHardwareDefaultsRedLaserRoomLightOnSafariLimitedBounds() {
-		Bounds projectionBounds = new BoundingBox(131, 77, 390, 265);
+		Rect projectionBounds = new Rect(131, 77, 390, 265);
 
 		List<DisplayShot> shots = findShots("/shotsearcher/ps3eye_hardware_defaults_safari_red_laser_lights_on.mp4",
 				Optional.of(projectionBounds), mockManager, config, sectorStatuses);

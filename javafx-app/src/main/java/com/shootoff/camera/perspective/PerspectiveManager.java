@@ -25,8 +25,8 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javafx.geometry.Bounds;
-import javafx.geometry.Dimension2D;
+import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 
 /**
  * This class is used to resize targets on the projector arena to real world
@@ -89,10 +89,10 @@ public class PerspectiveManager {
 		private final double focalLength;
 		private final double sensorWidth;
 		private final double sensorHeight;
-		private final Dimension2D validDims;
+		private final Size validDims;
 
 		public CameraParameters(String cameraName, double focalLength, double sensorWidth, double sensorHeight,
-				Dimension2D validDims) {
+				Size validDims) {
 			this.focalLength = focalLength;
 			this.sensorWidth = sensorWidth;
 			this.sensorHeight = sensorHeight;
@@ -116,7 +116,7 @@ public class PerspectiveManager {
 			return cameraName;
 		}
 
-		public Dimension2D getValidDimensions() {
+		public Size getValidDimensions() {
 			return validDims;
 		}
 	}
@@ -124,25 +124,25 @@ public class PerspectiveManager {
 	// TODO: Implement a way to load these values from a file
 	// so that they can be easily tweaked/added to
 	static {
-		cameraParameters.add(new CameraParameters("C270", 4.0, 3.58, 2.02, new Dimension2D(1280, 720)));
-		cameraParameters.add(new CameraParameters("C270", 4.0, 3.60, 2.712, new Dimension2D(800, 600)));
-		cameraParameters.add(new CameraParameters("C270", 4.0, 3.145, 2.343, new Dimension2D(640, 480)));
+		cameraParameters.add(new CameraParameters("C270", 4.0, 3.58, 2.02, new Size(1280, 720)));
+		cameraParameters.add(new CameraParameters("C270", 4.0, 3.60, 2.712, new Size(800, 600)));
+		cameraParameters.add(new CameraParameters("C270", 4.0, 3.145, 2.343, new Size(640, 480)));
 
-		cameraParameters.add(new CameraParameters("C920", 3.67, 4.80, 2.70, new Dimension2D(1280, 720)));
+		cameraParameters.add(new CameraParameters("C920", 3.67, 4.80, 2.70, new Size(1280, 720)));
 
-		cameraParameters.add(new CameraParameters("HD-3000", 4, 3.787, 2.864, new Dimension2D(640, 480)));
+		cameraParameters.add(new CameraParameters("HD-3000", 4, 3.787, 2.864, new Size(640, 480)));
 	}
 
 	// For testing
-	protected PerspectiveManager(Bounds arenaBounds) {
+	protected PerspectiveManager(Rect arenaBounds) {
 		if (logger.isTraceEnabled())
 			logger.trace("pattern res w {} h {}", arenaBounds.getWidth(), arenaBounds.getHeight());
 		patternWidth = (int) arenaBounds.getWidth();
 		patternHeight = (int) arenaBounds.getHeight();
 	}
 
-	public PerspectiveManager(Bounds arenaBounds, Dimension2D feedDims, Dimension2D paperBounds,
-			Dimension2D projectorRes) {
+	public PerspectiveManager(Rect arenaBounds, Size feedDims, Size paperBounds,
+			Size projectorRes) {
 		this(arenaBounds);
 		setCameraFeedSize((int) feedDims.getWidth(), (int) feedDims.getHeight());
 		this.setProjectorResolution(projectorRes);
@@ -158,7 +158,7 @@ public class PerspectiveManager {
 
 	}
 
-	public PerspectiveManager(String cameraName, Bounds arenaBounds, Dimension2D feedDims, Dimension2D projectorRes) {
+	public PerspectiveManager(String cameraName, Rect arenaBounds, Size feedDims, Size projectorRes) {
 		this(cameraName, feedDims, arenaBounds);
 		this.setProjectorResolution(projectorRes);
 
@@ -171,7 +171,7 @@ public class PerspectiveManager {
 
 	}
 
-	public PerspectiveManager(String cameraName, Dimension2D resolution, Bounds arenaBounds) {
+	public PerspectiveManager(String cameraName, Size resolution, Rect arenaBounds) {
 		this(arenaBounds);
 
 		calibratedCameraName = cameraName;
@@ -185,8 +185,8 @@ public class PerspectiveManager {
 
 	}
 
-	public PerspectiveManager(String cameraName, Bounds arenaBounds, Dimension2D feedDims, Dimension2D paperBounds,
-			Dimension2D projectorRes) {
+	public PerspectiveManager(String cameraName, Rect arenaBounds, Size feedDims, Size paperBounds,
+			Size projectorRes) {
 		this(cameraName, feedDims, arenaBounds);
 		setProjectionSizeFromLetterPaperPixels(paperBounds);
 		this.setProjectorResolution(projectorRes);
@@ -202,7 +202,7 @@ public class PerspectiveManager {
 		calculateRealWorldSize();
 	}
 
-	public static boolean isCameraSupported(final String cameraName, Dimension2D desiredResolution) {
+	public static boolean isCameraSupported(final String cameraName, Size desiredResolution) {
 		for (final CameraParameters cam : cameraParameters) {
 			if (cameraName.contains(cam.getName())
 					&& Math.abs(cam.getValidDimensions().getWidth() - desiredResolution.getWidth()) < .001
@@ -214,7 +214,7 @@ public class PerspectiveManager {
 		return false;
 	}
 
-	private boolean setCameraParameters(final String cameraName, Dimension2D desiredResolution) {
+	private boolean setCameraParameters(final String cameraName, Size desiredResolution) {
 		for (final CameraParameters cam : cameraParameters) {
 			if (cameraName.contains(cam.getName())
 					&& Math.abs(cam.getValidDimensions().getWidth() - desiredResolution.getWidth()) < .001
@@ -260,7 +260,7 @@ public class PerspectiveManager {
 	 * We assume that the paper is placed sideways! We could probably adjust for
 	 * this though
 	 */
-	private void setProjectionSizeFromLetterPaperPixels(Dimension2D letterDims) {
+	private void setProjectionSizeFromLetterPaperPixels(Size letterDims) {
 		if (logger.isTraceEnabled())
 			logger.trace("letter w {} h {}", letterDims.getWidth(), letterDims.getHeight());
 
@@ -299,7 +299,7 @@ public class PerspectiveManager {
 		cameraWidth = width;
 	}
 
-	private void setCameraFeedSize(Dimension2D resolution) {
+	private void setCameraFeedSize(Size resolution) {
 		setCameraFeedSize((int) resolution.getWidth(), (int) resolution.getHeight());
 	}
 
@@ -356,7 +356,7 @@ public class PerspectiveManager {
 		projectorResHeight = height;
 	}
 
-	public void setProjectorResolution(Dimension2D dims) {
+	public void setProjectorResolution(Size dims) {
 		setProjectorResolution((int) dims.getWidth(), (int) dims.getHeight());
 	}
 
@@ -505,7 +505,7 @@ public class PerspectiveManager {
 	 *         <code>desiredDistance</code> away given its current real world
 	 *         dimensions and distance
 	 */
-	public Optional<Dimension2D> calculateObjectSize(double realWidth, double realHeight, double desiredDistance) {
+	public Optional<Size> calculateObjectSize(double realWidth, double realHeight, double desiredDistance) {
 		if (!isInitialized()) {
 			logger.error("projection manager has unknowns projectionWidth = {}, projectionHeight = {}, "
 					+ "shooterDistance = {}, pxPerMMhigh = {}", projectionWidth, projectionHeight,
@@ -535,7 +535,7 @@ public class PerspectiveManager {
 
 		}
 
-		return Optional.of(new Dimension2D(adjWidthpx, adjHeightpx));
+		return Optional.of(new Size(adjWidthpx, adjHeightpx));
 	}
 
 	public boolean isInitialized() {

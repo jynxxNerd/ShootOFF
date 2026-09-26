@@ -8,7 +8,7 @@ import com.shootoff.Closeable;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.targets.Target;
 
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.paint.Color;
@@ -50,5 +50,5 @@ public interface CameraView extends Closeable {
 
 	public void setCameraManager(CameraManager cameraManager);
 
-	public void updateBackground(BufferedImage frame, Optional<Bounds> projectionBounds);
+	public void updateBackground(BufferedImage frame, Optional<Rect> projectionBounds);
 }

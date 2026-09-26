@@ -16,16 +16,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.shootoff.camera;
-
-import java.util.Optional;
+package com.shootoff.gui;
 
 import com.shootoff.geom.Rect;
 import com.shootoff.geom.Size;
 
-public interface CameraCalibrationListener {
-	public void calibrate(Rect arenaBounds, Optional<Size> perspectivePaperDims, boolean calibratedFromCanvas,
-			long frameDelay);
+import javafx.geometry.Bounds;
+import javafx.geometry.Dimension2D;
 
-	public void setArenaBackground(String resourceFilename);
+/**
+ * Converts JavaFX geometry to the UI-neutral core types where a JavaFX node or stage hands a
+ * value to core code.
+ */
+public final class FxGeometry {
+	private FxGeometry() {}
+
+	public static Rect toRect(Bounds bounds) {
+		return new Rect(bounds.getMinX(), bounds.getMinY(), bounds.getWidth(), bounds.getHeight());
+	}
+
+	public static Size toSize(Dimension2D dimension) {
+		return new Size(dimension.getWidth(), dimension.getHeight());
+	}
 }

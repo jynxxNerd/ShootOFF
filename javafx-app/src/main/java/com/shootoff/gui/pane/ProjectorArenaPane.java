@@ -43,6 +43,7 @@ import com.shootoff.gui.controller.ShootOFFController;
 import com.shootoff.targets.Target;
 import com.shootoff.util.TimerPool;
 import com.shootoff.geom.Point;
+import com.shootoff.geom.Size;
 
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
@@ -678,10 +679,10 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 				final int height = Integer.parseInt(target.getTag(Target.TAG_DEFAULT_PERCEIVED_HEIGHT));
 				final int distance = Integer.parseInt(target.getTag(Target.TAG_DEFAULT_PERCEIVED_DISTANCE));
 
-				final Optional<Dimension2D> targetDimensions = pm.calculateObjectSize(width, height, distance);
+				final Optional<Size> targetDimensions = pm.calculateObjectSize(width, height, distance);
 
 				if (targetDimensions.isPresent()) {
-					final Dimension2D d = targetDimensions.get();
+					final Size d = targetDimensions.get();
 					target.setDimensions(d.getWidth(), d.getHeight());
 				}
 			}

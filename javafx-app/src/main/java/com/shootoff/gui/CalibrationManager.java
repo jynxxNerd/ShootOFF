@@ -45,8 +45,8 @@ import com.shootoff.targets.io.TargetIO;
 import com.shootoff.util.TimerPool;
 
 import javafx.application.Platform;
-import javafx.geometry.Bounds;
-import javafx.geometry.Dimension2D;
+import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
 import javafx.scene.paint.Color;
@@ -72,7 +72,7 @@ public class CalibrationManager implements CameraCalibrationListener {
 	private Optional<TrainingExercise> savedExercise = Optional.empty();
 	private Optional<TargetView> calibrationTarget = Optional.empty();
 	private Optional<CameraView> originalView = Optional.empty();
-	private Optional<Dimension2D> perspectivePaperDims = Optional.empty();
+	private Optional<Size> perspectivePaperDims = Optional.empty();
 
 	private final AtomicBoolean isCalibrating = new AtomicBoolean(false);
 	private final AtomicBoolean isShowingPattern = new AtomicBoolean(false);
@@ -135,7 +135,7 @@ public class CalibrationManager implements CameraCalibrationListener {
 		isCalibrating.set(false);
 
 		if (calibrationTarget.isPresent())
-			calibrate(calibrationTarget.get().getTargetGroup().getBoundsInParent(), Optional.empty(), true, -1);
+			calibrate(FxGeometry.toRect(calibrationTarget.get().getTargetGroup().getBoundsInParent()), Optional.empty(), true, -1);
 
 		calibratingCameraManager.disableAutoCalibration();
 
@@ -154,7 +154,7 @@ public class CalibrationManager implements CameraCalibrationListener {
 
 		PerspectiveManager pm = null;
 
-		final Dimension2D feedDim = new Dimension2D(calibratingCameraManager.getFeedWidth(),
+		final Size feedDim = new Size(calibratingCameraManager.getFeedWidth(),
 				calibratingCameraManager.getFeedHeight());
 
 		if (calibratingCameraManager.getProjectionBounds().isPresent()) {
@@ -162,16 +162,16 @@ public class CalibrationManager implements CameraCalibrationListener {
 				if (perspectivePaperDims.isPresent()) {
 					pm = new PerspectiveManager(calibratingCameraManager.getName(),
 							calibratingCameraManager.getProjectionBounds().get(), feedDim, perspectivePaperDims.get(),
-							arenaPane.getArenaStageResolution());
+							FxGeometry.toSize(arenaPane.getArenaStageResolution()));
 				} else {
 					pm = new PerspectiveManager(calibratingCameraManager.getName(),
 							calibratingCameraManager.getProjectionBounds().get(), feedDim,
-							arenaPane.getArenaStageResolution());
+							FxGeometry.toSize(arenaPane.getArenaStageResolution()));
 				}
 			} else {
 				if (perspectivePaperDims.isPresent()) {
 					pm = new PerspectiveManager(calibratingCameraManager.getProjectionBounds().get(), feedDim,
-							perspectivePaperDims.get(), arenaPane.getArenaStageResolution());
+							perspectivePaperDims.get(), FxGeometry.toSize(arenaPane.getArenaStageResolution()));
 				} else {
 					logger.debug("Too many perspective parameters are unknown to create a perspective manager.");
 				}
@@ -199,7 +199,7 @@ public class CalibrationManager implements CameraCalibrationListener {
 	}
 
 	@Override
-	public void calibrate(Bounds arenaBounds, Optional<Dimension2D> perspectivePaperDims, boolean calibratedFromCanvas,
+	public void calibrate(Rect arenaBounds, Optional<Size> perspectivePaperDims, boolean calibratedFromCanvas,
 			long delay) {
 		removeCalibrationTargetIfPresent();
 
@@ -246,8 +246,8 @@ public class CalibrationManager implements CameraCalibrationListener {
 		}
 	}
 
-	private void configureArenaCamera(CalibrationOption option, Bounds bounds) {
-		final Bounds translatedToCameraBounds = calibratingCanvasManager.translateCanvasToCamera(bounds);
+	private void configureArenaCamera(CalibrationOption option, Rect bounds) {
+		final Rect translatedToCameraBounds = calibratingCanvasManager.translateCanvasToCamera(bounds);
 
 		calibratingCanvasManager.setProjectorArena(arenaPane, bounds);
 		configureArenaCamera(option);

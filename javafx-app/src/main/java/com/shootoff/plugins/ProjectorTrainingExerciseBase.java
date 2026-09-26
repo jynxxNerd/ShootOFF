@@ -35,7 +35,7 @@ import com.shootoff.gui.pane.ProjectorArenaPane;
 import com.shootoff.targets.Target;
 
 import javafx.application.Platform;
-import javafx.geometry.Dimension2D;
+import com.shootoff.geom.Size;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.scene.control.Label;
@@ -356,11 +356,11 @@ public class ProjectorTrainingExerciseBase extends TrainingExerciseBase {
 			int desiredDistance) {
 		if (!isPerspectiveInitialized()) return false;
 
-		final Optional<Dimension2D> targetDimensions = arenaPane.getPerspectiveManager().get()
+		final Optional<Size> targetDimensions = arenaPane.getPerspectiveManager().get()
 				.calculateObjectSize(currentRealWidth, currentRealHeight, desiredDistance);
 
 		if (targetDimensions.isPresent()) {
-			final Dimension2D d = targetDimensions.get();
+			final Size d = targetDimensions.get();
 			target.setDimensions(d.getWidth(), d.getHeight());
 
 			return true;

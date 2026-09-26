@@ -33,7 +33,6 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.core.TermCriteria;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
@@ -47,9 +46,8 @@ import com.shootoff.camera.Frame;
 import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.config.Settings;
 
-import javafx.geometry.BoundingBox;
-import javafx.geometry.Bounds;
-import javafx.geometry.Dimension2D;
+import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 
 public class AutoCalibrationManager {
 	private static final Logger logger = LoggerFactory.getLogger(AutoCalibrationManager.class);
@@ -63,7 +61,7 @@ public class AutoCalibrationManager {
 	private static final double PAPER_MARGIN_WIDTH = 1.032;
 	// 8.5/8.25 = 1.030.
 	private static final double PAPER_MARGIN_HEIGHT = 1.03;
-	private static final Size boardSize = new Size(PATTERN_WIDTH, PATTERN_HEIGHT);
+	private static final org.opencv.core.Size boardSize = new org.opencv.core.Size(PATTERN_WIDTH, PATTERN_HEIGHT);
 
 	private final CameraCalibrationListener calibrationListener;
 
@@ -73,7 +71,7 @@ public class AutoCalibrationManager {
 	private Mat perspMat = null;
 
 	// Stores the bounding box we'll pass back to CameraManager
-	private Bounds boundingBox = null;
+	private Rect boundingBox = null;
 
 	private RotatedRect boundsRect;
 
@@ -89,7 +87,7 @@ public class AutoCalibrationManager {
 
 	/* Paper Pattern */
 
-	public Optional<Dimension2D> getPaperDimensions() {
+	public Optional<Size> getPaperDimensions() {
 		return ((StepFindPaperPattern) stepFindPaperPattern).paperDimensions;
 	}
 
@@ -119,7 +117,7 @@ public class AutoCalibrationManager {
 		return perspMat;
 	}
 
-	public Bounds getBoundsResult() {
+	public Rect getBoundsResult() {
 		if (((StepFindBounds) stepFindBounds).boundsResult == null)
 			logger.error("getBoundsResult called when boundsResult==null, isCalibrated {}", isCalibrated);
 
@@ -191,7 +189,7 @@ public class AutoCalibrationManager {
 	}
 
 	class StepFindBounds implements AutoCalStep {
-		public Bounds boundsResult = null;
+		public Rect boundsResult = null;
 		private static final long minimumInterval = 250;
 		private long lastFrameCheck = 0;
 
@@ -223,7 +221,7 @@ public class AutoCalibrationManager {
 
 			if (listPatterns.isEmpty()) return;
 
-			final Optional<Dimension2D> paperRes = findPaperPattern(frame.getOriginalMat(), listPatterns);
+			final Optional<Size> paperRes = findPaperPattern(frame.getOriginalMat(), listPatterns);
 			if (paperRes.isPresent())
 				((StepFindPaperPattern) stepFindPaperPattern).addPaperDimensions(paperRes.get(), true);
 
@@ -232,7 +230,7 @@ public class AutoCalibrationManager {
 			// Technically there could still be more than one pattern
 			// or even a pattern that is much too small
 			// But damn if we're gonna fix every problem the user gives us
-			final Optional<Bounds> bounds = calibrateFrame(listPatterns.get(0), frame.getOriginalMat());
+			final Optional<Rect> bounds = calibrateFrame(listPatterns.get(0), frame.getOriginalMat());
 
 			if (bounds.isPresent()) {
 				boundsResult = bounds.get();
@@ -334,7 +332,7 @@ public class AutoCalibrationManager {
 	}
 
 	class StepFindPaperPattern implements AutoCalStep {
-		public Optional<Dimension2D> paperDimensions = Optional.empty();
+		public Optional<Size> paperDimensions = Optional.empty();
 		private int stepThreeAttempts = 0;
 		private final static int STEP_THREE_MAX_ATTEMPTS = 3;
 
@@ -366,7 +364,7 @@ public class AutoCalibrationManager {
 
 			if (listPatterns.isEmpty()) return;
 
-			final Optional<Dimension2D> paperRes = findPaperPattern(frame.getOriginalMat(), listPatterns);
+			final Optional<Size> paperRes = findPaperPattern(frame.getOriginalMat(), listPatterns);
 
 			if (paperRes.isPresent()) {
 				addPaperDimensions(paperRes.get(), false);
@@ -380,7 +378,7 @@ public class AutoCalibrationManager {
 
 		}
 
-		public void addPaperDimensions(Dimension2D newPaperDimensions, boolean averagePatterns) {
+		public void addPaperDimensions(Size newPaperDimensions, boolean averagePatterns) {
 			if (!paperDimensions.isPresent() || !averagePatterns) {
 				paperDimensions = Optional.of(newPaperDimensions);
 
@@ -505,11 +503,11 @@ public class AutoCalibrationManager {
 		return patternList;
 	}
 
-	private Dimension2D averageDimensions(Dimension2D d2d1, Dimension2D d2d2) {
-		return new Dimension2D((d2d1.getWidth() + d2d2.getWidth()) / 2, (d2d1.getHeight() + d2d2.getHeight()) / 2);
+	private Size averageDimensions(Size d2d1, Size d2d2) {
+		return new Size((d2d1.getWidth() + d2d2.getWidth()) / 2, (d2d1.getHeight() + d2d2.getHeight()) / 2);
 	}
 
-	public Optional<Bounds> calibrateFrame(MatOfPoint2f boardCorners, Mat mat) {
+	public Optional<Rect> calibrateFrame(MatOfPoint2f boardCorners, Mat mat) {
 
 		// For debugging
 		Mat traceMat = null;
@@ -634,7 +632,7 @@ public class AutoCalibrationManager {
 		final Mat denoisedMat = new Mat(mat.size(), CvType.CV_8UC1);
 		Photo.fastNlMeansDenoising(mat, denoisedMat, 21f, 7, 21);
 
-		Imgproc.GaussianBlur(denoisedMat, mat, new Size(0, 0), 10);
+		Imgproc.GaussianBlur(denoisedMat, mat, new org.opencv.core.Size(0, 0), 10);
 		Core.addWeighted(denoisedMat, 1.5, mat, -0.5, 0, mat);
 
 		Mat tempMat = null;
@@ -705,11 +703,11 @@ public class AutoCalibrationManager {
 	 * alignment or angle
 	 * 
 	 */
-	public Optional<Dimension2D> findPaperPattern(Mat mat, List<MatOfPoint2f> patternList) {
+	public Optional<Size> findPaperPattern(Mat mat, List<MatOfPoint2f> patternList) {
 
 		MatOfPoint2f boardCorners = null;
 		int index = 0;
-		Optional<Dimension2D> result = Optional.empty();
+		Optional<Size> result = Optional.empty();
 
 		for (; index < patternList.size(); index++) {
 			boardCorners = patternList.get(index);
@@ -748,7 +746,7 @@ public class AutoCalibrationManager {
 
 			}
 
-			final Dimension2D newPaperDimensions = new Dimension2D(width, height);
+			final Size newPaperDimensions = new Size(width, height);
 
 			result = Optional.of(newPaperDimensions);
 
@@ -1032,7 +1030,7 @@ public class AutoCalibrationManager {
 		if ((width & 1) == 1) width++;
 		if ((height & 1) == 1) height++;
 
-		boundingBox = new BoundingBox(boundsRect.boundingRect().x, boundsRect.boundingRect().y, width, height);
+		boundingBox = new Rect(boundsRect.boundingRect().x, boundsRect.boundingRect().y, width, height);
 
 		warpInitialized = true;
 
@@ -1105,7 +1103,7 @@ public class AutoCalibrationManager {
 
 		if (found) {
 			// optimization
-			Imgproc.cornerSubPix(mat, imageCorners, new Size(1, 1), new Size(-1, -1), term);
+			Imgproc.cornerSubPix(mat, imageCorners, new org.opencv.core.Size(1, 1), new org.opencv.core.Size(-1, -1), term);
 
 			return Optional.of(imageCorners);
 		}

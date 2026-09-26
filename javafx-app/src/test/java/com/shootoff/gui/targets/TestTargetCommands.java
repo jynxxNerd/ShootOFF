@@ -32,8 +32,7 @@ import com.shootoff.targets.TargetRegion;
 import com.shootoff.targets.io.TargetIO;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
 
-import javafx.geometry.BoundingBox;
-import javafx.geometry.Bounds;
+import com.shootoff.geom.Rect;
 
 public class TestTargetCommands {
 	@Rule public JavaFXThreadingRule javafxRule = new JavaFXThreadingRule();
@@ -43,7 +42,7 @@ public class TestTargetCommands {
 	private List<Target> targets;
 	private CanvasManager canvasManager;
 	private CameraManager cameraManager;
-	private Bounds bounds;
+	private Rect bounds;
 
 	@Before
 	public void setUp() throws ConfigurationException {
@@ -56,7 +55,7 @@ public class TestTargetCommands {
 		canvasManager = new MockCanvasManager(config);
 		cameraManager = new MockCameraManager();
 		
-		bounds = new BoundingBox(100, 100, 540, 260);
+		bounds = new Rect(100, 100, 540, 260);
 		
 		cameraManager.setProjectionBounds(bounds);
 		canvasManager.setCameraManager(cameraManager);
