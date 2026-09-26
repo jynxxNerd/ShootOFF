@@ -45,7 +45,8 @@ import com.shootoff.util.SystemInfo;
 public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private static final Logger logger = LoggerFactory.getLogger(SarxosCaptureCamera.class);
 
-	public static final int CV_CAP_PROP_EXPOSURE = 15;
+	// V4L2's CAP_PROP_AUTO_EXPOSURE: 1 = manual, 3 = aperture priority (auto).
+	private static final double V4L2_MANUAL_EXPOSURE = 1;
 
 	private int cameraIndex = -1;
 	private final VideoCapture camera;
@@ -271,6 +272,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	}
 
 	private Optional<Double> origExposure = Optional.empty();
+	private Optional<Double> origAutoExposure = Optional.empty();
+	private boolean manualExposureActive = false;
 
 	@Override
 	public boolean supportsExposureAdjustment() {
@@ -278,7 +281,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		// we have an origExposure value set
 		if (origExposure.isPresent()) return true;
 
-		final double exp = camera.get(CV_CAP_PROP_EXPOSURE);
+		final double exp = camera.get(Videoio.CAP_PROP_EXPOSURE);
 
 		if (logger.isInfoEnabled()) logger.info("Initial camera exposure {}", exp);
 
@@ -296,8 +299,32 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		return true;
 	}
 
+	// V4L2 rejects direct writes to CAP_PROP_EXPOSURE while CAP_PROP_AUTO_EXPOSURE is in an auto
+	// mode (e.g. 3 = aperture priority). Switch to manual (1) first, remembering the original
+	// auto-exposure value so resetExposure() can restore it. Other backends (macOS, Windows, IP
+	// cameras) don't share V4L2's auto-exposure values/semantics and are left untouched.
+	private boolean switchToManualExposure() {
+		if (!SystemInfo.isLinux() || manualExposureActive) return true;
+
+		final double autoExposure = camera.get(Videoio.CAP_PROP_AUTO_EXPOSURE);
+
+		if (!camera.set(Videoio.CAP_PROP_AUTO_EXPOSURE, V4L2_MANUAL_EXPOSURE)) return false;
+
+		origAutoExposure = Optional.of(autoExposure);
+		manualExposureActive = true;
+
+		if (logger.isInfoEnabled())
+			logger.info("{} switched to manual exposure (was auto={}) to allow exposure adjustment", getName(),
+					autoExposure);
+
+		return true;
+	}
+
 	@Override
 	public boolean decreaseExposure() {
+		// V4L2 must be in manual exposure mode before CAP_PROP_EXPOSURE writes are honored.
+		if (!switchToManualExposure()) return false;
+
 		// Logic:
 		// If camera exposure is positive, decrease towards zero
 		// If camera exposure is negative and between -9.9 and 0, increase
@@ -307,7 +334,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		// In any case, if exposure doesn't change in the same direction when we
 		// change it, fail out.
-		final double curExp = camera.get(CV_CAP_PROP_EXPOSURE);
+		final double curExp = camera.get(Videoio.CAP_PROP_EXPOSURE);
 		final double newExp;
 		if (curExp <= -10.0) {
 			newExp = curExp + (.1 * curExp);
@@ -320,20 +347,30 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		// If they don't have the same sign, ABORT
 		if (!((curExp < 0) == (newExp < 0)) || Math.abs(curExp - newExp) < .001f) return false;
 
-		camera.set(CV_CAP_PROP_EXPOSURE, newExp);
+		camera.set(Videoio.CAP_PROP_EXPOSURE, newExp);
 
 		if (logger.isTraceEnabled()) logger.trace("Reducing exposure - curExp[ {} newExp {} res {}", curExp, newExp,
-				camera.get(CV_CAP_PROP_EXPOSURE));
+				camera.get(Videoio.CAP_PROP_EXPOSURE));
 
 		if (curExp <= -10.0)
-			return (camera.get(CV_CAP_PROP_EXPOSURE) < curExp);
+			return (camera.get(Videoio.CAP_PROP_EXPOSURE) < curExp);
 		else
-			return (Math.abs(camera.get(CV_CAP_PROP_EXPOSURE)) < Math.abs(curExp));
+			return (Math.abs(camera.get(Videoio.CAP_PROP_EXPOSURE)) < Math.abs(curExp));
 	}
 
 	@Override
 	public void resetExposure() {
-		if (origExposure.isPresent()) camera.set(CV_CAP_PROP_EXPOSURE, origExposure.get());
+		// Set exposure while still in manual mode -- V4L2 rejects it once auto mode is restored.
+		if (origExposure.isPresent()) camera.set(Videoio.CAP_PROP_EXPOSURE, origExposure.get());
+
+		if (manualExposureActive && origAutoExposure.isPresent()) {
+			final double autoExposure = origAutoExposure.get();
+			camera.set(Videoio.CAP_PROP_AUTO_EXPOSURE, autoExposure);
+			manualExposureActive = false;
+
+			if (logger.isInfoEnabled())
+				logger.info("{} restored auto exposure mode to {}", getName(), autoExposure);
+		}
 	}
 
 	@Override
