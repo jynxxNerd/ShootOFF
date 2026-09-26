@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import com.shootoff.camera.Shot;
 
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Ellipse;
 
 
@@ -26,12 +27,12 @@ public class DisplayShot extends BoundsShot {
 	public DisplayShot(ShotColor color, double x, double y, long timestamp, int frame, int markerRadius) {
 		super(color, x, y, timestamp, frame);
 		marker = new Ellipse(x, y, markerRadius, markerRadius);
-		marker.setFill(colorMap.get(color));
+		marker.setFill(toPaint(color));
 	}
 	public DisplayShot(ShotColor color, double x, double y, long timestamp, int markerRadius) {
 		super(color, x, y, timestamp);
 		marker = new Ellipse(x, y, markerRadius, markerRadius);
-		marker.setFill(colorMap.get(color));
+		marker.setFill(toPaint(color));
 	}
 	
 	public DisplayShot(Shot shot, int markerRadius) {
@@ -42,9 +43,9 @@ public class DisplayShot extends BoundsShot {
 			this.displayY = ((DisplayShot) shot).displayY;
 		}
 		marker = new Ellipse(getX(), getY(), markerRadius, markerRadius);
-		marker.setFill(colorMap.get(color));
+		marker.setFill(toPaint(color));
 	}
-	
+
 	public DisplayShot(Shot shot, Ellipse marker) {
 		super(shot);
 		
@@ -81,7 +82,7 @@ public class DisplayShot extends BoundsShot {
 		}
 
 		marker = new Ellipse(scaledX, scaledY, marker.radiusXProperty().get(), marker.radiusYProperty().get());
-		marker.setFill(colorMap.get(color));
+		marker.setFill(toPaint(color));
 
 		displayX = Optional.of(scaledX);
 		displayY = Optional.of(scaledY);
@@ -115,5 +116,20 @@ public class DisplayShot extends BoundsShot {
 	public Ellipse getDisplayMarker()
 	{
 		return this.marker;
+	}
+
+	/**
+	 * @return the JavaFX paint used for markers of shots of <tt>color</tt>
+	 */
+	public static Color toPaint(ShotColor color) {
+		return switch (color) {
+		case RED -> Color.RED;
+		case GREEN -> Color.GREEN;
+		case INFRARED -> Color.ORANGE;
+		};
+	}
+
+	public Color getPaintColor() {
+		return toPaint(color);
 	}
 }

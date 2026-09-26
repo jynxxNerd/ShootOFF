@@ -24,15 +24,15 @@ public class ArenaShot extends DisplayShot {
 		}
 		
 		this.arenaMarker = new Ellipse(getX(), getY(), shot.getMarker().getRadiusX(), shot.getMarker().getRadiusX());
-		this.arenaMarker.setFill(colorMap.get(color));
+		this.arenaMarker.setFill(toPaint(color));
 	}
 
 	public void setArenaCoords(double x, double y) {
 		arenaX = Optional.of(x);
 		arenaY = Optional.of(y);
-		
+
 		this.arenaMarker = new Ellipse(getX(), getY(), getMarker().getRadiusX(), getMarker().getRadiusX());
-		this.arenaMarker.setFill(colorMap.get(color));
+		this.arenaMarker.setFill(toPaint(color));
 	}
 	
 	public double getX() {

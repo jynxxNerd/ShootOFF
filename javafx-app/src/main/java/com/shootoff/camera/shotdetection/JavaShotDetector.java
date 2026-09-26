@@ -431,7 +431,7 @@ public final class JavaShotDetector extends FrameProcessingShotDetector {
 			Imgcodecs.imwrite(filename, debugFrame);
 
 			for (final Pixel p : pc) {
-				if (javafx.scene.paint.Color.GREEN.equals(color.get())) {
+				if (ShotColor.GREEN.equals(color.get())) {
 					final double[] greenColor = { 0, 255, 0 };
 					debugFrame.put(p.y, p.x, greenColor);
 				} else {

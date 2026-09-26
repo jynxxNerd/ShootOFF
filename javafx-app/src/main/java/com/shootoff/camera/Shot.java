@@ -18,13 +18,9 @@
 
 package com.shootoff.camera;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 import com.shootoff.camera.shot.ShotColor;
-
-import javafx.scene.paint.Color;
 
 /**
  * This class encapsulates a shot of a specific color, time, and frame count
@@ -37,13 +33,6 @@ import javafx.scene.paint.Color;
  * @author phrack, cbdmaul
  */
 public class Shot {
-	static public final Map<ShotColor, Color> colorMap = new HashMap<ShotColor, Color>();
-	static {
-		colorMap.put(ShotColor.RED, Color.RED);
-		colorMap.put(ShotColor.GREEN, Color.GREEN);
-		colorMap.put(ShotColor.INFRARED, Color.ORANGE);
-	}
-
 	protected final ShotColor color;
 
 	private double x;
@@ -81,10 +70,6 @@ public class Shot {
 		return color;
 	}
 
-	public Color getPaintColor() {
-		return colorMap.get(color);
-	}
-	
 	public double getOrigX() {
 		return x;
 	}

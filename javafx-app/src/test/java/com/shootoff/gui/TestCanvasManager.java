@@ -91,12 +91,12 @@ public class TestCanvasManager {
 
 	@Test
 	public void testWebCodeRed() {
-		assertEquals("#FF0000", CanvasManager.colorToWebCode(Shot.colorMap.get(ShotColor.RED)));
+		assertEquals("#FF0000", CanvasManager.colorToWebCode(DisplayShot.toPaint(ShotColor.RED)));
 	}
 
 	@Test
 	public void testWebCodeGreen() {
-		assertEquals("#008000", CanvasManager.colorToWebCode(Shot.colorMap.get(ShotColor.GREEN)));
+		assertEquals("#008000", CanvasManager.colorToWebCode(DisplayShot.toPaint(ShotColor.GREEN)));
 	}
 
 	@Test

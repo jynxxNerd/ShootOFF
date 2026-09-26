@@ -141,7 +141,7 @@ public abstract class ShotDetector {
 
 	protected boolean checkIgnoreColor(ShotColor color) {
 		if (config.ignoreLaserColor() && config.getIgnoreLaserColor().isPresent()
-				&& Shot.colorMap.get(color).equals(config.getIgnoreLaserColor().get())) {
+				&& color.equals(config.getIgnoreLaserColor().get())) {
 			if (logger.isDebugEnabled()) logger.debug("Processing Shot: Shot rejected by ignoreLaserColor {}",
 					config.getIgnoreLaserColor().get());
 			return false;

@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import javafx.scene.paint.Color;
+import com.shootoff.camera.shot.ShotColor;
 
 import org.junit.Assume;
 import org.junit.Before;
@@ -92,10 +92,10 @@ public class TestConfiguration {
 
 			defaultConfig.setIgnoreLaserColorName("red");
 			defaultConfig.validateConfiguration();
-			assertEquals(Color.RED, defaultConfig.getIgnoreLaserColor().get());
+			assertEquals(ShotColor.RED, defaultConfig.getIgnoreLaserColor().get());
 			defaultConfig.setIgnoreLaserColorName("green");
 			defaultConfig.validateConfiguration();
-			assertEquals(Color.GREEN, defaultConfig.getIgnoreLaserColor().get());
+			assertEquals(ShotColor.GREEN, defaultConfig.getIgnoreLaserColor().get());
 		} catch (ConfigurationException e) {
 			fail("Ignore laser color values are correct but got ConfigurationException");
 		}
@@ -294,7 +294,7 @@ public class TestConfiguration {
 		Configuration readConfig = new Configuration(props.getPath());
 
 		assertEquals(writtenConfig.getMarkerRadius(), readConfig.getMarkerRadius());
-		assertEquals(Color.GREEN, writtenConfig.getIgnoreLaserColor().get());
+		assertEquals(ShotColor.GREEN, writtenConfig.getIgnoreLaserColor().get());
 		assertEquals(writtenConfig.getIgnoreLaserColorName(), readConfig.getIgnoreLaserColorName());
 		assertEquals(writtenConfig.useVirtualMagazine(), readConfig.useVirtualMagazine());
 		assertEquals(25, writtenConfig.getVirtualMagazineCapacity());

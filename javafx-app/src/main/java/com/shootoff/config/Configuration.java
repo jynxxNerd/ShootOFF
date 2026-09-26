@@ -56,6 +56,7 @@ import com.shootoff.camera.cameratypes.IpCamera;
 import com.shootoff.camera.processors.MalfunctionsProcessor;
 import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.processors.VirtualMagazineProcessor;
+import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.gui.CalibrationOption;
 import com.shootoff.gui.controller.VideoPlayerController;
 import com.shootoff.plugins.TrainingExercise;
@@ -911,11 +912,11 @@ public class Configuration {
 		return ignoreLaserColor;
 	}
 
-	public Optional<Color> getIgnoreLaserColor() {
+	public Optional<ShotColor> getIgnoreLaserColor() {
 		if (ignoreLaserColorName.equals("red")) {
-			return Optional.of(Color.RED);
+			return Optional.of(ShotColor.RED);
 		} else if (ignoreLaserColorName.equals("green")) {
-			return Optional.of(Color.GREEN);
+			return Optional.of(ShotColor.GREEN);
 		}
 
 		return Optional.empty();
