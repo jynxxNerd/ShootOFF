@@ -203,3 +203,24 @@ Camera: Logitech C270 (046d:0825), branch `modernize/java21` at `055ca629`, laun
 | RandomShoot TTS | Pending |
 
 Follow-ups noted: diagnose 15 vs 30 FPS (install `v4l-utils`; check `--get-parm` and exposure controls); ShootOFF never recovers from a camera that disconnects mid-session and logs two warnings per frame until restart (pre-existing behavior).
+
+### 2026-09-25 evening (projector session; completes verification)
+
+Camera: Logitech C270 on a hub port (`1-7.4.2`), projector on HDMI (1280x720). Branch at `cdd8835c` plus this record.
+
+| Check | Result |
+|---|---|
+| FPS | **30 FPS** (1,921 frames in 64 s between shots) after turning off the C270's `exposure_dynamic_framerate` (`v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0`). With it on, auto-exposure stretches to 66.7 ms and caps the camera at 15 FPS. The camera turns it back on after a replug. |
+| Projector arena calibration | Passes, about 1 s per calibration, 4+ successes per session, bounds consistent within a few px (~580x340 camera px). OpenCV 4's classic `findChessboardCorners` never found the projected board; **every success came from the `findChessboardCornersSB` fallback** added in Task 7. |
+| Exposure adjustment after calibration | **Bug found and fixed** (`af664ef1`, `cdd8835c`). V4L2 rejects `CAP_PROP_EXPOSURE` while auto-exposure is on, so ShootOFF's darkening never applied and brightness warnings persisted. SarxosCaptureCamera now switches to manual exposure on Linux before adjusting, restores auto on reset/close, and these methods are synchronized with open/close. Verified: image mean lowered 157→132 after calibration, and the warnings clear. |
+| RandomTargetParDrill | Passes end to end: random target placement, make-ready cue, beep and buzzer, hit scoring, score summary (10 shots, 95 pts, 1.83 s average, 0 missed). |
+| TTS (MaryTTS) | Passes: Shoot Don't Shoot spoke "Bad shoot!" and "You missed 3 targets". (RandomShoot's A–D/1–9 callouts are pre-recorded WAVs; TTS is only its fallback.) |
+| Session recording | Passes: sessions saved (6 and 36 shots). No video clips because no camera was designated as a shot recorder. |
+| Session playback | Shot markers replay. The viewer throws `IndexOutOfBounds`/NPE on sessions from exercises that manage their own targets, because the recorder writes target index -1. Viewer code and the XML format are unchanged on this branch, so this **predates the upgrade**. Deferred. |
+| USB stability | The disconnects during setup were from the camera being bumped, not hardware faults. |
+
+Follow-ups (outside this sub-project):
+- Have ShootOFF or a udev rule set `exposure_dynamic_framerate=0` on Linux.
+- Session viewer robustness, and the recorder's -1 target indexes.
+- A fixed light source in frame (e.g. an LED) produces repeated false shots before calibration.
+- ShootOFF doesn't recover from a mid-session camera disconnect.
