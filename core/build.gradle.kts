@@ -1,5 +1,7 @@
 plugins {
     `java-library`
+    // MockCamera/MockCameraManager are shared with javafx-app's shot-detection tests
+    `java-test-fixtures`
     `maven-publish`
 }
 

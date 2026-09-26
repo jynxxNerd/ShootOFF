@@ -7,16 +7,16 @@ import org.junit.Test;
 import com.shootoff.camera.processors.MalfunctionsProcessor;
 import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.config.ConfigurationException;
 
 public class TestMalfunctionsProcessor {
-	private Configuration config;
+	private Settings config;
 	private Shot shot;
 
 	@Before
 	public void setUp() throws ConfigurationException {
-		config = new Configuration(new String[0]);
+		config = new Settings(new String[0]);
 		config.setMalfunctions(true);
 
 		shot = new Shot(ShotColor.GREEN, 0, 0, 0, 0);

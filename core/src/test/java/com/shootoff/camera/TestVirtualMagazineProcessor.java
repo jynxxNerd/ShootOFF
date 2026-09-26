@@ -7,15 +7,15 @@ import org.junit.Test;
 import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.config.ConfigurationException;
 
 public class TestVirtualMagazineProcessor {
-	private Configuration config;
+	private Settings config;
 
 	@Before
 	public void setUp() throws ConfigurationException {
-		config = new Configuration(new String[0]);
+		config = new Settings(new String[0]);
 		config.setUseVirtualMagazine(true);
 	}
 

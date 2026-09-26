@@ -6,7 +6,6 @@ import com.shootoff.geom.Rect;
 
 import com.shootoff.camera.autocalibration.AutoCalibrationManager;
 import com.shootoff.camera.cameratypes.CameraEventListener;
-import com.shootoff.gui.CanvasManager;
 
 public class MockCameraManager extends CameraManager implements CameraEventListener {
 	protected VideoFinishedListener videoFinishedListener = null;
@@ -16,7 +15,7 @@ public class MockCameraManager extends CameraManager implements CameraEventListe
 		super();
 	}
 	
-	protected MockCameraManager(MockCamera camera, CanvasManager canvas,
+	protected MockCameraManager(MockCamera camera, CameraView canvas,
 			boolean[][] sectorStatuses, Optional<Rect> projectionBounds, VideoFinishedListener videoFinishedListener) {
 		
 		super(camera, null, canvas);

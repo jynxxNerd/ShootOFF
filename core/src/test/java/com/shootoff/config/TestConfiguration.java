@@ -15,7 +15,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestConfiguration {
-	Configuration defaultConfig;
+	Settings defaultConfig;
 	
 	@Before
 	public void setUp() throws ConfigurationException, IOException {
@@ -26,7 +26,7 @@ public class TestConfiguration {
 
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 		String[] emptyArgs = new String[0];
-		defaultConfig = new Configuration(emptyArgs);
+		defaultConfig = new Settings(emptyArgs);
 	}
 
 	@Test
@@ -193,7 +193,7 @@ public class TestConfiguration {
 
 	@Test
 	public void testReadConfigFile() throws IOException, ConfigurationException {
-		Configuration config = new Configuration(TestConfiguration.class.getResourceAsStream("/test.properties"),
+		Settings config = new Settings(TestConfiguration.class.getResourceAsStream("/test.properties"),
 				"test.properties");
 
 		assertTrue(config.isFirstRun());
@@ -227,7 +227,7 @@ public class TestConfiguration {
 
 	@Test
 	public void testReadConfigFileCmdLineOverride() throws IOException, ConfigurationException {
-		Configuration config = new Configuration(TestConfiguration.class.getResourceAsStream("/test.properties"),
+		Settings config = new Settings(TestConfiguration.class.getResourceAsStream("/test.properties"),
 				"test.properties", new String[] { "-m", "6" });
 
 		assertEquals(6, config.getMarkerRadius());
@@ -242,7 +242,7 @@ public class TestConfiguration {
 
 	@Test
 	public void testReadCmdLineShort() throws IOException, ConfigurationException {
-		Configuration config = new Configuration(
+		Settings config = new Settings(
 				new String[] { "-d", "-m", "4", "-c", "green", "-u", "25", "-f", "43.15" });
 
 		assertFalse(config.isFirstRun());
@@ -258,7 +258,7 @@ public class TestConfiguration {
 
 	@Test
 	public void testReadCmdLineLong() throws IOException, ConfigurationException {
-		Configuration config = new Configuration(new String[] { "--debug", "--marker-radius", "4",
+		Settings config = new Settings(new String[] { "--debug", "--marker-radius", "4",
 				"--ignore-laser-color", "green", "--use-virtual-magazine", "25", "--use-malfunctions", "43.15" });
 
 		assertFalse(config.isFirstRun());
@@ -279,7 +279,7 @@ public class TestConfiguration {
 			System.err.println("Can't create test config file: " + props.getPath());
 		}
 
-		Configuration writtenConfig = new Configuration(props.getPath(), new String[] { "--marker-radius", "4",
+		Settings writtenConfig = new Settings(props.getPath(), new String[] { "--marker-radius", "4",
 				"--ignore-laser-color", "green", "--use-virtual-magazine", "25", "--use-malfunctions", "43.15" });
 
 		writtenConfig.muteMessageChime("annoying message");
@@ -291,7 +291,7 @@ public class TestConfiguration {
 
 		writtenConfig.writeConfigurationFile();
 
-		Configuration readConfig = new Configuration(props.getPath());
+		Settings readConfig = new Settings(props.getPath());
 
 		assertEquals(writtenConfig.getMarkerRadius(), readConfig.getMarkerRadius());
 		assertEquals(ShotColor.GREEN, writtenConfig.getIgnoreLaserColor().get());
@@ -340,15 +340,15 @@ public class TestConfiguration {
 
 		final File props = File.createTempFile("unwritable", ".properties");
 		final List<String> titles = new ArrayList<>();
-		Configuration.setUserNotifier((title, header, message) -> titles.add(title));
+		Settings.setUserNotifier((title, header, message) -> titles.add(title));
 		try {
-			final Configuration config = new Configuration(props.getPath(), new String[0]);
+			final Settings config = new Settings(props.getPath(), new String[0]);
 			assertTrue(props.setWritable(false));
 
 			assertFalse(config.writeConfigurationFile());
 			assertEquals(List.of("Cannot Persist Preferences"), titles);
 		} finally {
-			Configuration.setUserNotifier(null);
+			Settings.setUserNotifier(null);
 			props.setWritable(true);
 			props.delete();
 		}
@@ -357,12 +357,12 @@ public class TestConfiguration {
 	@Test
 	public void testMalformedIpCamUrlNotifiesUser() {
 		final List<String> titles = new ArrayList<>();
-		Configuration.setUserNotifier((title, header, message) -> titles.add(title));
+		Settings.setUserNotifier((title, header, message) -> titles.add(title));
 		try {
 			assertFalse(defaultConfig.registerIpCam("bad", "not a url", Optional.empty(), Optional.empty()).isPresent());
 			assertEquals(List.of("Malformed URL"), titles);
 		} finally {
-			Configuration.setUserNotifier(null);
+			Settings.setUserNotifier(null);
 		}
 	}
 }

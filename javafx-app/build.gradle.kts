@@ -12,6 +12,7 @@ javafx {
 dependencies {
     implementation(project(":core"))
     implementation(project(":plugin-api"))
+    testImplementation(testFixtures(project(":core")))
 
     // Also needed at compile time: JavaFXToolkitInitializer implements
     // TestExecutionListener to work around a GTK2/GTK3 native library

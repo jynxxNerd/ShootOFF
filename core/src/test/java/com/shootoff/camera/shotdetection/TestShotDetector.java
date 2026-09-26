@@ -16,12 +16,12 @@ import com.shootoff.camera.MockCamera;
 import com.shootoff.camera.RecordingCameraView;
 import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.geom.Rect;
 
 class TestShotDetector {
-	private Configuration config;
+	private Settings config;
 	private RecordingCameraView view;
 	private CameraManager cameraManager;
 
@@ -32,7 +32,7 @@ class TestShotDetector {
 
 	@BeforeEach
 	void setUp() throws ConfigurationException {
-		config = new Configuration(new String[0]);
+		config = new Settings(new String[0]);
 		view = new RecordingCameraView();
 		// MockCamera is never opened, so the feed stays at the default 640x480
 		cameraManager = new CameraManager(new MockCamera(), null, view);

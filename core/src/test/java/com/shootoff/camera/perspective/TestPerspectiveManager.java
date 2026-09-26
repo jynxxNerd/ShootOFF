@@ -18,7 +18,6 @@ import org.opencv.imgproc.Imgproc;
 
 import com.shootoff.camera.MockCamera;
 import com.shootoff.camera.MockCameraManager;
-import com.shootoff.camera.TestAutoCalibration;
 import com.shootoff.camera.autocalibration.AutoCalibrationManager;
 import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.perspective.PerspectiveManager;
@@ -146,7 +145,7 @@ public class TestPerspectiveManager {
 	@Test
 	public void testPaperPattern() throws IOException {
 		BufferedImage testFrame = ImageIO
-				.read(TestAutoCalibration.class.getResourceAsStream("/perspective/c270_pattern_new.png"));
+				.read(TestPerspectiveManager.class.getResourceAsStream("/perspective/c270_pattern_new.png"));
 
 		Mat matTemp = Camera.bufferedImageToMat(testFrame);
 		final Mat mat = new Mat();
@@ -200,7 +199,7 @@ public class TestPerspectiveManager {
 	@Test
 	public void testPaperPatternSmall() throws IOException {
 		BufferedImage testFrame = ImageIO
-				.read(TestAutoCalibration.class.getResourceAsStream("/perspective/c270_pattern_new_small.png"));
+				.read(TestPerspectiveManager.class.getResourceAsStream("/perspective/c270_pattern_new_small.png"));
 
 		Mat matTemp = Camera.bufferedImageToMat(testFrame);
 		final Mat mat = new Mat();

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.config.ConfigurationException;
 
 class TestCameraManagerDiagnostics {
@@ -26,7 +26,7 @@ class TestCameraManagerDiagnostics {
 
 	@BeforeEach
 	void setUp() throws ConfigurationException {
-		new Configuration(new String[0]);
+		new Settings(new String[0]);
 		view = new RecordingCameraView();
 		cameraManager = new CameraManager(new MockCamera(), null, view);
 	}
