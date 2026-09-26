@@ -52,6 +52,7 @@ import com.shootoff.targets.model.TargetSet;
 import com.shootoff.targets.model.TargetSetListener;
 
 import javafx.animation.Animation.Status;
+import javafx.application.Platform;
 import javafx.geometry.Bounds;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
@@ -99,7 +100,16 @@ public class TargetView implements Target {
 	private final TargetSetListener placementListener = new TargetSetListener() {
 		@Override
 		public void targetChanged(PlacedTarget target) {
-			if (target.getId().equals(membership.placed().getId())) applyPlacement(target);
+			if (!target.getId().equals(membership.placed().getId())) return;
+
+			// A shown node may only change on the JavaFX thread, but exercises move their targets from
+			// their own threads. The model has already changed; the drawing catches up with its latest
+			// placement. Nodes not yet in a scene (session replay, tests) change at once.
+			if (Platform.isFxApplicationThread() || targetGroup.getScene() == null) {
+				applyPlacement(target);
+			} else {
+				Platform.runLater(() -> applyPlacement(membership.placed()));
+			}
 		}
 	};
 
@@ -684,7 +694,7 @@ public class TargetView implements Target {
 		final Rect regionBounds = membership.placed().regionBounds(hit.region());
 
 		return new Hit(this, (TargetRegion) regionNodes.get(hit.region().index()),
-				(int) (x - regionBounds.getMinX()), (int) (y - regionBounds.getMinY()));
+				(int) (x - regionBounds.getMinX()), (int) (y - regionBounds.getMinY()), hit);
 	}
 
 	/**

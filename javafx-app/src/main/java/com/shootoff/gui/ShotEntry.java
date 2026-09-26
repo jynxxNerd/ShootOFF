@@ -63,6 +63,23 @@ public class ShotEntry {
 		this.split = new SplitData(split, rowColor, hadMalfunction, hadReload);
 	}
 
+	private ShotEntry(ShotEntry original, Optional<Color> rowColor) {
+		shot = original.shot;
+		timestamp = original.timestamp;
+		color = original.color;
+		this.rowColor = rowColor;
+		split = new SplitData(original.split.getSplit(), rowColor, original.split.hadMalfunction(),
+				original.split.hadReload());
+		exerciseData.putAll(original.exerciseData);
+	}
+
+	/**
+	 * @return a copy of this row with another highlight color, keeping the exercise's column values
+	 */
+	public ShotEntry withRowColor(Optional<Color> rowColor) {
+		return new ShotEntry(this, rowColor);
+	}
+
 	public static class SplitData {
 		private final String split;
 		private final Optional<Color> rowColor;

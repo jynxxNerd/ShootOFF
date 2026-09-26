@@ -18,22 +18,25 @@
 
 package com.shootoff.targets;
 
+import java.util.Optional;
+
 import com.shootoff.camera.Shot;
 
 /**
  * This class encapsulates the information for a shot that hit a target.
- * 
+ *
  * @author phrack
  */
 public class Hit {
 	private final Target target;
 	private final TargetRegion hitRegion;
 	private final int impactX, impactY;
+	private final Optional<com.shootoff.targets.model.Hit> modelHit;
 	private Shot shot;
 
 	/**
 	 * Create a new Hit with coordinates for the shot adjusted to the hit region
-	 * 
+	 *
 	 * @param target
 	 *            the target that owns the <tt>TargetRegion</tt> that was hit
 	 * @param hitRegion
@@ -48,11 +51,29 @@ public class Hit {
 	 *            hit region
 	 */
 	public Hit(final Target target, final TargetRegion hitRegion, final int impactX, final int impactY) {
+		this(target, hitRegion, impactX, impactY, null);
+	}
+
+	/**
+	 * Create a new Hit from a hit of the core target model, which v2 exercises receive.
+	 *
+	 * @param modelHit
+	 *            the model's hit, or <tt>null</tt> if there is none
+	 */
+	public Hit(final Target target, final TargetRegion hitRegion, final int impactX, final int impactY,
+			final com.shootoff.targets.model.Hit modelHit) {
 		this.target = target;
 		this.hitRegion = hitRegion;
 		this.impactX = impactX;
 		this.impactY = impactY;
+		this.modelHit = Optional.ofNullable(modelHit);
+	}
 
+	/**
+	 * @return the core target model's hit this hit was made from; empty for hits made without the model
+	 */
+	public Optional<com.shootoff.targets.model.Hit> getModelHit() {
+		return modelHit;
 	}
 
 	public Target getTarget() {

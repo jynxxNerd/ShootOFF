@@ -79,6 +79,18 @@ public class TestCanvasManagerHits {
 	}
 
 	@Test
+	public void v1HitsCarryTheModelHit() {
+		final TargetView ipsc = add("targets/IPSC.target");
+		ipsc.setPosition(40, 30);
+
+		final Hit hit = shoot(190.37, 180.61).get();
+
+		assertEquals(HitTester.hit(canvas.getTargetSet(), 190.37, 180.61), hit.getModelHit());
+		// A v1 hit made without the model (for example by a test) has none
+		assertEquals(Optional.empty(), new Hit(ipsc, ipsc.getRegions().get(0), 0, 0).getModelHit());
+	}
+
+	@Test
 	public void hiddenTargetsTakeNoShots() {
 		final TargetView ipsc = add("targets/IPSC.target");
 		assertTrue(shoot(150.37, 150.61).isPresent());
