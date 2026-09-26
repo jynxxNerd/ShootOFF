@@ -35,6 +35,7 @@ import com.shootoff.geom.Rect;
 import com.shootoff.geom.Size;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.FxGeometry;
+import com.shootoff.session.TargetRef;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RectangleRegion;
@@ -211,6 +212,14 @@ public class TargetView implements Target {
 	}
 
 	/**
+	 * @return how session events refer to this target: its set and its id there
+	 */
+	public TargetRef getTargetRef() {
+		final Membership m = membership;
+		return new TargetRef(m.set(), m.placed().getId());
+	}
+
+	/**
 	 * Sets the position, scale and visibility at once, without mirroring or session events (used
 	 * to copy one view's placement to another).
 	 */
@@ -302,21 +311,21 @@ public class TargetView implements Target {
 	// handlers ran on the non-recording canvas
 	protected void recordResize(double newWidth, double newHeight) {
 		if (shouldRecordSessionEvents()) {
-			config.get().getSessionRecorder().get().recordTargetResized(cameraName, this, newWidth, newHeight);
+			config.get().getSessionRecorder().get().recordTargetResized(cameraName, getTargetRef(), newWidth, newHeight);
 		}
 	}
 
 	private void recordMoved() {
 		if (shouldRecordSessionEvents()) {
 			final Placement p = getPlacement();
-			config.get().getSessionRecorder().get().recordTargetMoved(cameraName, this, (int) p.x(), (int) p.y());
+			config.get().getSessionRecorder().get().recordTargetMoved(cameraName, getTargetRef(), (int) p.x(), (int) p.y());
 		}
 	}
 
 	private void recordResized() {
 		if (shouldRecordSessionEvents()) {
 			final Size size = membership.placed().getSize();
-			config.get().getSessionRecorder().get().recordTargetResized(cameraName, this, size.getWidth(),
+			config.get().getSessionRecorder().get().recordTargetResized(cameraName, getTargetRef(), size.getWidth(),
 					size.getHeight());
 		}
 	}

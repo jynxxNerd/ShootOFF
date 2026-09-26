@@ -37,8 +37,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import com.shootoff.camera.shot.DisplayShot;
-import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.camera.Shot;
 import com.shootoff.session.Event;
 import com.shootoff.session.ExerciseFeedMessageEvent;
 import com.shootoff.session.ShotEvent;
@@ -75,17 +74,15 @@ public class JSONSessionReader {
 
 					switch (event.get("type").getAsString()) {
 					case "shot":
-						final DisplayShot shot = new DisplayShot(parseColor(event.get("color").getAsString()),
+						final Shot shot = new Shot(SessionColors.parse(event.get("color").getAsString()),
 								event.get("x").getAsDouble(), event.get("y").getAsDouble(),
-								event.get("shotTimestamp").getAsLong(), event.get("markerRadius").getAsInt());
-
+								event.get("shotTimestamp").getAsLong());
 						final Optional<String> videoString = event.has("videos")
 								? Optional.of(event.get("videos").getAsString()) : Optional.empty();
-
 						cameraEvents.add(new ShotEvent(cameraName, timestamp, shot,
-								event.get("isMalfunction").getAsBoolean(), event.get("isReload").getAsBoolean(),
-								optionalIndex(event, "targetIndex"), optionalIndex(event, "hitRegionIndex"),
-								videoString));
+								event.get("markerRadius").getAsInt(), event.get("isMalfunction").getAsBoolean(),
+								event.get("isReload").getAsBoolean(), optionalIndex(event, "targetIndex"),
+								optionalIndex(event, "hitRegionIndex"), videoString));
 						break;
 
 					case "targetAdded":
@@ -118,17 +115,6 @@ public class JSONSessionReader {
 		}
 
 		return events;
-	}
-
-	// Older sessions stored JavaFX paint strings instead of color names
-	private static ShotColor parseColor(String color) {
-		if ("0xff0000ff".equals(color) || "RED".equals(color)) {
-			return ShotColor.RED;
-		} else if ("0xffa500ff".equals(color) || "INFRARED".equals(color)) {
-			return ShotColor.INFRARED;
-		} else {
-			return ShotColor.GREEN;
-		}
 	}
 
 	private static Optional<Integer> optionalIndex(JsonObject event, String key) {

@@ -19,13 +19,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.shootoff.camera.Shot;
-import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
-import com.shootoff.config.ConfigurationException;
-import com.shootoff.gui.MockCanvasManager;
-import com.shootoff.gui.targets.TargetView;
-import com.shootoff.targets.io.TargetIO.TargetComponents;
+import com.shootoff.session.TargetRef;
+import com.shootoff.targets.model.TargetDefinition;
+import com.shootoff.targets.model.TargetSet;
 import com.shootoff.session.Event;
 import com.shootoff.session.ExerciseFeedMessageEvent;
 import com.shootoff.session.SessionRecorder;
@@ -37,20 +34,22 @@ import com.shootoff.session.TargetResizedEvent;
 
 
 public class TestSessionIO {
-	private static final File LEGACY_SESSION = new File("javafx-app/src/test/resources/sessions/legacy_session.json");
+	private static final File LEGACY_SESSION = new File("core/src/test/resources/sessions/legacy_session.json");
+	private static final int RED_MARKER_RADIUS = 2;
+	private static final int GREEN_MARKER_RADIUS = 5;
 
 	private SessionRecorder sessionRecorder;
 	private String cameraName1;
 	private String cameraName2;
 	private String videoString;
-	private DisplayShot redShot;
-	private DisplayShot greenShot;
+	private Shot redShot;
+	private Shot greenShot;
 	private String targetName;
 	private int hitRegionIndex;
 	private String exerciseMessage;
 
 	@Before
-	public void setUp() throws ConfigurationException {
+	public void setUp() {
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 		System.setProperty("shootoff.sessions", System.getProperty("shootoff.home") + File.separator + "sessions");
 
@@ -58,15 +57,14 @@ public class TestSessionIO {
 		cameraName1 = "Default";
 		cameraName2 = "Another Camera";
 		videoString = "camera1:test/file.mp4,camera2:what/ax.vid";
-		redShot = new DisplayShot(new Shot(ShotColor.RED, 10, 11, 3), 2);
-		greenShot = new DisplayShot(new Shot(ShotColor.GREEN, 12, 15, 3), 5);
+		redShot = new Shot(ShotColor.RED, 10, 11, 3);
+		greenShot = new Shot(ShotColor.GREEN, 12, 15, 3);
 		targetName = "bullseye.target";
 		exerciseMessage = "This is a\n\t test";
 
-		Configuration config = new Configuration(new String[0]);
-		MockCanvasManager canvasManager = new MockCanvasManager(config);
-		TargetView target = new TargetView(TargetComponents.empty(new File(targetName)), canvasManager, false);
-		canvasManager.addTarget(target);
+		final TargetSet targets = new TargetSet();
+		final TargetRef target = new TargetRef(targets,
+				targets.add(new TargetDefinition(Optional.of(new File(targetName)), Map.of(), List.of())).getId());
 
 		hitRegionIndex = 0;
 
@@ -74,13 +72,13 @@ public class TestSessionIO {
 		sessionRecorder.recordTargetAdded(cameraName2, target);
 		sessionRecorder.recordTargetResized(cameraName1, target, 10, 20);
 		sessionRecorder.recordTargetMoved(cameraName1, target, 4, 3);
-		sessionRecorder.recordShot(cameraName1, redShot, false, false, Optional.of(target), Optional.of(hitRegionIndex),
-				Optional.of(videoString));
-		sessionRecorder.recordShot(cameraName1, greenShot, true, false, Optional.of(target),
+		sessionRecorder.recordShot(cameraName1, redShot, RED_MARKER_RADIUS, false, false, Optional.of(target),
+				Optional.of(hitRegionIndex), Optional.of(videoString));
+		sessionRecorder.recordShot(cameraName1, greenShot, GREEN_MARKER_RADIUS, true, false, Optional.of(target),
 				Optional.of(hitRegionIndex), Optional.of(videoString));
 		sessionRecorder.recordTargetRemoved(cameraName1, target);
-		sessionRecorder.recordShot(cameraName1, greenShot, false, true, Optional.empty(), Optional.empty(),
-				Optional.empty());
+		sessionRecorder.recordShot(cameraName1, greenShot, GREEN_MARKER_RADIUS, false, true, Optional.empty(),
+				Optional.empty(), Optional.empty());
 		sessionRecorder.recordExerciseFeedMessage(exerciseMessage);
 	}
 
@@ -109,8 +107,7 @@ public class TestSessionIO {
 		assertEquals(redShot.getX(), ((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).getShot().getX(), 1);
 		assertEquals(redShot.getY(), ((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).getShot().getY(), 1);
 		assertEquals(redShot.getTimestamp(), ((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).getShot().getTimestamp());
-		assertEquals(redShot.getMarker().getRadiusX(),
-				((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).getShot().getMarker().getRadiusX(), 1);
+		assertEquals(RED_MARKER_RADIUS, ((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).getMarkerRadius());
 		assertFalse(((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).isMalfunction());
 		assertFalse(((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).isReload());
 		assertEquals(0, ((ShotEvent) events.get(CAM1_SHOT_RED_INDEX)).getTargetIndex().get().intValue());
@@ -129,8 +126,7 @@ public class TestSessionIO {
 		assertEquals(greenShot.getY(), ((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).getShot().getY(), 1);
 		assertEquals(greenShot.getTimestamp(),
 				((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).getShot().getTimestamp());
-		assertEquals(greenShot.getMarker().getRadiusX(),
-				((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).getShot().getMarker().getRadiusX(), 1);
+		assertEquals(GREEN_MARKER_RADIUS, ((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).getMarkerRadius());
 		assertTrue(((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).isMalfunction());
 		assertFalse(((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).isReload());
 		assertEquals(0, ((ShotEvent) events.get(CAM1_SHOT_GREEN_ONE_INDEX)).getTargetIndex().get().intValue());
@@ -152,8 +148,7 @@ public class TestSessionIO {
 		assertEquals(greenShot.getY(), ((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).getShot().getY(), 1);
 		assertEquals(greenShot.getTimestamp(),
 				((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).getShot().getTimestamp());
-		assertEquals(greenShot.getMarker().getRadiusX(),
-				((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).getShot().getMarker().getRadiusX(), 1);
+		assertEquals(GREEN_MARKER_RADIUS, ((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).getMarkerRadius());
 		assertFalse(((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).isMalfunction());
 		assertTrue(((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).isReload());
 		assertFalse(((ShotEvent) events.get(CAM1_SHOT_GREEN_TWO_INDEX)).getTargetIndex().isPresent());

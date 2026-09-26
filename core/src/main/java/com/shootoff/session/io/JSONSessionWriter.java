@@ -34,7 +34,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonObject;
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.Shot;
 
 public class JSONSessionWriter implements EventVisitor {
 	private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -65,26 +65,23 @@ public class JSONSessionWriter implements EventVisitor {
 	}
 
 	@Override
-	public void visitShot(long timestamp, DisplayShot shot, boolean isMalfunction, boolean isReload,
+	public void visitShot(long timestamp, Shot shot, int markerRadius, boolean isMalfunction, boolean isReload,
 			Optional<Integer> targetIndex, Optional<Integer> hitRegionIndex, Optional<String> videoString) {
-
 		final JsonObject event = new JsonObject();
 		event.addProperty("type", "shot");
 		event.addProperty("timestamp", timestamp);
-		event.addProperty("color", shot.getPaintColor().toString());
+		event.addProperty("color", SessionColors.paintString(shot.getColor()));
 		event.addProperty("x", shot.getX());
 		event.addProperty("y", shot.getY());
 		event.addProperty("shotTimestamp", shot.getTimestamp());
-		event.addProperty("markerRadius", (int) shot.getMarker().getRadiusX());
+		event.addProperty("markerRadius", markerRadius);
 		event.addProperty("isMalfunction", isMalfunction);
 		event.addProperty("isReload", isReload);
 		event.addProperty("targetIndex", targetIndex.orElse(-1));
 		event.addProperty("hitRegionIndex", hitRegionIndex.orElse(-1));
-
 		if (videoString.isPresent()) {
 			event.addProperty("videos", videoString.get());
 		}
-
 		currentCameraEvents.add(event);
 	}
 

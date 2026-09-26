@@ -59,6 +59,7 @@ import com.shootoff.gui.targets.TargetView;
 import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.TrainingExerciseBase;
 import com.shootoff.session.SessionRecorder;
+import com.shootoff.session.TargetRef;
 import com.shootoff.targets.Hit;
 import com.shootoff.targets.ImageRegion;
 import com.shootoff.targets.RegionType;
@@ -570,12 +571,17 @@ public class CanvasManager implements CameraView {
 		final Optional<String> videoString = createVideoString(shot);
 
 		if (rejectingProcessor instanceof MalfunctionsProcessor) {
-			config.getSessionRecorder().get().recordShot(cameraName, shot, true, false, Optional.empty(),
+			config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), true, false, Optional.empty(),
 					Optional.empty(), videoString);
 		} else if (rejectingProcessor instanceof VirtualMagazineProcessor) {
-			config.getSessionRecorder().get().recordShot(cameraName, shot, false, true, Optional.empty(),
+			config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), false, true, Optional.empty(),
 					Optional.empty(), videoString);
 		}
+	}
+
+	// Session files store each shot's marker radius
+	private static int markerRadius(DisplayShot shot) {
+		return (int) shot.getMarker().getRadiusX();
 	}
 
 	// For testing
@@ -767,8 +773,8 @@ public class CanvasManager implements CameraView {
 			}
 
 			if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
-				config.getSessionRecorder().get().recordShot(cameraName, shot, false, false,
-						Optional.of(target.get()), Optional.of(modelHit.get().region().index()), videoString);
+				config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), false, false,
+						Optional.of(target.get().getTargetRef()), Optional.of(modelHit.get().region().index()), videoString);
 			}
 
 			return Optional.of(hit);
@@ -777,7 +783,7 @@ public class CanvasManager implements CameraView {
 		logger.debug("Processing Shot: Did Not Find Hit For Shot ({}, {})", shot.getX(), shot.getY());
 
 		if (!isMirroredShot && config.getSessionRecorder().isPresent()) {
-			config.getSessionRecorder().get().recordShot(cameraName, shot, false, false, Optional.empty(),
+			config.getSessionRecorder().get().recordShot(cameraName, shot, markerRadius(shot), false, false, Optional.empty(),
 					Optional.empty(), videoString);
 		}
 
@@ -870,11 +876,12 @@ public class CanvasManager implements CameraView {
 		// Targets without a file (e.g. the manual calibration rectangle) aren't session targets
 		if (recordsSessionEvents && config.getSessionRecorder().isPresent() && newTarget.getTargetFile() != null) {
 			final SessionRecorder recorder = config.getSessionRecorder().get();
-			recorder.recordTargetAdded(cameraName, newTarget);
+			final TargetRef ref = ((TargetView) newTarget).getTargetRef();
+			recorder.recordTargetAdded(cameraName, ref);
 			final Point2D position = newTarget.getPosition();
-			recorder.recordTargetMoved(cameraName, newTarget, (int) position.getX(), (int) position.getY());
+			recorder.recordTargetMoved(cameraName, ref, (int) position.getX(), (int) position.getY());
 			final Dimension2D dimension = newTarget.getDimension();
-			recorder.recordTargetResized(cameraName, newTarget, dimension.getWidth(), dimension.getHeight());
+			recorder.recordTargetResized(cameraName, ref, dimension.getWidth(), dimension.getHeight());
 		}
 
 		// If this is a mirrored canvas, only alert exercises of target updates
@@ -902,7 +909,7 @@ public class CanvasManager implements CameraView {
 		}
 
 		if (recordsSessionEvents && config.getSessionRecorder().isPresent()) {
-			config.getSessionRecorder().get().recordTargetRemoved(cameraName, target);
+			config.getSessionRecorder().get().recordTargetRemoved(cameraName, ((TargetView) target).getTargetRef());
 		}
 
 		targets.remove(target);

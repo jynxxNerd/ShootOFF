@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.shootoff.camera.Shot;
-import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
@@ -59,27 +58,45 @@ class TestSessionCanvasManagerReplay {
 
 	@Test
 	void shotOnUnknownTargetStillShowsMarker() {
-		final DisplayShot shot = new DisplayShot(new Shot(ShotColor.RED, 5, 5, 0), 2);
-		final ShotEvent event = new ShotEvent("arena", 0, shot, false, false, Optional.of(7), Optional.of(0),
-				Optional.empty());
+		final ShotEvent event = new ShotEvent("arena", 0, new Shot(ShotColor.RED, 5, 5, 0), 2, false, false,
+				Optional.of(7), Optional.of(0), Optional.empty());
 
 		assertDoesNotThrow(() -> viewer.doEvent(event));
-		assertTrue(canvas.getChildren().contains(shot.getMarker()));
+		final Node marker = viewer.getMarker(event).getMarker();
+		assertTrue(canvas.getChildren().contains(marker));
 
 		assertDoesNotThrow(() -> viewer.undoEvent(event));
-		assertTrue(!canvas.getChildren().contains(shot.getMarker()));
+		assertTrue(!canvas.getChildren().contains(marker));
 	}
 
 	@Test
 	void redoingAnEventAfterUndoDoesNotDuplicateNodes() {
-		final DisplayShot shot = new DisplayShot(new Shot(ShotColor.RED, 5, 5, 0), 2);
-		final ShotEvent event = new ShotEvent("arena", 0, shot, false, false, Optional.empty(), Optional.empty(),
-				Optional.empty());
+		final ShotEvent event = new ShotEvent("arena", 0, new Shot(ShotColor.RED, 5, 5, 0), 2, false, false,
+				Optional.empty(), Optional.empty(), Optional.empty());
 
 		viewer.doEvent(event);
 		assertDoesNotThrow(() -> viewer.doEvent(event)); // re-applied without an undo
-		final long markers = canvas.getChildren().stream().filter((Node n) -> n == shot.getMarker()).count();
+		final Node marker = viewer.getMarker(event).getMarker();
+		final long markers = canvas.getChildren().stream().filter((Node n) -> n == marker).count();
 		assertEquals(1, markers);
+	}
+
+	@Test
+	void replaysLegacyJsonSession() {
+		final Optional<SessionRecorder> session = SessionIO
+				.loadSession(new File("core/src/test/resources/sessions/legacy_session.json"));
+		assertTrue(session.isPresent());
+
+		for (final String camera : session.get().getEvents().keySet()) {
+			final SessionCanvasManager cameraViewer = new SessionCanvasManager(new Group(), config);
+			final List<Event> events = session.get().getCameraEvents(camera);
+			assertTrue(!events.isEmpty());
+
+			assertDoesNotThrow(() -> events.forEach(cameraViewer::doEvent));
+			final List<Event> reversed = new ArrayList<>(events);
+			Collections.reverse(reversed);
+			assertDoesNotThrow(() -> reversed.forEach(cameraViewer::undoEvent));
+		}
 	}
 
 	@Test

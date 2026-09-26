@@ -38,8 +38,7 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-import com.shootoff.camera.shot.DisplayShot;
-import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.camera.Shot;
 import com.shootoff.session.Event;
 import com.shootoff.session.ExerciseFeedMessageEvent;
 import com.shootoff.session.ShotEvent;
@@ -103,22 +102,10 @@ public class XMLSessionReader {
 				break;
 
 			case "shot":
-				ShotColor c;
-
-				if (attributes.getValue("color").equals("0xff0000ff") || attributes.getValue("color").equals("RED")) {
-					c = ShotColor.RED;
-				}
-				else if (attributes.getValue("color").equals("0xffa500ff") || attributes.getValue("color").equals("INFRARED"))
-				{
-					c = ShotColor.INFRARED;
-				} else {
-					c = ShotColor.GREEN;
-				}
-
-				final DisplayShot shot = new DisplayShot(c, Double.parseDouble(attributes.getValue("x")),
-						Double.parseDouble(attributes.getValue("y")),
-						Long.parseLong(attributes.getValue("shotTimestamp")),
-						Integer.parseInt(attributes.getValue("markerRadius")));
+				final Shot shot = new Shot(SessionColors.parse(attributes.getValue("color")),
+						Double.parseDouble(attributes.getValue("x")), Double.parseDouble(attributes.getValue("y")),
+						Long.parseLong(attributes.getValue("shotTimestamp")));
+				final int markerRadius = Integer.parseInt(attributes.getValue("markerRadius"));
 
 				final boolean isMalfunction = Boolean.parseBoolean(attributes.getValue("isMalfunction"));
 
@@ -143,8 +130,8 @@ public class XMLSessionReader {
 				final Optional<String> videoString = Optional.ofNullable(attributes.getValue("videos"));
 
 				events.get(currentCameraName)
-				.add(new ShotEvent(currentCameraName, Long.parseLong(attributes.getValue("timestamp")), shot,
-						isMalfunction, isReload, targetIndex, hitRegionIndex, videoString));
+						.add(new ShotEvent(currentCameraName, Long.parseLong(attributes.getValue("timestamp")), shot,
+								markerRadius, isMalfunction, isReload, targetIndex, hitRegionIndex, videoString));
 
 				break;
 

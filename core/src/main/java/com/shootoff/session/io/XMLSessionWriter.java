@@ -27,7 +27,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.Shot;
 
 public class XMLSessionWriter implements EventVisitor {
 	private final Logger logger = LoggerFactory.getLogger(XMLSessionWriter.class);
@@ -49,7 +49,7 @@ public class XMLSessionWriter implements EventVisitor {
 	}
 
 	@Override
-	public void visitShot(long timestamp, DisplayShot shot, boolean isMalfunction, boolean isReload,
+	public void visitShot(long timestamp, Shot shot, int markerRadius, boolean isMalfunction, boolean isReload,
 			Optional<Integer> targetIndex, Optional<Integer> hitRegionIndex, Optional<String> videoString) {
 
 		int targIndex;
@@ -71,17 +71,16 @@ public class XMLSessionWriter implements EventVisitor {
 					"\t\t<shot timestamp=\"%d\" color=\"%s\""
 							+ " x=\"%f\" y=\"%f\" shotTimestamp=\"%d\" markerRadius=\"%d\" isMalfunction=\"%b\""
 							+ " isReload=\"%b\" targetIndex=\"%d\" hitRegionIndex=\"%d\" videos=\"%s\" />%n",
-							timestamp, shot.getPaintColor().toString(), shot.getX(), shot.getY(), shot.getTimestamp(),
-							(int) shot.getMarker().getRadiusX(), isMalfunction, isReload, targIndex, hitRegIndex,
-							videoString.get()));
-
+					timestamp, SessionColors.paintString(shot.getColor()), shot.getX(), shot.getY(),
+					shot.getTimestamp(), markerRadius, isMalfunction, isReload, targIndex, hitRegIndex,
+					videoString.get()));
 		} else {
 			xmlBody.append(String.format(Locale.US,
 					"\t\t<shot timestamp=\"%d\" color=\"%s\""
 							+ " x=\"%f\" y=\"%f\" shotTimestamp=\"%d\" markerRadius=\"%d\" isMalfunction=\"%b\""
 							+ " isReload=\"%b\" targetIndex=\"%d\" hitRegionIndex=\"%d\" />%n",
-							timestamp, shot.getColor().toString(), shot.getX(), shot.getY(), shot.getTimestamp(),
-							(int) shot.getMarker().getRadiusX(), isMalfunction, isReload, targIndex, hitRegIndex));
+					timestamp, shot.getColor().toString(), shot.getX(), shot.getY(), shot.getTimestamp(),
+					markerRadius, isMalfunction, isReload, targIndex, hitRegIndex));
 		}
 	}
 

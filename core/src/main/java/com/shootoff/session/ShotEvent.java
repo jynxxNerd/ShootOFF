@@ -1,17 +1,17 @@
 /*
  * ShootOFF - Software for Laser Dry Fire Training
  * Copyright (C) 2016 phrack
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,13 +23,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ShotColor;
 
 public class ShotEvent implements Event {
 	private final String cameraName;
 	private final long timestamp;
-	private final DisplayShot shot;
+	private final Shot shot;
+	private final int markerRadius;
 	private final boolean isMalfunction;
 	private final boolean isReload;
 	private final Optional<Integer> targetIndex;
@@ -37,11 +38,13 @@ public class ShotEvent implements Event {
 	private final Optional<String> videoString;
 	private final Map<String, File> videos = new HashMap<>();
 
-	public ShotEvent(String cameraName, long timestamp, DisplayShot shot, boolean isMalfunction, boolean isReload,
-			Optional<Integer> targetIndex, Optional<Integer> hitRegionIndex, Optional<String> videoString) {
+	public ShotEvent(String cameraName, long timestamp, Shot shot, int markerRadius, boolean isMalfunction,
+			boolean isReload, Optional<Integer> targetIndex, Optional<Integer> hitRegionIndex,
+			Optional<String> videoString) {
 		this.cameraName = cameraName;
 		this.timestamp = timestamp;
 		this.shot = shot;
+		this.markerRadius = markerRadius;
 		this.isMalfunction = isMalfunction;
 		this.isReload = isReload;
 		this.targetIndex = targetIndex;
@@ -63,8 +66,15 @@ public class ShotEvent implements Event {
 		return cameraName;
 	}
 
-	public DisplayShot getShot() {
+	public Shot getShot() {
 		return shot;
+	}
+
+	/**
+	 * @return the radius of the shot's marker when it was recorded
+	 */
+	public int getMarkerRadius() {
+		return markerRadius;
 	}
 
 	public boolean isMalfunction() {

@@ -52,7 +52,7 @@ public class SessionIO {
 				switch (e.getType()) {
 				case SHOT:
 					final ShotEvent se = (ShotEvent) e;
-					visitor.visitShot(se.getTimestamp(), se.getShot(), se.isMalfunction(), se.isReload(),
+					visitor.visitShot(se.getTimestamp(), se.getShot(), se.getMarkerRadius(), se.isMalfunction(), se.isReload(),
 							se.getTargetIndex(), se.getHitRegionIndex(), se.getVideoString());
 					break;
 

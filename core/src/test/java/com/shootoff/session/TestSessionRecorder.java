@@ -4,50 +4,52 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import com.shootoff.camera.shot.DisplayShot;
+import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ShotColor;
-import com.shootoff.config.Configuration;
-import com.shootoff.config.ConfigurationException;
-import com.shootoff.gui.MockCanvasManager;
-import com.shootoff.gui.targets.TargetView;
-import com.shootoff.targets.io.TargetIO.TargetComponents;
-
+import com.shootoff.targets.model.PlacedTarget;
+import com.shootoff.targets.model.TargetDefinition;
+import com.shootoff.targets.model.TargetSet;
 
 public class TestSessionRecorder {
+	private static final int MARKER_RADIUS = 2;
+
 	private SessionRecorder sessionRecorder;
 	private String cameraName;
-	private DisplayShot shot;
+	private Shot shot;
 	private String targetName1;
-	private TargetView target1;
+	private TargetRef target1;
 	private int targetIndex1;
 	private String targetName2;
-	private TargetView target2;
+	private TargetRef target2;
 	private int hitRegionIndex;
 	private String exerciseMessage;
 
-	@Before
-	public void setUp() throws ConfigurationException {
-		Configuration config = new Configuration(new String[0]);
-		MockCanvasManager canvasManager = new MockCanvasManager(config);
+	private static TargetRef addTarget(TargetSet targets, String fileName) {
+		final PlacedTarget placed = targets
+				.add(new TargetDefinition(Optional.of(new File(fileName)), Map.of(), List.of()));
+		return new TargetRef(targets, placed.getId());
+	}
 
+	@Before
+	public void setUp() {
 		sessionRecorder = new SessionRecorder();
 		cameraName = "Default";
-		shot = new DisplayShot(ShotColor.RED, 0, 0, 0, 2);
+		shot = new Shot(ShotColor.RED, 0, 0, 0);
 
+		final TargetSet targets = new TargetSet();
 		targetName1 = "bullseye.target";
-		target1 = new TargetView(TargetComponents.empty(new File(targetName1)), canvasManager, false);
+		target1 = addTarget(targets, targetName1);
 
 		targetName2 = "shoot_dont_shoot" + File.separator + " shoot.target";
-		target2 = new TargetView(TargetComponents.empty(new File(targetName2)), canvasManager, false);
+		target2 = addTarget(targets, targetName2);
 
-		canvasManager.addTarget(target1);
-		canvasManager.addTarget(target2);
-		targetIndex1 = target1.getTargetIndex();
+		targetIndex1 = target1.index();
 
 		hitRegionIndex = 0;
 		exerciseMessage = "This is a test";
@@ -56,11 +58,11 @@ public class TestSessionRecorder {
 	@Test
 	public void testOneOfEach() {
 		sessionRecorder.recordTargetAdded(cameraName, target1);
-		sessionRecorder.recordShot(cameraName, shot, false, false, Optional.of(target1), Optional.of(hitRegionIndex),
+		sessionRecorder.recordShot(cameraName, shot, MARKER_RADIUS, false, false, Optional.of(target1), Optional.of(hitRegionIndex),
 				Optional.empty());
-		sessionRecorder.recordShot(cameraName, shot, true, false, Optional.of(target1), Optional.of(hitRegionIndex),
+		sessionRecorder.recordShot(cameraName, shot, MARKER_RADIUS, true, false, Optional.of(target1), Optional.of(hitRegionIndex),
 				Optional.empty());
-		sessionRecorder.recordShot(cameraName, shot, false, true, Optional.of(target1), Optional.of(hitRegionIndex),
+		sessionRecorder.recordShot(cameraName, shot, MARKER_RADIUS, false, true, Optional.of(target1), Optional.of(hitRegionIndex),
 				Optional.empty());
 		sessionRecorder.recordTargetResized(cameraName, target1, 10, 20);
 		sessionRecorder.recordTargetMoved(cameraName, target1, 4, 3);
@@ -213,7 +215,7 @@ public class TestSessionRecorder {
 		sessionRecorder.recordTargetResized(cameraName, target1, 11, 20);
 		sessionRecorder.recordTargetResized(cameraName, target1, 12, 20);
 		String videoString = "c:test/x.vid";
-		sessionRecorder.recordShot(cameraName, shot, false, false, Optional.of(target1), Optional.of(hitRegionIndex),
+		sessionRecorder.recordShot(cameraName, shot, MARKER_RADIUS, false, false, Optional.of(target1), Optional.of(hitRegionIndex),
 				Optional.of(videoString));
 		sessionRecorder.recordTargetResized(cameraName, target1, 13, 20);
 		sessionRecorder.recordTargetResized(cameraName, target1, 12, 45);
@@ -291,7 +293,7 @@ public class TestSessionRecorder {
 	public void testCollapseMovesShotInMiddle() {
 		sessionRecorder.recordTargetMoved(cameraName, target1, 11, 20);
 		sessionRecorder.recordTargetMoved(cameraName, target1, 12, 20);
-		sessionRecorder.recordShot(cameraName, shot, false, false, Optional.of(target1), Optional.of(hitRegionIndex),
+		sessionRecorder.recordShot(cameraName, shot, MARKER_RADIUS, false, false, Optional.of(target1), Optional.of(hitRegionIndex),
 				Optional.empty());
 		sessionRecorder.recordTargetMoved(cameraName, target1, 13, 20);
 		sessionRecorder.recordTargetMoved(cameraName, target1, 12, 45);
@@ -378,9 +380,10 @@ public class TestSessionRecorder {
 	}
 
 	@Test
-	public void testUnregisteredTargetEventsAreIgnored() throws ConfigurationException {
-		final MockCanvasManager otherCanvas = new MockCanvasManager(new Configuration(new String[0]));
-		final TargetView unregistered = new TargetView(TargetComponents.empty(new File("unregistered.target")), otherCanvas, false);
+	public void testUnregisteredTargetEventsAreIgnored() {
+		final TargetSet otherTargets = new TargetSet();
+		final TargetRef unregistered = addTarget(otherTargets, "unregistered.target");
+		otherTargets.remove(unregistered.id());
 
 		sessionRecorder.recordTargetMoved(cameraName, unregistered, 1, 2);
 		sessionRecorder.recordTargetResized(cameraName, unregistered, 3, 4);

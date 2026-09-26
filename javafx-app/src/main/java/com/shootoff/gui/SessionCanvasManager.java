@@ -31,6 +31,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.config.Configuration;
 import com.shootoff.gui.controller.VideoPlayerController;
 import com.shootoff.gui.targets.TargetView;
@@ -83,11 +84,19 @@ public class SessionCanvasManager {
 	private final Set<Event> skippedEvents = new HashSet<>();
 	private final Set<Event> skippedAnimations = new HashSet<>();
 	private boolean warnedAboutSkippedEvents = false;
+	private final Map<ShotEvent, DisplayShot> markers = new HashMap<>();
 
 	public SessionCanvasManager(final Group canvas, final Configuration config) {
 		this.canvas = canvas;
 		this.config = config;
 		canvas.getChildren().add(exerciseLabel);
+	}
+
+	/**
+	 * @return the marker this viewer shows for a shot event, made the first time it is needed
+	 */
+	public DisplayShot getMarker(ShotEvent event) {
+		return markers.computeIfAbsent(event, e -> new DisplayShot(e.getShot(), e.getMarkerRadius()));
 	}
 
 	public void doEvent(final Event e) {
@@ -102,18 +111,18 @@ public class SessionCanvasManager {
 			}
 
 			final ShotEvent se = (ShotEvent) e;
-			addToCanvas(se.getShot().getMarker());
+			addToCanvas(getMarker(se).getMarker());
 
 			if (se.isMalfunction()) {
-				se.getShot().getMarker().setFill(Color.ORANGE);
+				getMarker(se).getMarker().setFill(Color.ORANGE);
 			} else if (se.isReload()) {
-				se.getShot().getMarker().setFill(Color.LIGHTSKYBLUE);
+				getMarker(se).getMarker().setFill(Color.LIGHTSKYBLUE);
 			}
 
-			se.getShot().getMarker().setVisible(true);
+			getMarker(se).getMarker().setVisible(true);
 
 			if (se.getVideoString().isPresent()) {
-				se.getShot().getMarker().setOnMouseClicked((event) -> {
+				getMarker(se).getMarker().setOnMouseClicked((event) -> {
 					if (event.getClickCount() < 2) return;
 
 					final FXMLLoader loader = new FXMLLoader(
@@ -226,7 +235,7 @@ public class SessionCanvasManager {
 			}
 
 			final ShotEvent se = (ShotEvent) e;
-			canvas.getChildren().remove(se.getShot().getMarker());
+			canvas.getChildren().remove(getMarker(se).getMarker());
 
 			if (se.getTargetIndex().isPresent() && se.getHitRegionIndex().isPresent()
 					&& !skippedAnimations.remove(e) && canAnimate(se)) {
