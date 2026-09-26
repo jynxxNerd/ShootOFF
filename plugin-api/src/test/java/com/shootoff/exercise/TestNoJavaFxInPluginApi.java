@@ -13,4 +13,9 @@ class TestNoJavaFxInPluginApi {
 	void pluginApiClassesDoNotReferenceJavaFx() throws Exception {
 		assertEquals(List.of(), JavaFxReferenceScanner.findJavaFxReferencesNextTo(Exercise.class));
 	}
+
+	@Test
+	void testFixturesDoNotReferenceJavaFx() throws Exception {
+		assertEquals(List.of(), JavaFxReferenceScanner.findJavaFxReferencesNextTo(FakeExerciseHost.class));
+	}
 }

@@ -1,5 +1,7 @@
 plugins {
     `java-library`
+    // FakeExerciseHost, published as plugin-api's test-fixtures variant for exercise tests
+    `java-test-fixtures`
     `maven-publish`
 }
 
