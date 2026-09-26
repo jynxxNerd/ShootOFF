@@ -32,6 +32,7 @@ import java.util.Stack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.shootoff.config.Settings;
 import com.shootoff.gui.targets.TargetListener;
 import com.shootoff.gui.pane.TagEditorPane;
 import com.shootoff.targets.EllipseRegion;
@@ -156,28 +157,38 @@ public class TargetEditorController {
 		return targetEditorPane;
 	}
 
-	public void init(Image backgroundImg, TargetListener targetListener, File targetFile) {
+	/**
+	 * @return <tt>true</tt> if <tt>targetFile</tt> loaded and this editor is now bound to it,
+	 *         <tt>false</tt> if it could not be loaded, in which case the user has already been
+	 *         told why and the caller must not show this editor
+	 */
+	public boolean init(Image backgroundImg, TargetListener targetListener, File targetFile) {
 		init(backgroundImg, targetListener);
 
 		final Optional<TargetComponents> targetComponents = TargetIO.loadTarget(targetFile);
 
-		if (targetComponents.isPresent()) {
-			final TargetComponents tc = targetComponents.get();
-
-			targetTags.putAll(tc.getTargetTags());
-			targetRegions.addAll(tc.getTargetGroup().getChildren());
-
-			for (final Node region : tc.getTargetGroup().getChildren()) {
-				region.setOnMouseClicked((e) -> {
-					regionClicked(e);
-				});
-				region.setOnKeyPressed((e) -> {
-					regionKeyPressed(e);
-				});
-			}
-
-			canvasPane.getChildren().addAll(tc.getTargetGroup().getChildren());
+		if (targetComponents.isEmpty()) {
+			Settings.getUserNotifier().showError("Can't Load Target", "Target File Problem",
+					TargetIO.describeLoadFailure(targetFile));
+			return false;
 		}
+
+		final TargetComponents tc = targetComponents.get();
+
+		targetTags.putAll(tc.getTargetTags());
+		targetRegions.addAll(tc.getTargetGroup().getChildren());
+
+		for (final Node region : tc.getTargetGroup().getChildren()) {
+			region.setOnMouseClicked((e) -> {
+				regionClicked(e);
+			});
+			region.setOnKeyPressed((e) -> {
+				regionKeyPressed(e);
+			});
+		}
+
+		canvasPane.getChildren().addAll(tc.getTargetGroup().getChildren());
+		return true;
 	}
 
 	private void toggleShapeControls(final boolean enabled) {

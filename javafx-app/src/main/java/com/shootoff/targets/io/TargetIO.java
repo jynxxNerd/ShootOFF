@@ -180,6 +180,21 @@ public class TargetIO {
 		return loadTarget(targetFile, true);
 	}
 
+	/**
+	 * @return why <tt>targetFile</tt> could not be loaded, naming the file, for a caller that
+	 *         shows the reason to the user after {@link #loadTarget} has already returned an
+	 *         empty result for it. Re-parses the file to recover the {@link TargetFormatException}
+	 *         detail, which <tt>loadTarget</tt> only logs.
+	 */
+	public static String describeLoadFailure(final File targetFile) {
+		try {
+			TargetDefinitions.load(targetFile.toPath());
+			return targetFile + ": could not be loaded";
+		} catch (final TargetFormatException e) {
+			return e.getMessage();
+		}
+	}
+
 	// Used for loading targets from resource files for modular exercises
 	public static Optional<TargetComponents> loadTarget(final InputStream targetStream, final ClassLoader loader) {
 		return loadTarget(targetStream, true, loader);

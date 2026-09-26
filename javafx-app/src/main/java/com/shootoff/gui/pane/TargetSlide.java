@@ -27,10 +27,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.camera.CameraManager;
+import com.shootoff.config.Settings;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.targets.TargetListener;
 import com.shootoff.gui.controller.TargetEditorController;
 import com.shootoff.targets.CameraViews;
+import com.shootoff.targets.Target;
 import com.shootoff.targets.io.TargetIO;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
 
@@ -128,6 +130,8 @@ public class TargetSlide extends Slide implements TargetListener, ItemSelectionL
 
 		if (!targetComponents.isPresent()) {
 			logger.error("Notified of a new target that cannot be loaded: {}", targetFile.getAbsolutePath());
+			Settings.getUserNotifier().showError("Can't Load Target", "Target File Problem",
+					TargetIO.describeLoadFailure(targetFile));
 			return;
 		}
 
@@ -161,7 +165,13 @@ public class TargetSlide extends Slide implements TargetListener, ItemSelectionL
 	@Override
 	public void onItemClicked(File ref) {
 		if (Mode.ADD.equals(mode)) {
-			((CanvasManager) cameraViews.getSelectedCameraView()).addTarget(ref);
+			final Optional<Target> added = ((CanvasManager) cameraViews.getSelectedCameraView()).addTarget(ref);
+
+			if (!added.isPresent()) {
+				Settings.getUserNotifier().showError("Can't Load Target", "Target File Problem",
+						TargetIO.describeLoadFailure(ref));
+			}
+
 			hide();
 		} else {
 			final Optional<FXMLLoader> loader = createTargetEditorStage();
@@ -170,12 +180,15 @@ public class TargetSlide extends Slide implements TargetListener, ItemSelectionL
 				final CameraManager currentCamera = cameraViews.getSelectedCameraManager();
 				final Image currentFrame = SwingFXUtils.toFXImage(currentCamera.getCurrentFrame(), null);
 				final TargetEditorController editorController = (TargetEditorController) loader.get().getController();
-				editorController.init(currentFrame, this, ref);
 
-				final TargetEditorSlide targetEditorSlide = new TargetEditorSlide(parentControls, parentBody,
-						editorController);
-				targetEditorSlide.showControls();
-				targetEditorSlide.showBody();
+				// init tells the user why and returns false if ref can't be loaded; don't open an
+				// editor bound to it in that case
+				if (editorController.init(currentFrame, this, ref)) {
+					final TargetEditorSlide targetEditorSlide = new TargetEditorSlide(parentControls, parentBody,
+							editorController);
+					targetEditorSlide.showControls();
+					targetEditorSlide.showBody();
+				}
 			}
 		}
 	}
