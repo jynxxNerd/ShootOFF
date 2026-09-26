@@ -84,6 +84,40 @@ class TestCanvasManagerSessionRecording {
 	}
 
 	@Test
+	void removingTheSameTargetTwiceRecordsOnlyOneRemoval() {
+		final TargetView target = newTarget();
+		canvas.addTarget(target);
+		recorder.getCameraEvents(CAMERA).clear();
+
+		canvas.removeTarget(target);
+		canvas.removeTarget(target);
+
+		assertEquals(List.of(EventType.TARGET_REMOVED), eventTypes());
+	}
+
+	@Test
+	void removingANeverAddedTargetRecordsNothing() {
+		final TargetView target = newTarget(); // parent is canvas, but never added to it
+
+		canvas.removeTarget(target);
+
+		assertEquals(List.of(), eventTypes());
+	}
+
+	@Test
+	void movingOrResizingARemovedTargetRecordsNothing() {
+		final TargetView target = newTarget();
+		canvas.addTarget(target);
+		canvas.removeTarget(target);
+		recorder.getCameraEvents(CAMERA).clear();
+
+		target.setPosition(10, 20);
+		target.setDimensions(30, 40);
+
+		assertEquals(List.of(), eventTypes());
+	}
+
+	@Test
 	void nonRecordingCanvasRecordsNothing() {
 		canvas.setRecordsSessionEvents(false);
 		final TargetView target = newTarget();

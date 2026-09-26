@@ -908,7 +908,10 @@ public class CanvasManager implements CameraView {
 			Platform.runLater(removeTargetAction);
 		}
 
-		if (recordsSessionEvents && config.getSessionRecorder().isPresent()) {
+		// A target that isn't registered on this canvas (never added, or already removed by an
+		// earlier call) has no removal to record: its view's model may already sit in a fresh
+		// private TargetSet, where a TargetRef would misreport a valid index
+		if (recordsSessionEvents && config.getSessionRecorder().isPresent() && targets.contains(target)) {
 			config.getSessionRecorder().get().recordTargetRemoved(cameraName, ((TargetView) target).getTargetRef());
 		}
 
