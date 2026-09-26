@@ -74,7 +74,10 @@ import com.shootoff.targets.model.TargetSet;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.embed.swing.SwingFXUtils;
+import com.shootoff.geom.ArenaGeometry;
+import com.shootoff.geom.Point;
 import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -386,41 +389,31 @@ public class CanvasManager implements CameraView {
 	}
 
 	public Rect translateCameraToCanvas(Rect bounds) {
-		if (config.getDisplayWidth() == cameraManager.getFeedWidth()
-				&& config.getDisplayHeight() == cameraManager.getFeedHeight())
-			return bounds;
-
-		final double scaleX = (double) config.getDisplayWidth() / (double) cameraManager.getFeedWidth();
-		final double scaleY = (double) config.getDisplayHeight() / (double) cameraManager.getFeedHeight();
-
-		final double minX = (bounds.getMinX() * scaleX);
-		final double minY = (bounds.getMinY() * scaleY);
-		final double width = (bounds.getWidth() * scaleX);
-		final double height = (bounds.getHeight() * scaleY);
+		final Rect translated = ArenaGeometry.cameraToCanvas(bounds, feedSize(), displaySize());
 
 		logger.trace("translateCameraToCanvas {} {} {} {} - {} {} {} {}", bounds.getMinX(), bounds.getMinY(),
-				bounds.getWidth(), bounds.getHeight(), minX, minY, width, height);
+				bounds.getWidth(), bounds.getHeight(), translated.getMinX(), translated.getMinY(), translated.getWidth(),
+				translated.getHeight());
 
-		return new Rect(minX, minY, width, height);
+		return translated;
 	}
 
 	public Rect translateCanvasToCamera(Rect bounds) {
-		if (config.getDisplayWidth() == cameraManager.getFeedWidth()
-				&& config.getDisplayHeight() == cameraManager.getFeedHeight())
-			return bounds;
-
-		final double scaleX = (double) cameraManager.getFeedWidth() / (double) config.getDisplayWidth();
-		final double scaleY = (double) cameraManager.getFeedHeight() / (double) config.getDisplayHeight();
-
-		final double minX = (bounds.getMinX() * scaleX);
-		final double minY = (bounds.getMinY() * scaleY);
-		final double width = (bounds.getWidth() * scaleX);
-		final double height = (bounds.getHeight() * scaleY);
+		final Rect translated = ArenaGeometry.canvasToCamera(bounds, feedSize(), displaySize());
 
 		logger.trace("translateCanvasToCamera {} {} {} {} - {} {} {} {}", bounds.getMinX(), bounds.getMinY(),
-				bounds.getWidth(), bounds.getHeight(), minX, minY, width, height);
+				bounds.getWidth(), bounds.getHeight(), translated.getMinX(), translated.getMinY(), translated.getWidth(),
+				translated.getHeight());
 
-		return new Rect(minX, minY, width, height);
+		return translated;
+	}
+
+	private Size feedSize() {
+		return new Size(cameraManager.getFeedWidth(), cameraManager.getFeedHeight());
+	}
+
+	private Size displaySize() {
+		return new Size(config.getDisplayWidth(), config.getDisplayHeight());
 	}
 	
 	/* Takes a point x,y and translates it from an arena canvas to a camera (feed) point.
@@ -440,14 +433,10 @@ public class CanvasManager implements CameraView {
 			return new Pair<Double, Double>(x,y);
 		}
 		
-		final Rect b = cameraManager.getProjectionBounds().get();
+		final Point camera = ArenaGeometry.arenaToCamera(x, y, cameraManager.getProjectionBounds().get(),
+				new Size(arenaPane.get().getWidth(), arenaPane.get().getHeight()));
 
-		final double x_scale = b.getWidth() / arenaPane.get().getWidth();
-		final double y_scale = b.getHeight() / arenaPane.get().getHeight();
-		
-		logger.trace("translateCanvasToCameraPoint scale x {} y {}", x_scale, y_scale);
-
-		return new Pair<Double, Double>(b.getMinX() + (x * x_scale), b.getMinY() + (y*y_scale));
+		return new Pair<Double, Double>(camera.getX(), camera.getY());
 	}
 	
 
@@ -694,17 +683,13 @@ public class CanvasManager implements CameraView {
 			return;
 		}
 		
-		final double x_scale = arenaPane.get().getWidth() / projectionBounds.get().getWidth();
-		final double y_scale = arenaPane.get().getHeight() / projectionBounds.get().getHeight();
-		
 		logger.trace("scaleShotToArenaBounds pre x {} y {}", shot.getX(), shot.getY());
-		
-		shot.setArenaCoords((shot.getX() - projectionBounds.get().getMinX()) * x_scale,
-				(shot.getY() - projectionBounds.get().getMinY()) * y_scale);
+
+		final Point arena = ArenaGeometry.canvasToArena(shot.getX(), shot.getY(), projectionBounds.get(),
+				new Size(arenaPane.get().getWidth(), arenaPane.get().getHeight()));
+		shot.setArenaCoords(arena.getX(), arena.getY());
 
 		logger.trace("scaleShotToArenaBounds post x {} y {}", shot.getX(), shot.getY());
-
-	
 	}
 
 	public boolean addArenaShot(ArenaShot shot, Optional<String> videoString, boolean isMirroredShot) {
