@@ -1,5 +1,6 @@
 plugins {
     application
+    `java-library`
     `maven-publish`
     alias(libs.plugins.javafx)
 }
@@ -10,8 +11,10 @@ javafx {
 }
 
 dependencies {
-    implementation(project(":core"))
-    implementation(project(":plugin-api"))
+    // api: plugins compiled against the app (com.shootoff:shootoff) see core's and plugin-api's types,
+    // such as Settings and Shot, without declaring them
+    api(project(":core"))
+    api(project(":plugin-api"))
     testImplementation(testFixtures(project(":core")))
 
     // Also needed at compile time: JavaFXToolkitInitializer implements
@@ -62,8 +65,8 @@ tasks.startScripts {
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            // Old-style plugins (e.g. RandomTargetParDrill) compile against this coordinate.
-            // Plan 3 renames it to com.shootoff:javafx-app.
+            // Old-style plugins (e.g. RandomTargetParDrill 1.x) compile against this coordinate, so it
+            // stays com.shootoff:shootoff (Plan 3, ruling 15)
             artifactId = "shootoff"
             from(components["java"])
         }
