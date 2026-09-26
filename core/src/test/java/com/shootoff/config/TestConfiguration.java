@@ -10,23 +10,32 @@ import java.util.Optional;
 
 import com.shootoff.camera.shot.ShotColor;
 
+import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
 public class TestConfiguration {
 	Settings defaultConfig;
-	
+	private String workingTreeConfig;
+
 	@Before
 	public void setUp() throws ConfigurationException, IOException {
-		// This is required because testWriteConfigFile loads a 
+		// This is required because testWriteConfigFile loads a
 		// configuration file after writing it, which causes
 		// cameras to be enumerated then opened with OpenCV
 		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 		String[] emptyArgs = new String[0];
-		defaultConfig = new Settings(emptyArgs);
+		workingTreeConfig = ScratchConfig.workingTreeFingerprint();
+		// testPOIAdjustment writes the configuration: never to the owner's shootoff.properties
+		defaultConfig = new Settings(ScratchConfig.emptyFile().getPath(), emptyArgs);
+	}
+
+	@After
+	public void checkTheWorkingTreeConfigIsUntouched() {
+		assertEquals(workingTreeConfig, ScratchConfig.workingTreeFingerprint());
 	}
 
 	@Test

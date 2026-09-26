@@ -3,10 +3,12 @@ package com.shootoff.gui.targets;
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -20,6 +22,7 @@ import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
+import com.shootoff.config.ScratchConfig;
 import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.JavaFXThreadingRule;
 import com.shootoff.gui.MockCanvasManager;
@@ -43,15 +46,18 @@ public class TestTargetCommands {
 	private CanvasManager canvasManager;
 	private CameraManager cameraManager;
 	private Rect bounds;
+	private String workingTreeConfig;
 
 	@Before
-	public void setUp() throws ConfigurationException {
+	public void setUp() throws ConfigurationException, IOException {
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 
 		TextToSpeech.silence(true);
 		TrainingExerciseBase.silence(true);
-		
-		config = new Configuration(new String[0]);
+
+		workingTreeConfig = ScratchConfig.workingTreeFingerprint();
+		// testPOIAdjust writes the configuration: never to the owner's shootoff.properties
+		config = new Configuration(ScratchConfig.emptyFile().getPath(), new String[0]);
 		canvasManager = new MockCanvasManager(config);
 		cameraManager = new MockCameraManager();
 		
@@ -77,7 +83,11 @@ public class TestTargetCommands {
 		canvasManager.getTargets().get(0).setPosition(0, 0);
 	}
 
-	
+	@After
+	public void checkTheWorkingTreeConfigIsUntouched() {
+		assertEquals(workingTreeConfig, ScratchConfig.workingTreeFingerprint());
+	}
+
 	@Test
 	public void testPOIAdjust() {
 		Optional<TargetRegion> r = TargetView.getTargetRegionByName(targets,

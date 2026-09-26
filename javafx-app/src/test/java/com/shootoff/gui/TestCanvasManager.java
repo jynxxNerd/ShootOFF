@@ -3,8 +3,10 @@ package com.shootoff.gui;
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Optional;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -18,6 +20,7 @@ import com.shootoff.camera.shot.ScaledShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
+import com.shootoff.config.ScratchConfig;
 import com.shootoff.gui.controller.ShootOFFController;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.targets.Hit;
@@ -37,14 +40,17 @@ public class TestCanvasManager {
 	private ObservableList<ShotEntry> shotEntries = FXCollections.observableArrayList();
 
 	private Configuration config;
+	private String workingTreeConfig;
 
 	@Before
-	public void setUp() throws ConfigurationException {
+	public void setUp() throws ConfigurationException, IOException {
 		System.setProperty("shootoff.home", System.getProperty("user.dir"));
 
 		org.bytedeco.javacpp.Loader.load(org.bytedeco.opencv.opencv_java.class);
 
-		config = new Configuration(new String[0]);
+		workingTreeConfig = ScratchConfig.workingTreeFingerprint();
+		// testPOIAdjust writes the configuration: never to the owner's shootoff.properties
+		config = new Configuration(ScratchConfig.emptyFile().getPath(), new String[0]);
 		CamerasSupervisor cs = new CamerasSupervisor(config);
 		cm = new CanvasManager(new Group(), new ShootOFFController(), "test", shotEntries);
 		CameraManager cameraManager = cs.addCameraManager(new MockCamera(), null, cm).get();
@@ -53,6 +59,11 @@ public class TestCanvasManager {
 
 		ipscTarget = cm.addTarget(new File("targets/IPSC.target")).get();
 		ipscTarget.setPosition(0, 0);
+	}
+
+	@After
+	public void checkTheWorkingTreeConfigIsUntouched() {
+		assertEquals(workingTreeConfig, ScratchConfig.workingTreeFingerprint());
 	}
 
 	@Test
