@@ -85,4 +85,9 @@ public class TestSarxosCaptureCamera {
 		assertEquals(0.0, viewSize.getWidth(), 0.0);
 		assertEquals(0.0, viewSize.getHeight(), 0.0);
 	}
+
+	@Test
+	public void testDisablingDynamicFramerateOnMissingDeviceReportsNoChange() {
+		assertFalse(SarxosCaptureCamera.disableDynamicFramerate("/nonexistent/video99"));
+	}
 }

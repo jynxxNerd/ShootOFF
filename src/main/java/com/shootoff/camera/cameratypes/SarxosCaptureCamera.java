@@ -23,6 +23,7 @@ import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -136,6 +137,9 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			// whatever size was requested now that the capture is actually open.
 			if (requestedViewSize.isPresent()) applyViewSize(camera, requestedViewSize.get());
 
+			// OpenCV opens camera index N as /dev/videoN
+			if (SystemInfo.isLinux()) disableDynamicFramerate("/dev/video" + cameraIndex);
+
 			// Logged after resolution is applied so this reports what's actually negotiated.
 			logCaptureSettings(camera);
 
@@ -143,6 +147,37 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		}
 
 		return open;
+	}
+
+	/**
+	 * Many UVC webcams (e.g. the Logitech C270) let auto exposure halve the
+	 * frame rate in dim light, and some power on with that enabled. OpenCV
+	 * can't reach this control, so it's set directly through V4L2.
+	 *
+	 * @return true if the camera had dynamic frame rate enabled and it was
+	 *         turned off
+	 */
+	static boolean disableDynamicFramerate(final String device) {
+		final OptionalInt current = V4l2Controls.getControl(device, V4l2Controls.EXPOSURE_DYNAMIC_FRAMERATE);
+
+		if (!current.isPresent()) {
+			logger.debug("{} has no exposure_dynamic_framerate control", device);
+			return false;
+		}
+
+		if (current.getAsInt() == 0) return false;
+
+		final boolean changed = V4l2Controls.setControl(device, V4l2Controls.EXPOSURE_DYNAMIC_FRAMERATE, 0);
+
+		if (changed) {
+			logger.info("{} exposure_dynamic_framerate was {}, set to 0 so auto exposure can't lower the frame rate",
+					device, current.getAsInt());
+		} else {
+			logger.warn("Could not turn off exposure_dynamic_framerate on {}; the frame rate may drop in dim light",
+					device);
+		}
+
+		return changed;
 	}
 
 	// Uncompressed YUYV at high resolutions exceeds USB 2.0 bandwidth, which holds many webcams
