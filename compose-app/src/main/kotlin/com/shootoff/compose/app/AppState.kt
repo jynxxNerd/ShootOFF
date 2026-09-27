@@ -547,6 +547,9 @@ class AppState(
      * next session. Off: nothing is saved, the saved one is forgotten, and a check under way stops.
      */
     fun setRememberCalibration(remember: Boolean) {
+        // A no-op when nothing changed: turning it on again with nothing calibrated this session (so
+        // currentCalibration is still null) would otherwise erase an already-saved calibration
+        if (remember == rememberState.value) return
         rememberState.value = remember
         settings.setRememberCalibration(remember)
         settings.setSavedCalibration(if (remember) currentCalibration else null)

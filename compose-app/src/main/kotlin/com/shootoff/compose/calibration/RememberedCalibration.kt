@@ -119,9 +119,6 @@ class CalibrationCheckRun(
     private var background: ArenaBackground? = null
 
     @Volatile
-    private var check: CalibrationCheck<BufferedImage>? = null
-
-    @Volatile
     private var job: Job? = null
 
     /** Shows the pattern and starts looking; on the UI thread. */
@@ -131,7 +128,6 @@ class CalibrationCheckRun(
         camera.setDetecting(false)
         frames.take()
         val check = CalibrationCheck(saved.bounds, detector, clock)
-        this.check = check
         job = scope.launch {
             while (isActive) {
                 val frame = frames.take()
@@ -145,11 +141,14 @@ class CalibrationCheckRun(
         }
     }
 
-    /** Stops the check for [reason], unless it already has an outcome; on the UI thread. */
-    fun stop(reason: Reason) {
-        val outcome = check?.stop(reason) ?: CalibrationCheck.NotVerified(reason)
-        finish(outcome)
-    }
+    /**
+     * Stops the check for [reason]; on the UI thread. Never touches the [CalibrationCheck] itself: its
+     * `offer`/`stop` are `synchronized`, and `offer` can hold that lock for as long as pattern detection
+     * takes (hundreds of milliseconds when the pattern isn't found), which would freeze the UI thread here
+     * (spec §8 rule 6). [finish]'s compare-and-set makes the first outcome final regardless, so a detection
+     * that completes after this call, and calls [finish] with a real outcome from [start]'s loop, is a no-op.
+     */
+    fun stop(reason: Reason) = finish(CalibrationCheck.NotVerified(reason))
 
     private fun finish(outcome: CalibrationCheck.Outcome) {
         if (!finished.compareAndSet(false, true)) return

@@ -1,5 +1,6 @@
 package com.shootoff.compose.app
 
+import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.savedCalibrationMismatch
@@ -19,6 +20,8 @@ import java.awt.image.BufferedImage
 import java.io.File
 import java.util.Optional
 import java.util.Properties
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
@@ -44,16 +47,19 @@ class TestRememberedCalibration {
         return properties.stringPropertyNames().filter { it.startsWith("shootoff.arena.calibration.") }.associateWith(properties::getProperty)
     }
 
-    private fun appOn(settings: Settings) = AppFixture.appWithCamera(settings, detector = {
-        looks.incrementAndGet()
-        seen.get()
-    }, checkClock = now::get)
+    private fun appOn(
+        settings: Settings,
+        detector: CalibrationCheck.Detector<BufferedImage> = CalibrationCheck.Detector {
+            looks.incrementAndGet()
+            seen.get()
+        },
+    ) = AppFixture.appWithCamera(settings, detector = detector, checkClock = now::get)
 
     @AfterEach
     fun close() = app.close()
 
     // A remembered calibration from the last session, as the app saved it
-    private fun remembered(screen: String = "1280.0x720.0") {
+    private fun remembered(screen: String = "1280.0x720.0", detector: CalibrationCheck.Detector<BufferedImage>? = null) {
         app.close()
         file.writeText(
             """
@@ -64,7 +70,7 @@ class TestRememberedCalibration {
             shootoff.arena.calibration.bounds=100.0,80.0,400.0,300.0
             """.trimIndent(),
         )
-        app = appOn(Settings(file.path, arrayOf()))
+        app = if (detector == null) appOn(Settings(file.path, arrayOf())) else appOn(Settings(file.path, arrayOf()), detector)
     }
 
     // The arena opened on the projector, and the window reached it
@@ -247,6 +253,54 @@ class TestRememberedCalibration {
         assertEquals(CheckState.NotVerified(Reason.CANCELLED), app.check.value)
         assertNull(app.arena.value!!.background.value)
         assertNull(app.arena.value!!.projection.value)
+    }
+
+    // Rule 6 ("Nothing blocks", spec §8): the UI thread never waits on the check, even while a slow
+    // detection (the exhaustive chessboard search PatternDetector falls back to) is under way.
+    @Test
+    fun cancellingDuringASlowDetectionNeverBlocksTheCallingThreadAndTheLateOutcomeChangesNothing() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        remembered(
+            detector = CalibrationCheck.Detector {
+                started.countDown()
+                release.await()
+                Optional.of(saved.bounds)
+            },
+        )
+        try {
+            openArenaOnTheProjector()
+            awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+
+            app.cameraView.updateBackground(frame, Optional.empty())
+            assertTrue(started.await(5, TimeUnit.SECONDS), "the detector should have been reached")
+
+            val stopped = CountDownLatch(1)
+            Thread { app.cancelCheck(); stopped.countDown() }.start()
+            assertTrue(stopped.await(500, TimeUnit.MILLISECONDS), "cancelCheck() waited on the blocked detector")
+
+            assertEquals(CheckState.NotVerified(Reason.CANCELLED), app.check.value)
+            assertNull(app.arena.value!!.projection.value)
+
+            // The detection, blocked the whole time, now finds a perfect match: too late to matter
+            release.countDown()
+            Thread.sleep(200)
+
+            assertEquals(CheckState.NotVerified(Reason.CANCELLED), app.check.value)
+            assertNull(app.arena.value!!.projection.value)
+            assertNull(app.camera.value!!.projectionBounds.orElse(null))
+        } finally {
+            release.countDown()
+        }
+    }
+
+    @Test
+    fun turningRememberOnWhenItsAlreadyOnIsANoOpAndKeepsTheSavedCalibration() {
+        remembered()
+
+        app.setRememberCalibration(true)
+
+        assertEquals(SAVED_KEYS, savedKeys())
     }
 
     companion object {
