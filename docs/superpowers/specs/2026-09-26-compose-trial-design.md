@@ -119,3 +119,54 @@ Two plans, each leaving the build and suite green after every task:
 | Target rendering differs from JavaFX | Hit-testing is the shared model; rendering checked by the owner on the projector; animated frames driven by the model's region state |
 | Kotlin and Compose toolchain in a Java build | Isolated to `compose-app`; versions pinned in the catalog; other modules untouched |
 | Branch drift from `master` | Merge `master` into `compose-ui` regularly, as in 1a |
+
+## 8. Revision 1 (2026-09-27): setup separated from training
+
+The owner's first hardware session with the Plan 5 app found that the Camera | Arena switch, and the app's flow in general, didn't match how a session goes. Camera and projector setup (including calibration) is done once per session, and again only when the camera or projector moves. Drills (and later courses) are training and shouldn't share a screen with setup. Mockups: `.superpowers/brainstorm/527451-1790488215/content/flow.html`; the owner chose a combination of options A and B.
+
+This section supersedes the conflicting parts of §1 (layout and destinations), §2 "Inside compose-app" (screens) and §4 (shortcuts).
+
+### Destinations
+
+The rail shows **Range, Setup, Drills, Targets, Sessions, Settings**. Targets and Sessions stay disabled as before.
+
+### Setup (new)
+
+- One screen with three ordered steps, each showing its state (✓ when done, the next step highlighted):
+  1. **Camera**: pick the camera; shows the live feed with FPS and resolution.
+  2. **Projector**: open (or close) the arena on the projector screen; shows a small live preview of the arena.
+  3. **Calibrate**: auto-calibration, falling back to the draggable manual box (Task 8's overlay), over the camera feed shown on this screen.
+- The rail's Setup item is always available, so the owner can recalibrate or change the camera whenever they want.
+- When calibration succeeds from Setup, the app returns to Range.
+- **Remember calibration** checkbox, off by default:
+  - Off: calibration starts whenever the arena opens (current behavior).
+  - On: the calibration (projection bounds, the calibrated feed behavior, and the camera and projector screen it was made with) is saved. At launch or arena open, if the same camera and the same projector screen resolution are present, the saved calibration is applied and no calibration runs; otherwise the Calibrate step asks for a recalibration.
+  - Stored through `core`'s `Settings` (new keys, additive), so the JavaFX app preserves them when it rewrites `shootoff.properties`. Tests use `ScratchConfig`.
+
+### Range (training only)
+
+- The camera feed (the big view), the drill card with **Start / Pause / Stop**, a **drill picker** next to it, **Clear shots** (replacing Reset), the shot timer and settings tray, the status strip, and the feed banners.
+- A status chip (for example "✓ Calibrated 01:12", or what is missing) opens Setup.
+- **Not-ready prompt:** when a projector drill can't run (no camera, no arena, or not calibrated), Range shows a card over the feed listing the setup steps and their state, with **Set up** (opens Setup) and **Skip** (hides it for camera-only use). It comes back if the camera drops or the arena closes during the session.
+- Starting a projector drill still requires an open, calibrated arena (Plan 5's guard stays).
+
+### Removed
+
+- The Camera | Arena segmented switch and the in-app Arena view as a main view. The arena preview exists only on Setup.
+- F2 (switch view). F6 now opens Setup and starts calibrating; F3 (pause) and F4 (clear shots) stay; F11 in the arena window stays.
+- Starting drills from the Drills page: Drills becomes a library (name, description, "needs the projector arena"); starting happens from Range's picker.
+
+### Unchanged
+
+The engine (core, plugin-api), the exercise host and runner, the drill, the target layer, the shot pipeline, calibration's flow and overlay, the theme, and the JavaFX app.
+
+### Success criteria (revision)
+
+Adds to §1's criteria:
+
+6. A session reads top to bottom: open the app → (prompt) → Setup: camera, projector, calibrate → back on Range → pick the drill → Start → shoot → Stop, without visiting the Drills page.
+7. With "Remember calibration" on, relaunching with the same camera and projector skips calibration and shots land correctly.
+
+### Delivery
+
+**Plan 6** implements this revision on `compose-ui`, then the owner repeats the hardware check.
