@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -29,6 +30,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.LocalTime
+import java.util.Optional
 
 class TestSetupScreen {
     @get:Rule
@@ -87,6 +90,24 @@ class TestSetupScreen {
 
         compose.onNodeWithTag("setup-cancel").performClick()
         compose.onNodeWithTag("setup-calibrate").assertExists()
+    }
+
+    @Test
+    fun aFinishedCalibrationStaysOnSetupAndSaysCalibrationComplete() {
+        app.close()
+        app = AppFixture.appWithCamera(wallClock = { LocalTime.of(14, 5) })
+        app.openStartCamera()
+        app.openArena()
+        app.arena.value!!.setFullScreen(true)
+        app.navigate(Destination.SETUP)
+        showApp()
+
+        compose.onNodeWithTag("setup-calibrate").performClick()
+        compose.runOnIdle { app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0) }
+
+        compose.onNodeWithTag("setup-screen").assertExists()
+        compose.onNodeWithTag("calibration-complete").assertTextEquals("Calibration complete ✓ 14:05")
+        step(Step.CALIBRATE, StepState.DONE)
     }
 
     @Test

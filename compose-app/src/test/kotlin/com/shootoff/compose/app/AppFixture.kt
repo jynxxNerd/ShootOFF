@@ -16,6 +16,7 @@ import com.shootoff.targets.model.Hit
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.awt.image.BufferedImage
+import java.time.LocalTime
 import java.util.Optional
 
 /** An app with no camera, the owner's three screens, and two drills in its catalog. */
@@ -75,6 +76,7 @@ object AppFixture {
         screens: List<Rect> = ownerScreens,
         detector: CalibrationCheck.Detector<BufferedImage> = CalibrationCheck.Detector { Optional.empty() },
         checkClock: () -> Long = System::currentTimeMillis,
+        wallClock: () -> LocalTime = LocalTime::now,
     ): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
@@ -87,6 +89,7 @@ object AppFixture {
             ManualClock(),
             { it.run() },
             background,
+            wallClock = wallClock,
             detector = { detector },
             checkClock = checkClock,
         )

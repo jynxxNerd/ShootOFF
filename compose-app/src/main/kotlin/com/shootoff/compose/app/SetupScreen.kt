@@ -195,6 +195,7 @@ private fun CalibrateStep(app: AppState) {
     val calibrating = controller?.state?.collectAsState()?.value?.calibrating == true
     val calibrated = arena?.projection?.collectAsState()?.value != null
     val calibratedAt by app.calibratedAt.collectAsState()
+    val complete by app.calibrationComplete.collectAsState()
     val check by app.check.collectAsState()
     val remember by app.rememberCalibration.collectAsState()
     val grid = arena?.grid?.collectAsState()?.value == true
@@ -206,6 +207,10 @@ private fun CalibrateStep(app: AppState) {
         color = if (calibrated && !calibrating) colors.good else colors.mutedStrong,
         modifier = Modifier.testTag("calibration-summary"),
     )
+    // The confirmation stays until the next calibration starts: the user goes back to Range when they choose
+    complete?.let {
+        Text(calibrationCompleteText(it), color = colors.good, fontSize = 16.sp, modifier = Modifier.testTag("calibration-complete"))
+    }
     // Cancel is always there while something runs (spec §8 rule 5)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         when {

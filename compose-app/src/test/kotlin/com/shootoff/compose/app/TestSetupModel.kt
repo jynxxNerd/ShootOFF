@@ -5,12 +5,14 @@ import com.shootoff.geom.Rect
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.LocalTime
 import java.util.Optional
 
 class TestSetupModel {
-    private val app = AppFixture.appWithCamera()
+    private val app = AppFixture.appWithCamera(wallClock = { LocalTime.of(14, 5) })
 
     @AfterEach
     fun close() = app.close()
@@ -46,13 +48,23 @@ class TestSetupModel {
     }
 
     @Test
-    fun aCalibrationFinishedOnSetupGoesBackToTheRange() {
+    fun aCalibrationFinishedOnSetupStaysOnSetupAndSaysItIsComplete() {
         setUpOnTheProjector()
 
         app.startCalibration()
+        assertNull(app.calibrationComplete.value)
         app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
 
-        assertEquals(Destination.RANGE, app.destination.value)
+        assertEquals(Destination.SETUP, app.destination.value)
+        assertEquals(LocalTime.of(14, 5), app.calibrationComplete.value)
+
+        // Calibrating again takes the confirmation away until that calibration completes; so does closing the arena
+        app.startCalibration()
+        assertNull(app.calibrationComplete.value)
+        app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+        assertEquals(LocalTime.of(14, 5), app.calibrationComplete.value)
+        app.closeArena()
+        assertNull(app.calibrationComplete.value)
     }
 
     @Test

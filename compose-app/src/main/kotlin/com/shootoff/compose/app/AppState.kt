@@ -148,6 +148,7 @@ class AppState(
     private val trayHeightState = MutableStateFlow(prefs.trayHeight)
     private val trayCollapsedState = MutableStateFlow(prefs.trayCollapsed)
     private val calibratedAtState = MutableStateFlow<LocalTime?>(null)
+    private val calibrationCompleteState = MutableStateFlow<LocalTime?>(null)
     private val pickedDrillState = MutableStateFlow<V2ExerciseEntry?>(null)
     private val promptSkippedState = MutableStateFlow(false)
     private val rememberState = MutableStateFlow(settings.rememberCalibration())
@@ -171,6 +172,12 @@ class AppState(
 
     /** When the open arena was last calibrated; null while it isn't */
     val calibratedAt: StateFlow<LocalTime?> = calibratedAtState.asStateFlow()
+
+    /**
+     * When the last calibration the user asked for completed, for Setup's confirmation; null from the moment
+     * another calibration starts, and once the arena closes
+     */
+    val calibrationComplete: StateFlow<LocalTime?> = calibrationCompleteState.asStateFlow()
 
     /** The drill picked on Range, if the user picked one (see [pickedDrill]) */
     val drillChoice: StateFlow<V2ExerciseEntry?> = pickedDrillState.asStateFlow()
@@ -274,7 +281,7 @@ class AppState(
     // The manual box is showing: it is dragged over Setup's camera feed
     override fun showCalibratingFeed() = navigate(Destination.SETUP)
 
-    // Calibration ending leaves the user where they are; a success from Setup goes to Range (calibrationSucceeded)
+    // Calibration ending leaves the user where they are, a success included (spec §8 Revision 2, decision 1)
     override fun restoreSelectedView() {}
 
     // ---- The camera
@@ -699,6 +706,7 @@ class AppState(
         // then the one running, if any, stops under the runner's lock, so one started just before can't slip by
         arenaState.value = null
         calibratedAtState.value = null
+        calibrationCompleteState.value = null
         runner.stopProjectorExercise()
         placementState.value = null
         promptSkippedState.value = false
@@ -716,6 +724,7 @@ class AppState(
         // A check under way stops first, putting the arena's background back before calibration saves it
         stopCheckQuietly()
         arenaState.value?.showGrid(false)
+        calibrationCompleteState.value = null
         controller.start()
         return true
     }
@@ -726,9 +735,11 @@ class AppState(
     }
 
     override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
-        calibratedAtState.value = wallClock()
-        // Calibrated from Setup: back to training
-        if (destinationState.value == Destination.SETUP) destinationState.value = Destination.RANGE
+        val now = wallClock()
+        calibratedAtState.value = now
+        // The user stays where they are (Setup, usually) and is told it worked; they go back to Range when
+        // they choose (spec §8 Revision 2, decision 1)
+        calibrationCompleteState.value = now
         checkState.value = CheckState.Idle
         val camera = cameraState.value
         val screen = placementState.value?.screen

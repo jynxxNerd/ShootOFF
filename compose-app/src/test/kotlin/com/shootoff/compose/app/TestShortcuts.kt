@@ -93,7 +93,8 @@ class TestShortcuts {
             app.calibration.value!!.calibrate(Rect(102.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
 
             assertNotSame(first, app.runner.running.value!!.host)
-            assertEquals(Destination.RANGE, app.destination.value)
+            // F6 opened Setup, and a finished calibration stays there
+            assertEquals(Destination.SETUP, app.destination.value)
         } finally {
             app.close()
         }

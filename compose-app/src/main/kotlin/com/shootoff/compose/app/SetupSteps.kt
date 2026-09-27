@@ -62,6 +62,9 @@ fun setupSteps(cameraOpen: Boolean, arenaOpen: Boolean, calibrated: Boolean): Se
 
 private val TIME = DateTimeFormatter.ofPattern("HH:mm")
 
+/** Setup's confirmation that the calibration the user asked for worked */
+fun calibrationCompleteText(at: LocalTime): String = "Calibration complete ✓ " + at.format(TIME)
+
 /**
  * One line about the arena's calibration, for Setup's Calibrate step and Range's status chip: what is
  * missing, what is under way, or when it was calibrated.
