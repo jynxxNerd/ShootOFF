@@ -44,16 +44,21 @@ import com.shootoff.compose.theme.Range
 import com.shootoff.plugins.engine.V2ExerciseEntry
 
 const val NEEDS_ARENA = "Needs the projector arena"
+const val CALIBRATING_HINT = "Calibrating… finish calibration first"
 
 /**
  * The Drills screen: the v2 exercises the app can run. A projector drill can start only while the arena
- * is open; until then it says so. Starting one stops the running one and goes to the Range screen.
+ * is open and not calibrating; until then it says so (a v2 drill draws over the calibration pattern and
+ * detection is off while calibrating, so it would look dead if it were allowed to start). Starting one
+ * stops the running one and goes to the Range screen.
  */
 @Composable
 fun DrillsScreen(app: AppState, modifier: Modifier = Modifier) {
     val entries by app.catalog.entries.collectAsState()
     val arena by app.arena.collectAsState()
     val running by app.runner.running.collectAsState()
+    val calibrationController by app.calibration.collectAsState()
+    val calibrating = calibrationController?.state?.collectAsState()?.value?.calibrating == true
     val colors = Range.colors
 
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -63,10 +68,17 @@ fun DrillsScreen(app: AppState, modifier: Modifier = Modifier) {
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(entries, key = { it.exerciseClass().name }) { entry ->
+                val hint = when {
+                    !entry.isProjectorOnly -> null
+                    arena == null -> NEEDS_ARENA
+                    calibrating -> CALIBRATING_HINT
+                    else -> null
+                }
                 DrillRow(
                     entry,
                     isRunning = running?.entry == entry,
-                    canStart = !entry.isProjectorOnly || arena != null,
+                    canStart = hint == null,
+                    hint = hint,
                     onStart = { app.startDrill(entry) },
                     onStop = app::stopDrill,
                 )
@@ -76,7 +88,7 @@ fun DrillsScreen(app: AppState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DrillRow(entry: V2ExerciseEntry, isRunning: Boolean, canStart: Boolean, onStart: () -> Unit, onStop: () -> Unit) {
+private fun DrillRow(entry: V2ExerciseEntry, isRunning: Boolean, canStart: Boolean, hint: String?, onStart: () -> Unit, onStop: () -> Unit) {
     val colors = Range.colors
     val metadata = entry.metadata()
     Surface(
@@ -90,7 +102,11 @@ private fun DrillRow(entry: V2ExerciseEntry, isRunning: Boolean, canStart: Boole
                 Text(metadata.name, color = colors.text, fontSize = 16.sp)
                 Text("${metadata.version} · ${metadata.creator}" + if (entry.isProjectorOnly) " · Projector" else "", color = colors.muted, fontSize = 12.sp)
                 Text(metadata.description, color = colors.mutedStrong, fontSize = 13.sp)
-                if (!canStart) Text(NEEDS_ARENA, color = colors.warning, fontSize = 12.sp, modifier = Modifier.testTag("needs-arena"))
+                if (hint == NEEDS_ARENA) {
+                    Text(NEEDS_ARENA, color = colors.warning, fontSize = 12.sp, modifier = Modifier.testTag("needs-arena"))
+                } else if (hint == CALIBRATING_HINT) {
+                    Text(CALIBRATING_HINT, color = colors.warning, fontSize = 12.sp, modifier = Modifier.testTag("calibrating-hint"))
+                }
             }
             if (isRunning) {
                 FilledTonalButton(onClick = onStop, modifier = Modifier.testTag("stop-drill")) { Text("Stop") }

@@ -10,8 +10,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.shootoff.compose.targets.ManualClock
 import com.shootoff.compose.theme.RangeTheme
+import com.shootoff.config.ScratchConfig
+import com.shootoff.config.Settings
 import com.shootoff.geom.Rect
+import java.util.Optional
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -64,6 +68,55 @@ class TestScreens {
         app.openArena()
         compose.waitForIdle()
         compose.onNodeWithText(NEEDS_ARENA).assertDoesNotExist()
+    }
+
+    @Test
+    fun drillsDisableStartWhileCalibratingAndReenableWhenStopped() {
+        app.close()
+        app = projectorAppWithCamera()
+        show { DrillsScreen(app) }
+
+        app.openStartCamera()
+        app.openArena()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("start-drill").assertIsNotEnabled()
+        compose.onNodeWithText("Calibrating… finish calibration first").assertExists()
+
+        app.toggleCalibration()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("start-drill").assertIsEnabled()
+        compose.onNodeWithText("Calibrating… finish calibration first").assertDoesNotExist()
+    }
+
+    @Test
+    fun drillsReenableStartWhenCalibrationSucceeds() {
+        app.close()
+        app = projectorAppWithCamera()
+        show { DrillsScreen(app) }
+
+        app.openStartCamera()
+        app.openArena()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("start-drill").assertIsNotEnabled()
+
+        app.calibration.value!!.calibrate(Rect(0.0, 0.0, 100.0, 100.0), Optional.empty(), true, 0L)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("start-drill").assertIsEnabled()
+    }
+
+    private fun projectorAppWithCamera(): AppState {
+        val catalog = ExerciseCatalog()
+        catalog.registerProjectorExercise(AppFixture.projectorDrill)
+        val cameras = listOf(AppFixture.TestCamera())
+        val source = object : CameraSource {
+            override fun cameras() = cameras
+            override fun startCamera(settings: Settings) = cameras.firstOrNull()
+        }
+        return AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), catalog, source, { AppFixture.ownerScreens }, ManualClock(), { it.run() })
     }
 
     @Test

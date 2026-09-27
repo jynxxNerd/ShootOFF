@@ -38,11 +38,15 @@ class Running(val entry: V2ExerciseEntry, val host: ComposeExerciseHost)
  * it by surface: arena shots only a projector exercise, camera shots only a camera exercise. Calibration
  * stops a projector exercise and starts it afresh afterwards.
  *
+ * @param isCalibrating whether the arena is currently calibrating; a projector drill refuses to start
+ *   while it is, so no path (the Drills screen or otherwise) can start one under calibration's feet
  * @param newHost makes a host for a fresh instance of an entry's exercise on the surface it runs on;
  *   null when that surface isn't there (no arena for a projector exercise)
  */
-class ExerciseRunner(private val newHost: (V2ExerciseEntry, Exercise, ExerciseRunner) -> ComposeExerciseHost?) :
-    ShotReceiver, CalibrationFlow.Exercises {
+class ExerciseRunner(
+    private val isCalibrating: () -> Boolean = { false },
+    private val newHost: (V2ExerciseEntry, Exercise, ExerciseRunner) -> ComposeExerciseHost?,
+) : ShotReceiver, CalibrationFlow.Exercises {
     private val logger = LoggerFactory.getLogger(ExerciseRunner::class.java)
     private val runningState = MutableStateFlow<Running?>(null)
     private val failureState = MutableStateFlow<String?>(null)
@@ -53,12 +57,19 @@ class ExerciseRunner(private val newHost: (V2ExerciseEntry, Exercise, ExerciseRu
     val failure: StateFlow<String?> = failureState.asStateFlow()
 
     /**
-     * Stops the running exercise and starts a fresh instance of [entry].
+     * Stops the running exercise and starts a fresh instance of [entry]. A projector drill refuses to
+     * start while the arena is calibrating: its target would draw over the calibration pattern, and
+     * shot detection is off, so it would look dead. The running exercise, if any, is left alone.
      *
      * @return false if it couldn't start (logged)
      */
     @Synchronized
     fun start(entry: V2ExerciseEntry): Boolean {
+        if (entry.isProjectorOnly && isCalibrating()) {
+            logger.info("{} can't start while the arena is calibrating", entry.metadata().name)
+            return false
+        }
+
         stop()
         failureState.value = null
 

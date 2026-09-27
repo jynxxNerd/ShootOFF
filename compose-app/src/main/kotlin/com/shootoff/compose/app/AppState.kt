@@ -113,7 +113,10 @@ class AppState(
     val feedMarkers = ShotMarkers()
 
     val rangeReset = RangeReset(cameras, { calibration.value?.flow?.isCalibrating ?: false }, { task, delay -> TimerPool.schedule(task, delay) })
-    val runner: ExerciseRunner = ExerciseRunner(::newHost)
+    val runner: ExerciseRunner = ExerciseRunner(
+        isCalibrating = { calibrationState.value?.state?.value?.calibrating == true },
+        newHost = ::newHost,
+    )
 
     private val arenaState = MutableStateFlow<ArenaModel?>(null)
     private val placementState = MutableStateFlow<ArenaPlacement?>(null)
@@ -378,6 +381,9 @@ class AppState(
         openView = opened.view
         problemState.value = null
         cameraState.value = manager
+        // The arena was already open with no camera to calibrate with (openArena found none); now one
+        // is here, so calibration starts the way it would have if the camera had come first
+        arenaState.value?.let { arena -> if (calibrationState.value == null) startCalibrating(arena, manager) }
         return true
     }
 
@@ -415,7 +421,8 @@ class AppState(
 
     /**
      * Opens the arena window, on the projector if one is found, and starts calibrating it with the open
-     * camera, as the JavaFX app does.
+     * camera, as the JavaFX app does. Without an open camera there is nothing to calibrate with yet;
+     * [startCalibrating] runs later instead, once a camera opens (see [publish]).
      */
     fun openArena() {
         if (arenaState.value != null) return
@@ -428,7 +435,14 @@ class AppState(
         // Back to the view the user last left the app on
         if (prefs.view == BigView.ARENA) viewState.value = BigView.ARENA
 
-        val camera = cameraState.value ?: return
+        cameraState.value?.let { startCalibrating(arena, it) }
+    }
+
+    // Creates the calibration controller for [camera] on [arena] and starts calibrating, the way
+    // openArena does when a camera is already open. Also reached when a camera opens (or becomes
+    // available) after the arena, which otherwise would leave Calibrate and F6 disabled until the
+    // arena is closed and reopened.
+    private fun startCalibrating(arena: ArenaModel, camera: CameraManager) {
         val controller = CalibrationController(camera, arena, settings, runner, this, { task, delay ->
             TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
         }, uiThread)

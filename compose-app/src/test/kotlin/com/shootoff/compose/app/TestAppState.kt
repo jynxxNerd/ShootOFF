@@ -3,6 +3,9 @@ package com.shootoff.compose.app
 import com.shootoff.camera.Shot
 import com.shootoff.compose.feed.CalibrationStatus
 import com.shootoff.compose.shell.Destination
+import com.shootoff.compose.targets.ManualClock
+import com.shootoff.config.ScratchConfig
+import com.shootoff.config.Settings
 import com.shootoff.geom.Point
 import com.shootoff.geom.Rect
 import com.shootoff.exercise.Exercise
@@ -74,6 +77,40 @@ class TestAppState {
         assertNotNull(app.arena.value)
         assertNull(app.calibration.value)
         assertEquals(CalibrationStatus.NEEDS_CALIBRATION, app.calibrationStatus())
+    }
+
+    @Test
+    fun aProjectorDrillCantStartWhileTheArenaIsCalibrating() {
+        val catalog = ExerciseCatalog()
+        catalog.registerProjectorExercise(AppFixture.projectorDrill)
+        val cameras = listOf(AppFixture.TestCamera())
+        val source = object : CameraSource {
+            override fun cameras() = cameras
+            override fun startCamera(settings: Settings) = cameras.firstOrNull()
+        }
+        val calibratingApp = AppState(
+            Settings(ScratchConfig.emptyFile().path, arrayOf()),
+            catalog,
+            source,
+            { AppFixture.ownerScreens },
+            ManualClock(),
+            { it.run() },
+        )
+        try {
+            calibratingApp.openStartCamera()
+            calibratingApp.openArena()
+            assertTrue(calibratingApp.calibration.value!!.state.value.calibrating)
+
+            assertFalse(calibratingApp.runner.start(AppFixture.projectorDrill))
+            assertNull(calibratingApp.runner.running.value)
+
+            calibratingApp.toggleCalibration()
+            assertFalse(calibratingApp.calibration.value!!.state.value.calibrating)
+
+            assertTrue(calibratingApp.runner.start(AppFixture.projectorDrill))
+        } finally {
+            calibratingApp.close()
+        }
     }
 
     @Test
