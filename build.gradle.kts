@@ -2,6 +2,10 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     alias(libs.plugins.javafx) apply false
+    // compose-app only; declared here so every module shares one Kotlin plugin class loader
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.compose.multiplatform) apply false
 }
 
 // Keep in sync with javafx-app/src/main/resources/version.properties
@@ -10,7 +14,8 @@ val catalog = libs
 
 // There is no code in the root project. `./gradlew run`, `installDist` and `test` still work from
 // here: Gradle runs a task name given on the command line in every module that has it, and only
-// :javafx-app has run/installDist.
+// :javafx-app has run/installDist. compose-app's run only runs when asked for by path
+// (./gradlew :compose-app:run), so ./gradlew run still starts just the JavaFX app.
 subprojects {
     apply(plugin = "java")
 

@@ -1,3 +1,3 @@
 rootProject.name = "shootoff"
 
-include("core", "plugin-api", "javafx-app")
+include("core", "plugin-api", "javafx-app", "compose-app")
