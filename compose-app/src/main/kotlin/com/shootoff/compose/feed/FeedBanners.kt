@@ -82,7 +82,8 @@ fun BannerView(banner: Banner, onDismiss: () -> Unit) {
         modifier = Modifier.testTag("banner-${banner.id}"),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp)) {
-            Text(banner.text, color = colors.text)
+            // The text wraps in whatever room the close button leaves, so the button always shows
+            Text(banner.text, color = colors.text, modifier = Modifier.weight(1f, fill = false))
             IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp).testTag("dismiss-${banner.id}")) {
                 Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = colors.muted)
             }
