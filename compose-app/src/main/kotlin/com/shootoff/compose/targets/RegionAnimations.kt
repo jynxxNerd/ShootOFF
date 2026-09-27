@@ -23,7 +23,6 @@ import com.shootoff.targets.model.TargetSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -49,6 +48,10 @@ fun interface AnimationClock {
  * animations do. Playing steps through the frames once over the image's cycle, toward the last frame, or
  * toward the first once reversed. The current frame is what every view draws and what the hit tester sees
  * (its alpha mask goes to the [TargetSet]).
+ *
+ * A region's frame, its mask on the [TargetSet] and the published [frames] snapshot always change
+ * together, inside the same critical section, so a step and a concurrent [reset] or [unregister] can
+ * never interleave and leave the mask and the published frame disagreeing.
  */
 class RegionAnimations(private val set: TargetSet, private val clock: AnimationClock = AnimationClock.background) {
     private class State(val image: RegionImage) {
@@ -68,15 +71,24 @@ class RegionAnimations(private val set: TargetSet, private val clock: AnimationC
     /** A target joined the surface: its images start on their first frames. */
     fun register(target: TargetId, images: Map<Int, RegionImage>) {
         synchronized(this) {
-            for ((region, image) in images) states[RegionKey(target, region)] = State(image)
+            for ((region, image) in images) {
+                val key = RegionKey(target, region)
+                states[key] = State(image)
+                set.setImageMask(target, region, image.masks[0])
+            }
+            publishLocked()
         }
-        for ((region, image) in images) set.setImageMask(target, region, image.masks[0])
-        publish()
     }
 
+    /** A target left the surface: its regions' animations stop at once, even mid-play. */
     fun unregister(target: TargetId) {
-        synchronized(this) { states.keys.removeAll { it.target == target } }
-        publish()
+        synchronized(this) {
+            // Bumps the generation of every region of this target so a step already scheduled for it
+            // sees the mismatch and stops instead of continuing to run (and reschedule itself) once gone.
+            for ((key, state) in states) if (key.target == target) state.generation++
+            states.keys.removeAll { it.target == target }
+            publishLocked()
+        }
     }
 
     fun isAnimated(key: RegionKey): Boolean = synchronized(this) { states[key]?.image?.animated ?: false }
@@ -105,10 +117,12 @@ class RegionAnimations(private val set: TargetSet, private val clock: AnimationC
         step(key, state, generation, stepMillis, resetAfter)
     }
 
-    // One frame per step; the step after the last frame ends the play, a whole cycle after it began
+    // One frame per step; the step after the last frame ends the play, a whole cycle after it began. The
+    // frame's advance, its mask on the TargetSet and the published frame change together in one critical
+    // section, so nothing can ever observe the mask and the frame disagreeing.
     private fun step(key: RegionKey, state: State, generation: Int, stepMillis: Long, resetAfter: Boolean) {
         clock.schedule(stepMillis) {
-            val finished: Boolean
+            var finished = false
             synchronized(this) {
                 if (state.generation != generation) return@schedule
                 val end = if (state.reversed) 0 else state.image.frames.size - 1
@@ -121,10 +135,11 @@ class RegionAnimations(private val set: TargetSet, private val clock: AnimationC
                     }
                 } else {
                     state.frame += if (state.reversed) -1 else 1
+                    set.setImageMask(key.target, key.region, state.image.masks[state.frame])
+                    publishLocked()
                 }
             }
             if (!finished) {
-                showFrame(key, state)
                 step(key, state, generation, stepMillis, resetAfter)
             } else if (resetAfter) {
                 reset(key)
@@ -144,16 +159,16 @@ class RegionAnimations(private val set: TargetSet, private val clock: AnimationC
 
     /** Stops the region's animation and shows its first frame, as Reset does. */
     fun reset(key: RegionKey) {
-        val state = synchronized(this) {
+        synchronized(this) {
             val state = states[key] ?: return
             state.generation++
             state.running = false
             state.reversed = false
             state.reverseWhenDone = false
             state.frame = 0
-            state
+            set.setImageMask(key.target, key.region, state.image.masks[0])
+            publishLocked()
         }
-        showFrame(key, state)
     }
 
     fun resetAll() {
@@ -161,14 +176,9 @@ class RegionAnimations(private val set: TargetSet, private val clock: AnimationC
         keys.forEach(::reset)
     }
 
-    private fun showFrame(key: RegionKey, state: State) {
-        val frame = synchronized(this) { state.frame }
-        set.setImageMask(key.target, key.region, state.image.masks[frame])
-        publish()
-    }
-
-    private fun publish() {
-        val snapshot = synchronized(this) { states.mapValues { it.value.frame } }
-        frameState.update { snapshot }
+    // The frameState write for a region always happens together with its mask going to the TargetSet, in
+    // the same critical section, so the two can never disagree. Must be called while holding this monitor.
+    private fun publishLocked() {
+        frameState.value = states.mapValues { it.value.frame }
     }
 }

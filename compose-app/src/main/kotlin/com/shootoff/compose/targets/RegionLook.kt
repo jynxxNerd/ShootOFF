@@ -45,14 +45,30 @@ private val NAMED_FILLS = mapOf(
 private val UNKNOWN_FILL = Color(0xFFFFF8DC)
 
 /**
- * A shape's fill as the JavaFX app draws it: the eight names of the target editor, or a "#rrggbb" code.
+ * A shape's fill as the JavaFX app draws it: the eight names of the target editor, or a "#rgb",
+ * "#rrggbb" or "#rrggbbaa" hex code, as JavaFX's Color.web parses one.
  */
 fun regionFill(name: String): Color {
     NAMED_FILLS[name]?.let { return it }
-    if (name.startsWith("#") && name.length == 7) {
-        name.substring(1).toLongOrNull(16)?.let { return Color(0xFF000000 or it) }
-    }
+    parseHexColor(name)?.let { return it }
     return UNKNOWN_FILL
+}
+
+// "#rgb" (each digit doubled, opaque), "#rrggbb" (opaque) or "#rrggbbaa" (the trailing byte is
+// alpha). Anything else, including an unparseable hex code, falls through to the caller's default.
+private fun parseHexColor(name: String): Color? {
+    if (!name.startsWith("#")) return null
+    val hex = name.substring(1)
+    val rgba = when (hex.length) {
+        3 -> hex.map { "$it$it" }.joinToString("") + "ff"
+        6 -> hex + "ff"
+        8 -> hex
+        else -> return null
+    }
+    val value = rgba.toLongOrNull(16) ?: return null
+    val rgb = value shr 8
+    val alpha = value and 0xFF
+    return Color((alpha shl 24) or rgb)
 }
 
 /** A region's opacity: its opacity tag, else [DEFAULT_OPACITY]; images are opaque. */

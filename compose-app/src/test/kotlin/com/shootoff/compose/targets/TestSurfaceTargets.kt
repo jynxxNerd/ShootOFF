@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Paths
 import java.util.Optional
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 
 class TestSurfaceTargets {
     private val targets = SurfaceTargets(clock = ManualClock())
@@ -55,5 +57,30 @@ class TestSurfaceTargets {
 
         assertNull(targets.image(target.id, 0))
         assertEquals(1, targets.drawn.value.size)
+    }
+
+    @Test
+    fun theLastPublishedPlacementIsAlwaysTheLatestOne() {
+        // Eight threads racing to move the same target, over and over: after each burst, the published
+        // snapshot must match the target's actual current placement, never an older one left behind by a
+        // publish that took longer to compute (and so finished later) than one that started after it.
+        val fresh = SurfaceTargets(clock = ManualClock())
+        val target = fresh.add(box(), ResourceResolver.files())
+        val pool = Executors.newFixedThreadPool(8)
+        try {
+            repeat(3000) { round ->
+                val tasks = (0 until 8).map { n ->
+                    Callable {
+                        for (i in 0 until 10) fresh.set.move(target.id, (round * 10_000 + n * 100 + i).toDouble(), 0.0)
+                    }
+                }
+                pool.invokeAll(tasks)
+
+                val expected = fresh.set.get(target.id).get().localToParent(0.0, 0.0)
+                assertEquals(expected, fresh.drawn.value.single().origin, "round $round")
+            }
+        } finally {
+            pool.shutdown()
+        }
     }
 }

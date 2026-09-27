@@ -35,4 +35,14 @@ class TestRegionLook {
         assertEquals(Point(5.0, 6.0), regionCenter(EllipseRegion(0, 5.0, 6.0, 3.0, 4.0, "red", mapOf())))
         assertEquals(Point(2.0, 3.0), regionCenter(PolygonRegion(0, listOf(Point(0.0, 0.0), Point(4.0, 1.0), Point(1.0, 6.0)), "red", mapOf())))
     }
+
+    @Test
+    fun fillsAcceptShortAndAlphaHexForms() {
+        // "#rgb": each digit doubled, as JavaFX's Color.web parses a short hex code
+        assertEquals(Color(0xFFAABBCC), regionFill("#abc"))
+        // "#rrggbbaa": the trailing byte is alpha
+        assertEquals(Color(0xCC12AB34), regionFill("#12ab34cc"))
+        // Still cornsilk for anything that doesn't parse
+        assertEquals(Color(0xFFFFF8DC), regionFill("#12345"))
+    }
 }

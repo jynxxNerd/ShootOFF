@@ -87,6 +87,10 @@ class SurfaceTargets(val set: TargetSet = TargetSet(), clock: AnimationClock = A
 
     fun image(id: TargetId, region: Int): RegionImage? = images[id]?.get(region)
 
+    // Synchronized so two concurrent mutations' publishes can't complete out of order and leave a
+    // stale (older) snapshot published after a fresher one, e.g. one whose mapping happened to take
+    // longer finishing after a later mutation's own publish already ran.
+    @Synchronized
     private fun publish() {
         drawnState.value = set.targets.map { target ->
             DrawnTarget(
