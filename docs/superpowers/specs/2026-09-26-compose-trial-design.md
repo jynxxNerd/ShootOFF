@@ -139,10 +139,10 @@ The rail shows **Range, Setup, Drills, Targets, Sessions, Settings**. Targets an
 - The rail's Setup item is always available, so the owner can recalibrate or change the camera whenever they want.
 - When calibration succeeds from Setup, the app returns to Range.
 - **Remember calibration** checkbox, off by default:
-  - Off: calibration starts whenever the arena opens (current behavior).
-  - On: the calibration (projection bounds, the calibrated feed behavior, and the camera and projector screen it was made with) is saved. At launch or arena open, if the same camera and the same projector screen resolution are present, the saved calibration is applied and no calibration runs; otherwise the Calibrate step asks for a recalibration.
+  - Off: nothing is saved; the arena is uncalibrated until the owner calibrates on Setup.
+  - On: the calibration (projection bounds, the calibrated feed behavior, and the camera and projector screen it was made with) is saved. When the owner opens the arena, if the same camera and the same projector screen resolution are present, the saved calibration is checked (below) and applied; otherwise the Calibrate step asks for a recalibration.
   - Stored through `core`'s `Settings` (new keys, additive), so the JavaFX app preserves them when it rewrites `shootoff.properties`. Tests use `ScratchConfig`.
-- **Automatic check of a remembered calibration.** Before reusing a saved calibration (at launch or arena open), the app briefly shows the calibration pattern on the projector (about a second), detects it with the existing auto-calibration pattern detection, and compares the detected projection bounds with the saved ones.
+- **Automatic check of a remembered calibration.** Before reusing a saved calibration (only when the owner opens the arena, never at launch), the app briefly shows the calibration pattern on the projector (about a second), detects it with the existing auto-calibration pattern detection, and compares the detected projection bounds with the saved ones.
   - If every edge is within the tolerance (5 camera pixels by default), the saved calibration is kept and the pattern is replaced by the arena's background.
   - Otherwise the app keeps the arena uncalibrated and the Calibrate step (and Range's prompt) says how far it moved, for example "The projection moved about 14 px — recalibrate", offering auto-calibration or the manual box.
   - If the pattern can't be detected at all (lighting, camera covered), it says so and offers recalibration; it never silently keeps a calibration it couldn't verify.
@@ -150,6 +150,17 @@ The rail shows **Range, Setup, Drills, Targets, Sessions, Settings**. Targets an
   - The camera feed with the calibrated projection rectangle drawn over it (orange outline, corner handles only while adjusting).
   - A **Show grid** toggle projects a grid on the arena (evenly spaced lines plus the arena's corners and center marked). With the rectangle drawn on the feed, the owner can see at a glance whether the projected grid still sits inside the rectangle.
   - The grid and the rectangle are only shown on Setup; Range and running drills are never affected. Turning the grid off, leaving Setup, or starting a drill restores the arena's background.
+
+### Nothing blocks
+
+Hard rules, because the camera or projector may be missing, off or pointed elsewhere, especially when the app is launched for testing:
+
+1. **Nothing starts on its own at launch.** The app opens on Range with the camera feed (or the no-camera panel). It never opens the arena, shows a pattern or calibrates by itself.
+2. **Calibration runs only when the owner asks for it**: Calibrate on Setup, or F6. Opening the arena no longer starts calibration (unlike the JavaFX app and Plan 5).
+3. **The remembered-calibration check runs only when the owner opens the arena**, in the background, time-limited to about 3 seconds. If it can't confirm the calibration (projector off, camera pointed elsewhere, pattern not seen), it gives up quietly and marks the arena "not verified — recalibrate on Setup". No dialog, no waiting.
+4. **Missing hardware is a state, never a blocker.** No camera: Setup's Camera step and Range's no-camera panel say so, and the rest of the app works. No projector: the Projector step says "no projector screen found", and camera-only use is unaffected. Range's not-ready card always has Skip, which hides it for the rest of that session.
+5. **Everything that runs can be stopped.** Auto-calibration and the check both show a visible Cancel. Auto-calibration's timeout (12 s) falls back to the manual box. Cancel leaves the arena exactly as it was (Plan 5's CalibrationFlow.cancel).
+6. **The UI thread never waits** on the camera, the projector, calibration or the check.
 
 ### Range (training only)
 
