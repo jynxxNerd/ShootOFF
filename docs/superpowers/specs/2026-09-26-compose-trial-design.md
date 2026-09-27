@@ -271,3 +271,91 @@ Criterion 6 now reads "… → Setup: camera, projector, calibrate (✓ Calibrat
 #### Delivery
 
 **Plan 7** implements this revision on `compose-ui`, then the owner repeats the hardware check, including the parts of Plan 6's check that were not reached (the rest of item 9, item 10 and the JavaFX regression check).
+
+### Revision 3 (2026-09-27): calibrate at startup instead of checking
+
+In Plan 7's hardware re-check the remembered calibration's check worked as designed: relaunched with nothing moved, it measured the projection within 4–5 px of the saved one and kept it (success criterion 7). But Show grid was then visibly "cocked" against the orange outline, where right after a fresh auto-calibration it lines up (criterion 8 failed after a restart).
+
+*The cause* is Plan 6's ruling 5. A remembered calibration is applied through `CalibrationFlow.applySaved`, as a manual box would be, and that restores only the rectangle. A real auto-calibration does more:
+- It sets up the camera's perspective warp. After `applySaved`, `CameraManager`'s `cameraAutoCalibrated` stays false, and `AutoCalibrationManager`'s perspective matrix (`perspMat`) is gone.
+- It runs the exposure step.
+
+Saving and restoring the warp was considered and dropped. The owner's decision is option B: "just do a full calibration on startup, its pretty quick anyway". This revision supersedes the conflicting parts of Revisions 1 and 2 above.
+
+#### Calibrating when the arena opens
+
+1. **With the option on, the arena calibrates itself when it opens.**
+   - This is a full auto-calibration, the same as pressing Calibrate: the pattern, the perspective warp and the exposure step. It replaces applying a saved rectangle and checking it.
+   - It starts only once the arena is on the projector: full screen, filling the projector screen, and settled for half a second (Revision 2, decision 3's condition). Until then, Setup and the status chip say "Calibrating once the arena is on the projector…", with Cancel.
+   - It applies whenever the arena opens with a camera open (at launch, or by hand on Setup), and whenever a camera opens to an open, uncalibrated arena: the reconnect, a pick, or a switch (Revision 2, decision 7).
+   - With no projector screen found, nothing starts. The arena is a window there, and auto-calibration needs full screen.
+2. **A bumped setup is simply recalibrated.** For auto-calibrations there is no "moved" any more: whatever the camera and the projector look like now is what is calibrated.
+3. **If the pattern isn't found, it ends quietly.**
+   - A calibration the owner starts (Calibrate on Setup, or F6) still falls back to the manual box after 12 seconds.
+   - An automatic one never shows the box, since no one may be there to drag it. After 30 seconds it ends as if cancelled: the arena is uncalibrated, showing "Needs Calibration", and Setup and the chip say "The pattern wasn't found: not calibrated — calibrate on Setup". Calibrate then works as ever, box included.
+   - *Why 30 seconds, not 12.* A camera just plugged in resets its controls to their defaults, and for the first 10–15 seconds its exposure can wash the pattern out. In Plan 7's hardware check, the check found nothing for its full 8 seconds twice: once at a launch just after the camera was plugged in, and once right after an automatic reconnect. Both times the log showed the reset ("exposure_dynamic_framerate was 1, set to 0"); a Calibrate pressed 15 seconds later found the pattern at once. Auto-calibration's exposure step can't help here: it runs only after the pattern has been found. So the automatic calibration waits the settling out, still looking every quarter second. With no one there to press Calibrate again, a longer wait costs nothing.
+   - This is the owner's ruling. A box popping up by itself on a screen nobody is watching reads as the app being stuck.
+4. **Everything from Revisions 1 and 2 still holds for it:**
+   - **The drill.** The drill pauses, as for any calibration (decision 2). At launch no drill is running, and a projector drill can't start until the arena is calibrated.
+   - **The arena.** The arena is covered while the pattern shows.
+   - **Controls.** F3 and the drill's Resume do nothing while it waits or calibrates.
+   - **No blocking.** It runs off the UI thread (the camera looks for the pattern on its own thread) and never blocks. Cancel is on Setup the whole time.
+   - **Where the owner is.** It never moves the owner to Setup. When it succeeds, Setup's "Calibration complete ✓ HH:mm" and the chip's "✓ Calibrated HH:mm" say so, as for any calibration.
+   - **The camera.** Losing the camera keeps the arena open (decision 7). With the option on, the camera coming back calibrates it again.
+
+#### What is remembered
+
+5. **A manual box is still remembered and checked.**
+   - A manual box can't be redone without the owner, so it is saved and checked at launch as in Revision 2. The check takes the median of five detections, measures against the tolerance, and ends kept, kept at the fresh median, moved, not verified or doesn't fit.
+   - A box has no perspective warp to lose, so the cocked grid doesn't apply to it.
+   - Keeping the existing check is simpler than dropping manual boxes from the option. Dropping them would still need a message for a box that can't be redone, and the check is already built and passed the hardware check.
+6. **What is saved:**
+   - The option itself is saved in `shootoff.arena.calibration.remember`, unchanged.
+   - After an auto-calibration nothing else is saved, and any saved box is forgotten: the next launch calibrates afresh.
+   - After a manual box the box is saved as before, with a new key, `shootoff.arena.calibration.manual=true`, that marks it as a box.
+   - A calibration Plan 7 saved has no such key. It is an auto-calibration's, so the app ignores it and calibrates, and forgets it once that succeeds.
+   - The keys stay additive: the JavaFX app carries the new key through its saves, and ignores it.
+7. **The checkbox says what it does:**
+   - The label is "Calibrate automatically when the arena opens".
+   - Under it, in small type: "A box placed by hand is reused and checked instead".
+   - The setting's key and the code's names stay as they are.
+
+#### Also from Plan 7's hardware check
+
+8. **Cancel never leaves the arena white.**
+   - *The bug.* Once, cancelling a recalibration left the projector solid white until the arena was closed and reopened.
+   - *The cause.* Auto-calibration's steps set the arena's background from the camera's own thread: the steps after the pattern is found blank it, and the exposure step shows white. That call went straight to the arena. The camera can be partway through a frame when Cancel runs on the UI thread and puts the arena back, so the white landed afterwards and stayed.
+   - *The fix.* A background the camera asks for reaches the arena on the UI thread, and only while the calibration that asked is still running. Cancel at any moment (looking for the pattern, the exposure step, the manual box), the arena closing, or a success leaves the arena exactly as it was.
+   - This matters more now that auto-calibration runs by itself.
+9. **Range's status chip only when there is something to say.** The chip (top left of Range) is hidden once the range is ready: a camera, the arena calibrated, and nothing under way. The status strip at the bottom already says so. The chip still shows, and still opens Setup, whenever something is missing or under way ("No camera", "No arena", "Calibrating…", "Calibrating once the arena is on the projector…", "The pattern wasn't found…" and so on).
+10. **The drill's "Round: x/x" label over its summary is the drill's own.** RandomTargetParDrill never clears its round text. It only overlaps now because plugin v1.1's summary (hit factor and personal best) sits in the same place. The host shows and clears drill texts correctly, so the change belongs in the drill's repository and is left to the owner: clear the round text when the summary shows, and restore it on reset.
+11. **Logged.** Auto-calibration's own outcome, including whether the exposure step lowered the exposure or put it back, is logged at INFO, so the hardware check can see it.
+
+#### Removed
+
+- **The measurement after a calibration** (Revision 2, decision 3's "the pattern shows once more … that median is what is saved"): "Measuring the calibration for next time…".
+- **The held drill restart.** It kept a drill with no Pause button from restarting under that measurement (Plan 7's Task 8 review fixes). The flow restarts such a drill at once again after a success, as before Plan 7.
+- **What stays in `core`.** `PatternMeasurement` stays: the manual box's check still takes its median. `CalibrationFlow.applySaved` stays for the manual box too.
+
+#### This reverses
+
+- **Revision 1.** "Automatic check of a remembered calibration" and "Remember calibration: On … the saved calibration is checked and applied", for auto-calibrations. They now apply only to a manual box.
+- **Revision 2, decision 3.** Measuring the pattern again after an auto-calibration and saving that median. The median, the tolerance and the three outcomes stay, for the manual box's check.
+- **Revision 2, decision 4.** "It still never calibrates by itself". With the option on, it now does, once the arena is on the projector.
+- **Revision 2, decision 7.** "When a camera comes back … the saved calibration is checked if Remember calibration is on": it is calibrated, or a saved manual box is checked.
+- **Nothing blocks, rule 1.** "Nothing calibrates on its own at launch". It now reads: *Nothing calibrates on its own at launch unless the owner turned on "Calibrate automatically when the arena opens"; then only once the arena is on the projector, never blocking, always with Cancel, and never with the manual box.*
+- **Nothing blocks, rule 2.** "Calibration runs only when the owner asks for it". The owner's standing choice, the checkbox, now counts as asking.
+- **Nothing blocks, rule 3.** It now covers the manual box's check only; the automatic calibration is time-limited to 30 seconds (decision 3).
+- **Plan 6's ruling 5** is resolved: an auto-calibration is never restored from a saved rectangle.
+
+#### Success criteria (revision 3)
+
+Criterion 7 now reads: "With 'Calibrate automatically when the arena opens' on, relaunching with the camera and projector attached calibrates the arena by itself once it is on the projector, and Show grid then lines up as after a calibration by hand. Moving the camera and relaunching just calibrates again. With the projector covered, it ends quietly as not calibrated. A remembered manual box is checked as in Revision 2." Criterion 10's "with Remember on the saved calibration is checked again" now reads "with the option on the arena is calibrated again". Adds:
+
+12. After an automatic calibration, Show grid lines up with the outline exactly as after pressing Calibrate, including right after the camera has been plugged in.
+13. Cancelling a calibration at any moment leaves the arena as it was, never white.
+14. With everything set up, Range shows no status chip; it comes back when something needs attention.
+
+#### Delivery
+
+**Plan 8** implements this revision on `compose-ui`. The owner then repeats the parts of the hardware check it touches, together with what is left of Plan 7's Task 10.
