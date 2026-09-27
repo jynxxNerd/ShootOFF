@@ -28,6 +28,12 @@ import kotlinx.coroutines.flow.update
 
 data class DrillButton(val id: Long, val label: String, val onClick: () -> Unit)
 
+/** The par drill's pause button reads this while the drill runs */
+const val PAUSE_LABEL = "Pause"
+
+/** … and this while it is paused */
+const val RESUME_LABEL = "Resume"
+
 data class NumberSetting(
     val id: Long,
     val label: String,

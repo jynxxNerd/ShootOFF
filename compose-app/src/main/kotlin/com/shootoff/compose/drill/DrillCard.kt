@@ -44,8 +44,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.shootoff.compose.app.PAUSE_LABEL
-import com.shootoff.compose.app.RESUME_LABEL
 import com.shootoff.compose.theme.NumberStyle
 import com.shootoff.compose.theme.Range
 

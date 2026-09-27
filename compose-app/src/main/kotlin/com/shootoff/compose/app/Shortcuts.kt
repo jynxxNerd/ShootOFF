@@ -21,6 +21,8 @@ package com.shootoff.compose.app
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import com.shootoff.compose.calibration.showsPattern
+import com.shootoff.compose.drill.PAUSE_LABEL
+import com.shootoff.compose.drill.RESUME_LABEL
 import com.shootoff.compose.shell.Destination
 
 /**
@@ -36,12 +38,6 @@ enum class Shortcut(val key: Key, val label: String) {
         fun forKey(key: Key): Shortcut? = entries.firstOrNull { it.key == key }
     }
 }
-
-/** The par drill's pause button reads this while the drill runs */
-const val PAUSE_LABEL = "Pause"
-
-/** … and this while it is paused */
-const val RESUME_LABEL = "Resume"
 
 /** Labels a drill's pause button may have */
 private val PAUSE_LABELS = setOf(PAUSE_LABEL, RESUME_LABEL)
