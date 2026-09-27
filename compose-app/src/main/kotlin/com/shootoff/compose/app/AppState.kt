@@ -320,12 +320,12 @@ class AppState(
 
     /**
      * What the app does as it starts (spec §8 rule 1, as revised): the camera it starts with is found and
-     * opened in the background, and the arena opens on the projector if a projector screen is found, where
-     * the remembered calibration, if any, is checked (spec §8 Revision 2, decision 4). Nothing calibrates.
+     * opened in the background; the arena opens on the projector, if a projector screen is found from where
+     * the main window really lands, once [mainWindowPlaced] reports that (its corner isn't known yet here:
+     * review fix to spec §8 Revision 2, decision 4). Nothing calibrates.
      */
     fun launch() {
-        // Looking for screens asks AWT: on the UI thread, where the arena opens
-        uiThread(Runnable { if (arenaState.value == null && projectorScreenFound()) openArena() })
+        openArenaAtLaunch = true
         scope.launch(io) {
             val camera = try {
                 cameraSource.startCamera(settings)
@@ -622,10 +622,28 @@ class AppState(
     @Volatile
     var mainWindowCorner = Point(0.0, 0.0)
 
+    // Whether launch() asked for the arena to open once the main window's real corner is known; mainWindowPlaced
+    // consumes it, so it is only ever tried once, right after launch()
+    private var openArenaAtLaunch = false
+
     /** Where the arena would open now */
     fun arenaPlacementNow(): ArenaPlacement {
         val all = screens()
         return ArenaScreens.place(all, ArenaScreens.screenAt(all, mainWindowCorner), settings.arenaPosition.orElse(null))
+    }
+
+    /**
+     * The main window landed at [corner]: the screen it tells (spec §8 Revision 2, decision 4's launch arena
+     * needs it, not the default origin [mainWindowCorner] starts with). If [launch] asked for the arena to
+     * open, this is the one chance: it opens the arena on the projector if a screen looks like one from here,
+     * and never tries again, even if the window moves again or no screen was found this time.
+     */
+    fun mainWindowPlaced(corner: Point) {
+        mainWindowCorner = corner
+        if (openArenaAtLaunch) {
+            openArenaAtLaunch = false
+            if (arenaState.value == null && projectorScreenFound()) openArena()
+        }
     }
 
     fun screensNow(): List<Rect> = screens()

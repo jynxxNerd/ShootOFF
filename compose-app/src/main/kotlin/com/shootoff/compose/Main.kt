@@ -80,8 +80,9 @@ fun main() {
 
     val app = AppState(settings, catalog, CameraSource.System, prefs = UiPrefs(PrefsStore.User()))
     Settings.setUserNotifier(app.notices)
-    // The camera opens in the background, and the arena on the projector if there is one; the window shows at
-    // once and nothing calibrates (spec §8 rules 1 and 6, and Revision 2, decision 4)
+    // The camera opens in the background; the arena opens on the projector, if there is one, once the main
+    // window below reports where it really landed. The window shows at once and nothing calibrates (spec §8
+    // rules 1 and 6, and Revision 2, decision 4)
     app.launch()
 
     // An exception in a window's event handling or composition is logged and shown, and never exits the
@@ -126,7 +127,7 @@ fun main() {
                     // Where the window is tells which screen ShootOFF is on; its place and size are remembered
                     LaunchedEffect(state) {
                         snapshotFlow { state.position to state.size }.collect { (position, size) ->
-                            app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
+                            app.mainWindowPlaced(Point(window.x.toDouble(), window.y.toDouble()))
                             if (position.isSpecified) {
                                 app.prefs.window = WindowBounds(position.x.value, position.y.value, size.width.value, size.height.value)
                             }

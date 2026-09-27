@@ -8,6 +8,7 @@ import com.shootoff.compose.targets.ManualClock
 import com.shootoff.config.SavedCalibration
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
+import com.shootoff.geom.Point
 import com.shootoff.geom.Rect
 import com.shootoff.geom.Size
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -41,6 +42,9 @@ class TestNothingBlocks {
         try {
             app.launch()
             awaitTrue { app.camera.value != null }
+            // The main window landing tells the launch arena where to go (review fix: it can't use the
+            // default corner, since it isn't known this early)
+            app.mainWindowPlaced(Point(50.0, 50.0))
 
             assertEquals(Destination.RANGE, app.destination.value)
             // The owner's projector was found: the arena opens on it (spec §8 Revision 2, decision 4)
@@ -62,9 +66,28 @@ class TestNothingBlocks {
         try {
             app.launch()
             awaitTrue { app.camera.value != null }
+            app.mainWindowPlaced(Point(50.0, 50.0))
 
             assertNull(app.arena.value)
             assertFalse(app.projectorScreenFound())
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
+    fun rule1TheLaunchArenaUsesTheMainWindowsRealCornerNotTheDefault() {
+        // Two screens: OTHER_OF_TWO puts the arena on whichever one the main window isn't on. The window's
+        // real corner lands it on the second screen, not the origin's default first screen (review fix)
+        val screens = listOf(Rect(0.0, 0.0, 1920.0, 1080.0), Rect(1920.0, 0.0, 1920.0, 1080.0))
+        val catalog = ExerciseCatalog()
+        val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), catalog, AppFixture.oneCamera(), { screens }, ManualClock(), { it.run() })
+        try {
+            app.launch()
+            awaitTrue { app.camera.value != null }
+            app.mainWindowPlaced(Point(2000.0, 100.0))
+
+            assertEquals(screens[0], app.arenaPlacement.value!!.screen)
         } finally {
             app.close()
         }
