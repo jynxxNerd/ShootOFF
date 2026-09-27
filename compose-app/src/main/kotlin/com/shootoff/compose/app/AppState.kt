@@ -74,7 +74,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.EventQueue
@@ -461,7 +460,17 @@ class AppState(
         cameraState.value = manager
         // The arena was already open with no camera to calibrate with (openArena found none); now one is
         // here, so the arena can be calibrated, as it could have been if the camera had come first
-        arenaState.value?.let { arena -> if (calibrationState.value == null) makeCalibratable(arena, manager) }
+        arenaState.value?.let { arena ->
+            if (calibrationState.value == null) makeCalibratable(arena, manager)
+            // The remembered check was waiting on a camera too (spec §8): with one open now, and
+            // makeCalibratable just above having made the arena calibratable, retry it rather than leaving
+            // Setup stuck saying there was no camera to check with
+            if (settings.rememberCalibration() && settings.savedCalibration.isPresent &&
+                checkState.value == CheckState.NotVerified(CalibrationCheck.Reason.NO_CAMERA)
+            ) {
+                checkRemembered(arena)
+            }
+        }
         return true
     }
 
@@ -517,9 +526,12 @@ class AppState(
         if (settings.rememberCalibration()) checkRemembered(arena)
     }
 
-    // The remembered calibration, checked (never at launch: only here, as the arena opens) if it was made
-    // with this camera and a projector screen like this one. The check waits for the arena to reach the
-    // projector, since the pattern on a window still on its way there would be measured in the wrong place.
+    // The remembered calibration, checked (never at launch: only here, as the arena opens, or once a camera
+    // becomes available for an arena already open — see publish) if it was made with this camera and a
+    // projector screen like this one. The check tracks the arena's full screen state throughout, through
+    // watchFullScreenForCheck: it starts, or restarts, only while full screen, since the pattern on a window
+    // still on its way there, or one the owner has pulled off the projector (F11) mid-check, would be
+    // measured in the wrong place.
     private fun checkRemembered(arena: ArenaModel) {
         val saved = settings.savedCalibration.orElse(null) ?: return
         val camera = cameraState.value
@@ -534,10 +546,38 @@ class AppState(
         }
 
         checkState.value = CheckState.Checking
+        watchFullScreenForCheck(arena, camera, saved)
+    }
+
+    // Starts, and restarts, the check as the arena's full screen state comes and goes (spec §8, Finding 2):
+    // reaching full screen starts a run; losing it (F11 mid-check) stops the run quietly, the same way
+    // stopCheckQuietly's run?.stop(...) does (the pattern comes off, the background comes back), without
+    // reporting a Moved outcome measured in a window — checkState stays Checking so a return to full screen
+    // tries again. Runs until checkState leaves Checking: checked cancels it on a real outcome, and
+    // stopCheckQuietly cancels it on every other end (cancel, closing the arena, calibrating, remember off).
+    private fun watchFullScreenForCheck(arena: ArenaModel, camera: CameraManager, saved: SavedCalibration) {
         checkWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            arena.fullScreen.first { it }
-            uiThread(Runnable { if (arenaState.value === arena && checkState.value == CheckState.Checking && checkRun == null) runCheck(arena, camera, saved) })
+            arena.fullScreen.collect { fullScreen ->
+                uiThread(Runnable {
+                    if (arenaState.value !== arena || checkState.value != CheckState.Checking) return@Runnable
+                    if (fullScreen) {
+                        if (checkRun == null) runCheck(arena, camera, saved)
+                    } else {
+                        stopRunQuietlyForFullScreenLoss()
+                    }
+                })
+            }
         }
+    }
+
+    // Finding 2: the arena left full screen mid-check. The run stops without a word, as stopCheckQuietly's
+    // run?.stop(...) does, but checkState stays Checking and the full screen watch keeps running, so
+    // watchFullScreenForCheck starts a fresh run once the arena is full screen again.
+    private fun stopRunQuietlyForFullScreenLoss() {
+        val run = checkRun ?: return
+        checkRun = null
+        cameraView.frameTap = null
+        run.stop(CalibrationCheck.Reason.CANCELLED)
     }
 
     private fun runCheck(arena: ArenaModel, camera: CameraManager, saved: SavedCalibration) {
@@ -555,6 +595,9 @@ class AppState(
         if (checkRun !== run) return
         checkRun = null
         cameraView.frameTap = null
+        // A real outcome ends the check: the full screen watch (Finding 2) has nothing left to restart
+        checkWatch?.cancel()
+        checkWatch = null
         when (outcome) {
             is CalibrationCheck.Kept -> {
                 calibrationState.value?.applySaved(saved)

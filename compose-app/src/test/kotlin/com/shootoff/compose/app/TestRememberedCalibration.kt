@@ -294,6 +294,64 @@ class TestRememberedCalibration {
         }
     }
 
+    // Finding 1 (Plan 6 final review): opening the arena before the camera is open leaves the check
+    // NotVerified(NO_CAMERA); once the camera opens, publish() must retry the check rather than leaving
+    // Setup stuck saying "No camera to check with" over a live feed.
+    @Test
+    fun openingTheArenaBeforeTheCameraOpensRetriesTheCheckOnceTheCameraOpens() {
+        remembered()
+        seen.set(Optional.of(Rect(102.0, 79.0, 399.0, 302.0)))
+
+        app.openArena()
+        assertEquals(CheckState.NotVerified(Reason.NO_CAMERA), app.check.value)
+
+        app.openStartCamera()
+        assertEquals(CheckState.Checking, app.check.value)
+
+        app.arena.value!!.setFullScreen(true)
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+        sendFramesUntil { app.check.value == CheckState.Idle }
+
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.camera.value!!.projectionBounds.get())
+        assertNotNull(app.calibratedAt.value)
+        assertNull(app.arena.value!!.background.value)
+    }
+
+    // Finding 2 (Plan 6 final review): the arena leaving full screen mid-check (F11) must not let a frame,
+    // now measured in a window, be scored as Moved. The check pauses (state stays Checking) and restarts
+    // once the arena is full screen again.
+    @Test
+    fun leavingFullScreenMidCheckStopsItQuietlyAndItRestartsOnceFullScreenReturns() {
+        remembered()
+        openArenaOnTheProjector()
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+
+        app.arena.value!!.setFullScreen(false)
+        awaitTrue { app.arena.value!!.background.value == null }
+
+        // This would read as a 14 px move if it were scored; it must not be, since it's from a windowed arena
+        seen.set(Optional.of(Rect(114.0, 80.0, 400.0, 300.0)))
+        val looked = looks.get()
+        repeat(5) {
+            app.cameraView.updateBackground(frame, Optional.empty())
+            Thread.sleep(20)
+        }
+
+        assertEquals(CheckState.Checking, app.check.value)
+        assertEquals(looked, looks.get())
+        assertNull(app.arena.value!!.projection.value)
+
+        // Back to full screen with a matching frame: the calibration is kept
+        seen.set(Optional.of(Rect(102.0, 79.0, 399.0, 302.0)))
+        app.arena.value!!.setFullScreen(true)
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+        sendFramesUntil { app.check.value == CheckState.Idle }
+
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+        assertNotNull(app.calibratedAt.value)
+    }
+
     @Test
     fun turningRememberOnWhenItsAlreadyOnIsANoOpAndKeepsTheSavedCalibration() {
         remembered()
