@@ -142,6 +142,14 @@ The rail shows **Range, Setup, Drills, Targets, Sessions, Settings**. Targets an
   - Off: calibration starts whenever the arena opens (current behavior).
   - On: the calibration (projection bounds, the calibrated feed behavior, and the camera and projector screen it was made with) is saved. At launch or arena open, if the same camera and the same projector screen resolution are present, the saved calibration is applied and no calibration runs; otherwise the Calibrate step asks for a recalibration.
   - Stored through `core`'s `Settings` (new keys, additive), so the JavaFX app preserves them when it rewrites `shootoff.properties`. Tests use `ScratchConfig`.
+- **Automatic check of a remembered calibration.** Before reusing a saved calibration (at launch or arena open), the app briefly shows the calibration pattern on the projector (about a second), detects it with the existing auto-calibration pattern detection, and compares the detected projection bounds with the saved ones.
+  - If every edge is within the tolerance (5 camera pixels by default), the saved calibration is kept and the pattern is replaced by the arena's background.
+  - Otherwise the app keeps the arena uncalibrated and the Calibrate step (and Range's prompt) says how far it moved, for example "The projection moved about 14 px — recalibrate", offering auto-calibration or the manual box.
+  - If the pattern can't be detected at all (lighting, camera covered), it says so and offers recalibration; it never silently keeps a calibration it couldn't verify.
+- **Calibration view.** The Calibrate step shows the current calibration visually:
+  - The camera feed with the calibrated projection rectangle drawn over it (orange outline, corner handles only while adjusting).
+  - A **Show grid** toggle projects a grid on the arena (evenly spaced lines plus the arena's corners and center marked). With the rectangle drawn on the feed, the owner can see at a glance whether the projected grid still sits inside the rectangle.
+  - The grid and the rectangle are only shown on Setup; Range and running drills are never affected. Turning the grid off, leaving Setup, or starting a drill restores the arena's background.
 
 ### Range (training only)
 
@@ -165,7 +173,8 @@ The engine (core, plugin-api), the exercise host and runner, the drill, the targ
 Adds to §1's criteria:
 
 6. A session reads top to bottom: open the app → (prompt) → Setup: camera, projector, calibrate → back on Range → pick the drill → Start → shoot → Stop, without visiting the Drills page.
-7. With "Remember calibration" on, relaunching with the same camera and projector skips calibration and shots land correctly.
+7. With "Remember calibration" on, relaunching with the same camera and projector verifies the saved calibration automatically (about a second of pattern) and skips calibration when it still fits; after the camera or projector is moved, the check reports the drift and asks for recalibration.
+8. On Setup, the calibration rectangle is drawn over the camera feed, and Show grid projects a grid whose alignment with the rectangle can be judged by eye.
 
 ### Delivery
 
