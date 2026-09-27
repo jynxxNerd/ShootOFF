@@ -85,12 +85,7 @@ fun SettingsScreen(app: AppState, modifier: Modifier = Modifier) {
             for (camera in found.orEmpty()) {
                 // One camera opens at a time: the choices wait while one is opening
                 Choice(camera.name, openCamera?.camera == camera, "camera-${camera.name}", enabled = opening == null) {
-                    app.openCameraInBackground(camera) { opened ->
-                        if (opened) {
-                            app.settings.setWebcams(listOf(camera.name), listOf(camera))
-                            save(app)
-                        }
-                    }
+                    app.pickCamera(camera)
                 }
             }
             opening?.let { Text("Opening camera $it…", color = colors.muted, modifier = Modifier.testTag("opening-camera")) }

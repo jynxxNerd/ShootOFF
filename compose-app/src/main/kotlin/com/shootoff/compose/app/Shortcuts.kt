@@ -20,6 +20,7 @@ package com.shootoff.compose.app
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import com.shootoff.compose.shell.Destination
 
 /**
  * The Compose app's keyboard shortcuts. Function keys, so they never clash with typing in a field.
@@ -28,7 +29,7 @@ enum class Shortcut(val key: Key, val label: String) {
     SWITCH_VIEW(Key.F2, "Switch between the camera and the arena"),
     PAUSE_DRILL(Key.F3, "Pause or resume the drill"),
     CLEAR_SHOTS(Key.F4, "Clear the shots"),
-    CALIBRATE(Key.F6, "Start calibrating"),
+    CALIBRATE(Key.F6, "Open Setup and start calibrating"),
     ;
 
     companion object {
@@ -55,7 +56,10 @@ fun AppState.perform(shortcut: Shortcut): Boolean {
             pause.onClick()
         }
         Shortcut.CLEAR_SHOTS -> clearShots()
-        Shortcut.CALIBRATE -> return startCalibration()
+        Shortcut.CALIBRATE -> {
+            navigate(Destination.SETUP)
+            return startCalibration()
+        }
     }
     return true
 }

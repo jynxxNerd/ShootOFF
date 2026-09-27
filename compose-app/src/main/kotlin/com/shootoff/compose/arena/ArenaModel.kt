@@ -70,6 +70,7 @@ class ArenaModel(
     private val projectionState = MutableStateFlow<Rect?>(null)
     private val fullScreenState = MutableStateFlow(false)
     private val labelState = MutableStateFlow(true)
+    private val gridState = MutableStateFlow(false)
 
     /** The arena window's size, in dp: the arena's coordinates */
     val size: StateFlow<Size> = sizeState.asStateFlow()
@@ -83,6 +84,9 @@ class ArenaModel(
 
     /** Whether the arena says "Needs calibration" (until it is first calibrated) */
     val needsCalibrationLabel: StateFlow<Boolean> = labelState.asStateFlow()
+
+    /** Whether the arena shows Setup's alignment grid in place of everything else */
+    val grid: StateFlow<Boolean> = gridState.asStateFlow()
 
     @Volatile
     var perspective: PerspectiveManager? = null
@@ -124,6 +128,10 @@ class ArenaModel(
 
     fun setCalibrationLabelVisible(visible: Boolean) {
         labelState.value = visible
+    }
+
+    fun showGrid(show: Boolean) {
+        gridState.value = show
     }
 
     /** Shows or hides every arena target, as calibration does. */

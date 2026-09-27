@@ -52,6 +52,7 @@ fun ShootOffApp(app: AppState) {
             Box(Modifier.fillMaxSize()) {
                 when (destination) {
                     Destination.RANGE -> RangeScreen(app)
+                    Destination.SETUP -> SetupScreen(app)
                     Destination.DRILLS -> DrillsScreen(app)
                     Destination.SETTINGS -> SettingsScreen(app)
                     // Disabled on the rail

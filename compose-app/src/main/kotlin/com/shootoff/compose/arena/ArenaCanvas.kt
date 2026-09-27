@@ -31,6 +31,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.IntSize
 import com.shootoff.compose.shots.MarkerLayer
 import com.shootoff.compose.surface.SurfaceTransform
 import com.shootoff.compose.targets.TargetLayer
+import com.shootoff.geom.Size as GeomSize
 import kotlin.math.roundToInt
 
 private val ARENA_GRAY = Color(0xFF333333)
@@ -56,6 +58,7 @@ fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Comp
     val size by arena.size.collectAsState()
     val background by arena.background.collectAsState()
     val label by arena.needsCalibrationLabel.collectAsState()
+    val grid by arena.grid.collectAsState()
     val density = LocalDensity.current
 
     BoxWithConstraints(modifier.background(Color.Black)) {
@@ -93,6 +96,48 @@ fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Comp
             }
         }
         overlay(transform)
+        if (grid) AlignmentGrid(size, transform)
+    }
+}
+
+// How many cells the grid has across and down
+private const val GRID_CELLS = 10
+// The corner and center marks' arm length and the lines' width, in arena pixels
+private const val MARK_LENGTH = 40.0
+private const val LINE_WIDTH = 2f
+
+/**
+ * Setup's alignment grid, over everything else on the arena: black, with evenly spaced white lines, and
+ * the arena's corners and center marked in orange, so its fit to the calibrated rectangle can be judged.
+ */
+@Composable
+fun AlignmentGrid(size: GeomSize, transform: SurfaceTransform) {
+    Canvas(Modifier.fillMaxSize().testTag("arena-grid")) {
+        val topLeft = transform.toView(0.0, 0.0)
+        val bottomRight = transform.toView(size.width, size.height)
+        drawRect(Color.Black, topLeft, Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y))
+        val stroke = (LINE_WIDTH * transform.scale).coerceAtLeast(1f)
+        for (i in 1 until GRID_CELLS) {
+            val x = transform.toView(size.width * i / GRID_CELLS, 0.0).x
+            val y = transform.toView(0.0, size.height * i / GRID_CELLS).y
+            drawLine(Color.White, Offset(x, topLeft.y), Offset(x, bottomRight.y), stroke)
+            drawLine(Color.White, Offset(topLeft.x, y), Offset(bottomRight.x, y), stroke)
+        }
+        val arm = (MARK_LENGTH * transform.scale).toFloat()
+        val mark = stroke * 3
+        // Each corner's L, pointing into the arena
+        for ((corner, direction) in listOf(
+            topLeft to Offset(1f, 1f),
+            Offset(bottomRight.x, topLeft.y) to Offset(-1f, 1f),
+            Offset(topLeft.x, bottomRight.y) to Offset(1f, -1f),
+            bottomRight to Offset(-1f, -1f),
+        )) {
+            drawLine(CALIBRATION_ORANGE, corner, corner + Offset(direction.x * arm, 0f), mark)
+            drawLine(CALIBRATION_ORANGE, corner, corner + Offset(0f, direction.y * arm), mark)
+        }
+        val center = transform.toView(size.width / 2, size.height / 2)
+        drawLine(CALIBRATION_ORANGE, center - Offset(arm, 0f), center + Offset(arm, 0f), mark)
+        drawLine(CALIBRATION_ORANGE, center - Offset(0f, arm), center + Offset(0f, arm), mark)
     }
 }
 

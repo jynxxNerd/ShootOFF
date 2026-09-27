@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Place
@@ -45,12 +46,14 @@ import androidx.compose.ui.unit.sp
 import com.shootoff.compose.theme.Range
 
 /**
- * The places the rail leads to. Targets and Sessions are in the JavaFX app for now (spec §1).
+ * The places the rail leads to, in the rail's order (spec §8). Targets and Sessions are in the JavaFX app
+ * for now.
  */
 enum class Destination(val label: String, val icon: ImageVector, val enabled: Boolean) {
     RANGE("Range", Icons.Filled.Home, true),
-    TARGETS("Targets", Icons.Filled.Place, false),
+    SETUP("Setup", Icons.Filled.Build, true),
     DRILLS("Drills", Icons.Filled.PlayArrow, true),
+    TARGETS("Targets", Icons.Filled.Place, false),
     SESSIONS("Sessions", Icons.AutoMirrored.Filled.List, false),
     SETTINGS("Settings", Icons.Filled.Settings, true),
 }

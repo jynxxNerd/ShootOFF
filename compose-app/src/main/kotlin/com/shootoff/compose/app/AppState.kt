@@ -232,8 +232,26 @@ class AppState(
     // ---- Where the user is
 
     fun navigate(destination: Destination) {
-        if (destination.enabled) destinationState.value = destination
+        if (!destination.enabled) return
+        // The grid is only ever shown on Setup
+        if (destination != Destination.SETUP) arenaState.value?.showGrid(false)
+        destinationState.value = destination
     }
+
+    /**
+     * Setup's Show grid: the arena shows the alignment grid in place of its background, unless calibration,
+     * the check or a projector drill needs the arena.
+     */
+    fun showGrid(show: Boolean) {
+        val arena = arenaState.value ?: return
+        arena.showGrid(show && gridAllowed())
+    }
+
+    /** Whether nothing else needs the arena, so the grid may show */
+    fun gridAllowed(): Boolean = arenaState.value != null &&
+        calibrationState.value?.state?.value?.calibrating != true &&
+        checkState.value != CheckState.Checking &&
+        runner.running.value?.host?.isProjector != true
 
     fun showView(view: BigView) {
         if (view == BigView.ARENA && arenaState.value == null) return
@@ -258,9 +276,11 @@ class AppState(
         prefs.trayCollapsed = collapsed
     }
 
+    // The manual box is showing: it is dragged over Setup's camera feed
     override fun showCalibratingFeed() {
         viewBeforeCalibration = viewState.value
         viewState.value = BigView.CAMERA
+        navigate(Destination.SETUP)
     }
 
     override fun restoreSelectedView() {
@@ -276,6 +296,19 @@ class AppState(
     }
 
     /** Looks for the cameras plugged in, off the UI thread (it can take seconds), and publishes them in [cameraList]. */
+    /**
+     * The user picked [camera] (on Setup or Settings): it opens in the background and, once open, is saved as
+     * the camera to start with, as the JavaFX preferences save it.
+     */
+    fun pickCamera(camera: Camera) {
+        openCameraInBackground(camera) { opened ->
+            if (opened) {
+                settings.setWebcams(listOf(camera.name), listOf(camera))
+                saveSettings()
+            }
+        }
+    }
+
     fun refreshCameras() {
         scope.launch(io) {
             cameraListState.value = try {
@@ -504,6 +537,7 @@ class AppState(
         }, uiThread) { run, outcome -> checked(run, saved, outcome) }
         checkRun = run
         cameraView.frameTap = checkFrames::offer
+        arena.showGrid(false)
         run.start()
     }
 
@@ -614,6 +648,7 @@ class AppState(
         val controller = calibrationState.value ?: return false
         // A check under way stops first, putting the arena's background back before calibration saves it
         stopCheckQuietly()
+        arenaState.value?.showGrid(false)
         controller.start()
         return true
     }
@@ -625,6 +660,8 @@ class AppState(
 
     override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
         calibratedAtState.value = wallClock()
+        // Calibrated from Setup: back to training
+        if (destinationState.value == Destination.SETUP) destinationState.value = Destination.RANGE
         checkState.value = CheckState.Idle
         val camera = cameraState.value
         val screen = placementState.value?.screen
@@ -660,6 +697,7 @@ class AppState(
      * @return false if it couldn't start
      */
     fun startDrill(entry: V2ExerciseEntry): Boolean {
+        arenaState.value?.showGrid(false)
         val started = runner.start(entry)
         if (started) destinationState.value = Destination.RANGE
         return started
