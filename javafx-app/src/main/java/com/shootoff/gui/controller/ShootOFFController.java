@@ -25,13 +25,11 @@ import java.lang.reflect.Constructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,6 +73,7 @@ import com.shootoff.plugins.engine.ExerciseLoaders;
 import com.shootoff.plugins.engine.Plugin;
 import com.shootoff.plugins.engine.PluginEngine;
 import com.shootoff.plugins.engine.V2ExerciseEntry;
+import com.shootoff.shots.RangeReset;
 import com.shootoff.targets.CameraViews;
 import com.shootoff.targets.Target;
 import com.shootoff.targets.TargetRegion;
@@ -136,6 +135,7 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 	private CamerasSupervisor camerasSupervisor;
 	private Configuration config;
 	private PluginEngine pluginEngine;
+	private RangeReset rangeReset;
 	private static final Logger logger = LoggerFactory.getLogger(ShootOFFController.class);
 	private final ObservableList<ShotEntry> shotEntries = FXCollections.observableArrayList();
 	private final List<Stage> streamDebuggerStages = new ArrayList<>();
@@ -188,6 +188,10 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		exerciseSlide = new ExerciseSlide(controlsContainer, bodyContainer, this);
 		projectorSlide = new ProjectorSlide(controlsContainer, bodyContainer, this, shootOFFStage,
 				trainingExerciseContainer, this, exerciseSlide);
+
+		rangeReset = new RangeReset(camerasSupervisor,
+				() -> projectorSlide.getCalibrationManager().map(CalibrationManager::isCalibrating).orElse(false),
+				TimerPool::schedule);
 
 		pluginEngine = new PluginEngine(exerciseSlide, ExerciseLoaders.all(), BuiltInExercises.entries());
 		pluginEngine.startWatching();
@@ -807,59 +811,25 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 
 	@Override
 	public void reset() {
-		camerasSupervisor.reset();
+		rangeReset.reset(() -> {
+			if (config.getExercise().isPresent()) {
+				final List<Target> knownTargets = new ArrayList<>();
+				knownTargets.addAll(getTargets());
 
-		if (config.getExercise().isPresent()) {
-			final List<Target> knownTargets = new ArrayList<>();
-			knownTargets.addAll(getTargets());
+				if (projectorSlide.getArenaPane() != null) {
+					knownTargets.addAll(projectorSlide.getArenaPane().getCanvasManager().getTargets());
+				}
 
-			if (projectorSlide.getArenaPane() != null) {
-				knownTargets.addAll(projectorSlide.getArenaPane().getCanvasManager().getTargets());
+				config.getExercise().get().reset(knownTargets);
 			}
-
-			config.getExercise().get().reset(knownTargets);
-		}
-
-		disableShotDetection(1000);
+		});
 	}
 
-	// Technically the period could be shorter than the previous call
-	// and we don't handle that right now. I'm not too worried about that
-	// because I don't think the periods are going to be vastly different
-	// This is only intended for very short disablement periods
+	/**
+	 * Pauses shot detection briefly: see {@link RangeReset#disableShotDetection}.
+	 */
 	public void disableShotDetection(int msDuration) {
-		// Don't disable the cameras if they are already disabled (e.g. because
-		// a training protocol paused shot detection)
-		if (!camerasSupervisor.areDetecting()) return;
-
-		// Keep track of cameras that already had shot detection off so that
-		// we can ensure they stay off when we re-enable shot detection
-		final Set<CameraManager> alreadyOff = new HashSet<>();
-
-		for (final CameraManager cm : camerasSupervisor.getCameraManagers()) {
-			if (!cm.isDetecting()) alreadyOff.add(cm);
-		}
-
-		camerasSupervisor.setDetectingAll(false);
-
-		final Runnable restartDetection = () -> {
-			final Optional<CalibrationManager> calibrationManager = projectorSlide.getCalibrationManager();
-
-			if (!calibrationManager.isPresent()
-					|| (calibrationManager.isPresent() && !calibrationManager.get().isCalibrating())) {
-				if (alreadyOff.isEmpty()) {
-					camerasSupervisor.setDetectingAll(true);
-				} else {
-					for (final CameraManager cm : camerasSupervisor.getCameraManagers()) {
-						if (!alreadyOff.contains(cm)) cm.setDetecting(true);
-					}
-				}
-			} else {
-				logger.info("disableShotDetectionTimer did not re-enable shot detection, isCalibrating is true");
-			}
-		};
-
-		TimerPool.schedule(restartDetection, msDuration);
+		rangeReset.disableShotDetection(msDuration);
 	}
 
 	@Override

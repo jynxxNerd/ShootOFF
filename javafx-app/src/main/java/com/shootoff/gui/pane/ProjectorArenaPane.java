@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ScheduledFuture;
 
 import org.slf4j.Logger;
@@ -52,6 +53,8 @@ import com.shootoff.targets.io.TargetIO;
 import com.shootoff.targets.io.TargetIO.TargetComponents;
 import com.shootoff.util.TimerPool;
 import com.shootoff.geom.Point;
+import com.shootoff.geom.ProjectorScreens;
+import com.shootoff.geom.Rect;
 import com.shootoff.geom.Size;
 
 import javafx.application.Platform;
@@ -200,7 +203,7 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 	}
 
 	public void autoPlaceArena() {
-		Optional<Screen> homeScreen = getStageHomeScreen(arenaStage);
+		final Optional<Screen> homeScreen = getStageHomeScreen(arenaStage);
 
 		if (homeScreen.isPresent()) {
 			originalArenaHomeScreen = homeScreen.get();
@@ -208,116 +211,68 @@ public class ProjectorArenaPane extends AnchorPane implements CalibrationListene
 			return;
 		}
 
-		// Place the arena on what we hope is the projector with the following
-		// precidence:
-		// 1. If the user has place the arena on a screen before, place it on
-		// that screen again
-		// 2. If the user has never placed the arena before and there are only
-		// two screens,
-		// put it on the screen the ShootOFF window isn't on
-		// 3. If the arena has never been placed and there are more than two
-		// screens, place
-		// the arena on the smallest screen
-		if (config.getArenaPosition().isPresent()) {
-			logger.debug("Projector has been manually placed previously");
-
-			final Point arenaPosition = config.getArenaPosition().get();
-
-			final ObservableList<Screen> screens = Screen.getScreensForRectangle(arenaPosition.getX(),
-					arenaPosition.getY(), 1, 1);
-
-			if (!screens.isEmpty()) {
-				boolean matchedOriginal = false;
-				for (final Screen screen : screens) {
-					if (originalArenaHomeScreen.equals(screen)) {
-						logger.debug("Stored arena coordinates are on current home screen");
-						matchedOriginal = true;
-					}
-				}
-
-				if (!matchedOriginal) {
-					arenaStage.setX(arenaPosition.getX());
-					arenaStage.setY(arenaPosition.getY());
-
-					Platform.runLater(() -> toggleFullScreen());
-
-					arenaHome = screens.get(0);
-
-					setArenaScreenOrigin(arenaHome);
-
-					return;
-				}
-
-			} else {
-				logger.debug("Saved screen coordinates ({}, {}) no longer exists, attempting fallback approaches...",
-						arenaPosition.getX(), arenaPosition.getY());
-			}
+		// Place the arena on what we hope is the projector: core's ProjectorScreens picks the screen
+		// (where the user last put the arena, else the other of two screens, else the smallest)
+		final List<Screen> screens = new ArrayList<>(Screen.getScreens());
+		final List<Rect> screenBounds = new ArrayList<>();
+		for (final Screen screen : screens) {
+			final Rectangle2D b = screen.getBounds();
+			screenBounds.add(new Rect(b.getMinX(), b.getMinY(), b.getWidth(), b.getHeight()));
 		}
 
-		Optional<Screen> projector = Optional.empty();
+		final Optional<Point> arenaPosition = config.getArenaPosition();
+		if (arenaPosition.isPresent()) logger.debug("Projector has been manually placed previously");
 
-		if (Screen.getScreens().size() == 2) {
+		// ShootOFF's own screen only matters, and is only looked up, with exactly two screens
+		OptionalInt shootOffScreen = OptionalInt.empty();
+		if (screens.size() == 2) {
 			logger.debug("Two screens present");
 
-			homeScreen = getStageHomeScreen(shootOffStage);
-
-			if (!homeScreen.isPresent()) return;
-
-			final Screen shootOFFScreen = homeScreen.get();
-
-			for (final Screen screen : Screen.getScreens()) {
-				if (!screen.equals(shootOFFScreen)) {
-					projector = Optional.of(screen);
-					break;
-				}
-			}
-		} else if (Screen.getScreens().size() > 2) {
+			final Optional<Screen> shootOffHome = getStageHomeScreen(shootOffStage);
+			if (shootOffHome.isPresent()) shootOffScreen = OptionalInt.of(screens.indexOf(shootOffHome.get()));
+		} else if (screens.size() > 2) {
 			logger.debug("More than two screens present");
-
-			projector = findSmallestScreen();
 		}
 
-		if (projector.isPresent()) {
-			final double dpiScaleFactor = ShootOFFController.getDpiScaleFactorForScreen();
+		final Optional<ProjectorScreens.Choice> choice = ProjectorScreens.choose(screenBounds,
+				screens.indexOf(originalArenaHomeScreen), shootOffScreen, arenaPosition);
 
-			arenaHome = projector.get();
+		if (choice.isEmpty()) {
+			logger.debug("Did not find screen that is a likely projector");
+			return;
+		}
 
-			final double newX = arenaHome.getBounds().getMinX() * dpiScaleFactor;
-			final double newY = arenaHome.getBounds().getMinY() * dpiScaleFactor;
-
-			logger.debug("Found likely projector screen: resolution = {}x{}, newX = {}, newY = {}",
-					arenaHome.getBounds().getWidth(), arenaHome.getBounds().getHeight(), newX, newY);
-
-			arenaStage.setX(newX + 10);
-			arenaStage.setY(newY + 10);
-
-			detectedProjectorScreen = projector;
-
-			setArenaScreenOrigin(arenaHome);
+		if (choice.get().reason() == ProjectorScreens.Reason.SAVED_POSITION) {
+			arenaStage.setX(arenaPosition.get().getX());
+			arenaStage.setY(arenaPosition.get().getY());
 
 			Platform.runLater(() -> toggleFullScreen());
 
-		} else {
-			logger.debug("Did not find screen that is a likely projector");
-		}
-	}
+			arenaHome = screens.get(choice.get().screen());
 
-	private Optional<Screen> findSmallestScreen() {
-		Screen smallest = null;
+			setArenaScreenOrigin(arenaHome);
 
-		// Find screen with the smallest area
-		for (final Screen screen : Screen.getScreens()) {
-			if (smallest == null) {
-				smallest = screen;
-			} else {
-				if (screen.getBounds().getHeight() * screen.getBounds().getWidth() < smallest.getBounds().getHeight()
-						* smallest.getBounds().getWidth()) {
-					smallest = screen;
-				}
-			}
+			return;
 		}
 
-		return Optional.ofNullable(smallest);
+		final double dpiScaleFactor = ShootOFFController.getDpiScaleFactorForScreen();
+
+		arenaHome = screens.get(choice.get().screen());
+
+		final double newX = arenaHome.getBounds().getMinX() * dpiScaleFactor;
+		final double newY = arenaHome.getBounds().getMinY() * dpiScaleFactor;
+
+		logger.debug("Found likely projector screen: resolution = {}x{}, newX = {}, newY = {}",
+				arenaHome.getBounds().getWidth(), arenaHome.getBounds().getHeight(), newX, newY);
+
+		arenaStage.setX(newX + 10);
+		arenaStage.setY(newY + 10);
+
+		detectedProjectorScreen = Optional.of(arenaHome);
+
+		setArenaScreenOrigin(arenaHome);
+
+		Platform.runLater(() -> toggleFullScreen());
 	}
 
 	public void toggleArena() {
