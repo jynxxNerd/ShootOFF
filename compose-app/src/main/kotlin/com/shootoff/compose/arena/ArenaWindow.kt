@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -51,6 +52,7 @@ fun ArenaWindow(
     arena: ArenaModel,
     placement: ArenaPlacement,
     onCloseRequest: () -> Unit,
+    onKey: (KeyEvent) -> Boolean = { false },
     overlay: @Composable (SurfaceTransform) -> Unit = {},
 ) {
     val state = rememberWindowState(
@@ -66,7 +68,7 @@ fun ArenaWindow(
                 state.placement = if (state.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
                 true
             } else {
-                false
+                onKey(event)
             }
         },
     ) {

@@ -78,6 +78,9 @@ import java.util.concurrent.atomic.AtomicInteger
 /** The Range screen's big view */
 enum class BigView { CAMERA, ARENA }
 
+const val MIN_TRAY_HEIGHT = 120f
+const val MAX_TRAY_HEIGHT = 480f
+
 /**
  * The Compose app's state: the camera and its feed, the arena, calibration, the running drill, the shot
  * timer, and where the user is. Composables read it; user actions call it.
@@ -96,6 +99,7 @@ class AppState(
     private val uiThread: (Runnable) -> Unit = EventQueue::invokeLater,
     background: CoroutineDispatcher = Dispatchers.Default,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    val prefs: UiPrefs = UiPrefs(),
 ) : CalibrationViews {
     private val logger = LoggerFactory.getLogger(AppState::class.java)
     private val scope = CoroutineScope(SupervisorJob() + background)
@@ -126,6 +130,9 @@ class AppState(
     private var openView: OpenView? = null
     private val destinationState = MutableStateFlow(Destination.RANGE)
     private val viewState = MutableStateFlow(BigView.CAMERA)
+    private val darkState = MutableStateFlow(prefs.dark)
+    private val trayHeightState = MutableStateFlow(prefs.trayHeight)
+    private val trayCollapsedState = MutableStateFlow(prefs.trayCollapsed)
     private var viewBeforeCalibration: BigView? = null
     private var fullScreenWatch: Job? = null
 
@@ -154,6 +161,13 @@ class AppState(
 
     val destination: StateFlow<Destination> = destinationState.asStateFlow()
     val view: StateFlow<BigView> = viewState.asStateFlow()
+
+    /** Range dark, or its light variant */
+    val dark: StateFlow<Boolean> = darkState.asStateFlow()
+
+    /** The tray's height in dp, and whether it is folded down to its title bar */
+    val trayHeight: StateFlow<Float> = trayHeightState.asStateFlow()
+    val trayCollapsed: StateFlow<Boolean> = trayCollapsedState.asStateFlow()
 
     val feedSurface = FeedSurface(
         "Default",
@@ -186,6 +200,24 @@ class AppState(
     fun showView(view: BigView) {
         if (view == BigView.ARENA && arenaState.value == null) return
         viewState.value = view
+        prefs.view = view
+    }
+
+    fun setDark(dark: Boolean) {
+        darkState.value = dark
+        prefs.dark = dark
+    }
+
+    /** The user dragged the tray's edge */
+    fun setTrayHeight(height: Float) {
+        val clamped = height.coerceIn(MIN_TRAY_HEIGHT, MAX_TRAY_HEIGHT)
+        trayHeightState.value = clamped
+        prefs.trayHeight = clamped
+    }
+
+    fun setTrayCollapsed(collapsed: Boolean) {
+        trayCollapsedState.value = collapsed
+        prefs.trayCollapsed = collapsed
     }
 
     override fun showCalibratingFeed() {
@@ -393,6 +425,8 @@ class AppState(
         lateinit var arena: ArenaModel
         arena = ArenaModel(settings, { runner }, { arenaCommands(arena) }, clock)
         arenaState.value = arena
+        // Back to the view the user last left the app on
+        if (prefs.view == BigView.ARENA) viewState.value = BigView.ARENA
 
         val camera = cameraState.value ?: return
         val controller = CalibrationController(camera, arena, settings, runner, this, { task, delay ->

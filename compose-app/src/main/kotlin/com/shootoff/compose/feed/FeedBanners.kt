@@ -18,6 +18,10 @@
 
 package com.shootoff.compose.feed
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +38,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -49,7 +55,12 @@ fun FeedBanners(feed: FeedState, modifier: Modifier = Modifier) {
     val banners by feed.banners.collectAsState()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         for (banner in banners) {
-            BannerView(banner, onDismiss = { feed.removeBanner(banner) })
+            key(banner.id) {
+                val shown = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(shown, enter = fadeIn() + slideInVertically { -it / 2 }) {
+                    BannerView(banner, onDismiss = { feed.removeBanner(banner) })
+                }
+            }
         }
     }
 }

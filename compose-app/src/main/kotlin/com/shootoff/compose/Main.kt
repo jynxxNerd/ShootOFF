@@ -21,14 +21,22 @@ package com.shootoff.compose
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.shootoff.compose.app.AppState
 import com.shootoff.compose.app.CameraSource
 import com.shootoff.compose.app.ExerciseCatalog
+import com.shootoff.compose.app.PrefsStore
+import com.shootoff.compose.app.UiPrefs
+import com.shootoff.compose.app.WindowBounds
+import com.shootoff.compose.app.handleKey
 import com.shootoff.compose.app.ShootOffApp
 import com.shootoff.compose.arena.ArenaWindow
 import com.shootoff.compose.drill.ExerciseOverlay
@@ -63,7 +71,7 @@ fun main() {
     val plugins = PluginEngine(catalog, listOf(V2ExerciseLoader()), emptyList())
     plugins.startWatching()
 
-    val app = AppState(settings, catalog, CameraSource.System)
+    val app = AppState(settings, catalog, CameraSource.System, prefs = UiPrefs(PrefsStore.User()))
     Settings.setUserNotifier(app.notices)
     app.openStartCamera()
 
@@ -71,7 +79,12 @@ fun main() {
         val arena by app.arena.collectAsState()
         val placement by app.arenaPlacement.collectAsState()
         val running by app.runner.running.collectAsState()
-        val state = rememberWindowState(size = DpSize(1280.dp, 860.dp))
+        val dark by app.dark.collectAsState()
+        val remembered = app.prefs.window
+        val state = rememberWindowState(
+            position = remembered?.let { WindowPosition(it.x.dp, it.y.dp) } ?: WindowPosition.PlatformDefault,
+            size = remembered?.let { DpSize(it.width.dp, it.height.dp) } ?: DpSize(1280.dp, 860.dp),
+        )
 
         fun exit() {
             plugins.stopWatching()
@@ -80,17 +93,28 @@ fun main() {
             exitApplication()
         }
 
-        Window(onCloseRequest = ::exit, state = state, title = "ShootOFF") {
-            LaunchedEffect(state.position) {
-                app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
+        Window(
+            onCloseRequest = ::exit,
+            state = state,
+            title = "ShootOFF",
+            onPreviewKeyEvent = { app.handleKey(it.key, it.type) },
+        ) {
+            // Where the window is tells which screen ShootOFF is on; its place and size are remembered
+            LaunchedEffect(state) {
+                snapshotFlow { state.position to state.size }.collect { (position, size) ->
+                    app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
+                    if (position.isSpecified) {
+                        app.prefs.window = WindowBounds(position.x.value, position.y.value, size.width.value, size.height.value)
+                    }
+                }
             }
-            RangeTheme(dark = true) { ShootOffApp(app) }
+            RangeTheme(dark = dark) { ShootOffApp(app) }
         }
 
         val shownArena = arena
         val shownPlacement = placement
         if (shownArena != null && shownPlacement != null) {
-            ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena) { transform ->
+            ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
                 if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
             }
         }

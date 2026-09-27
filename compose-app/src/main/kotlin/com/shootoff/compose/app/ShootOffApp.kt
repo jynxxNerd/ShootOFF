@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.shootoff.compose.shell.AppRail
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.theme.Range
@@ -46,7 +48,7 @@ fun ShootOffApp(app: AppState) {
     val destination by app.destination.collectAsState()
     Box(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxSize().background(Range.colors.background)) {
-            AppRail(destination, app::navigate)
+            AppRail(destination, app::navigate, trailing = { ThemeSwitch(app) })
             Box(Modifier.fillMaxSize()) {
                 when (destination) {
                     Destination.RANGE -> RangeScreen(app)
@@ -77,5 +79,15 @@ fun NoticeSnackbars(notices: Notices, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+}
+
+/** Range dark or light, at the foot of the rail */
+@Composable
+fun ThemeSwitch(app: AppState) {
+    val dark by app.dark.collectAsState()
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Switch(checked = dark, onCheckedChange = app::setDark, modifier = Modifier.testTag("theme-switch"))
+        Text(if (dark) "Dark" else "Light", color = Range.colors.muted, fontSize = 10.sp)
     }
 }

@@ -18,9 +18,14 @@
 
 package com.shootoff.compose.app
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +41,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,6 +53,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -72,6 +81,7 @@ import com.shootoff.compose.shots.MarkerLayer
 import com.shootoff.compose.targets.TargetLayer
 import com.shootoff.compose.theme.Range
 import kotlinx.coroutines.delay
+import java.awt.Cursor
 
 /**
  * The Range screen: the big view (the camera feed or the arena) with the Camera | Arena switch, the
@@ -79,9 +89,25 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun RangeScreen(app: AppState, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(end = 8.dp, top = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val trayHeight by app.trayHeight.collectAsState()
+    val collapsed by app.trayCollapsed.collectAsState()
+    val density = LocalDensity.current
+    Column(modifier.fillMaxSize().padding(end = 8.dp, top = 8.dp, bottom = 8.dp)) {
         BigViewArea(app, Modifier.weight(1f).fillMaxWidth())
-        Tray(app, Modifier.fillMaxWidth().height(220.dp))
+        // Drag the tray's edge to size it
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .pointerHoverIcon(PointerIcon(Cursor(Cursor.N_RESIZE_CURSOR)))
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    enabled = !collapsed,
+                    state = rememberDraggableState { delta -> app.setTrayHeight(app.trayHeight.value - with(density) { delta.toDp().value }) },
+                )
+                .testTag("tray-handle"),
+        )
+        Tray(app, collapsed, Modifier.fillMaxWidth().animateContentSize().height(if (collapsed) 36.dp else trayHeight.dp))
     }
 }
 
@@ -100,18 +126,21 @@ private fun BigViewArea(app: AppState, modifier: Modifier) {
     Surface(shape = RoundedCornerShape(16.dp), color = colors.feedEdge, modifier = modifier) {
         Box(Modifier.fillMaxSize()) {
             val shownArena = arena
-            if (view == BigView.ARENA && shownArena != null) {
-                ArenaView(shownArena, Modifier.fillMaxSize()) { transform ->
-                    if (projectorDrill) ExerciseOverlay(app.drill, transform)
-                }
-            } else if (camera == null) {
-                NoCameraPanel(app)
-            } else {
-                CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
-                    TargetLayer(app.feedTargets, transform)
-                    MarkerLayer(app.feedMarkers, transform)
-                    if (running != null && !projectorDrill) ExerciseOverlay(app.drill, transform)
-                    calibration?.let { CalibrationOverlay(it, transform) }
+            val shown = if (view == BigView.ARENA && shownArena != null) BigView.ARENA else BigView.CAMERA
+            Crossfade(shown, label = "big view") { current ->
+                if (current == BigView.ARENA && shownArena != null) {
+                    ArenaView(shownArena, Modifier.fillMaxSize()) { transform ->
+                        if (projectorDrill) ExerciseOverlay(app.drill, transform)
+                    }
+                } else if (camera == null) {
+                    NoCameraPanel(app)
+                } else {
+                    CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
+                        TargetLayer(app.feedTargets, transform)
+                        MarkerLayer(app.feedMarkers, transform)
+                        if (running != null && !projectorDrill) ExerciseOverlay(app.drill, transform)
+                        calibration?.let { CalibrationOverlay(it, transform) }
+                    }
                 }
             }
 
@@ -239,19 +268,29 @@ private fun StatusLine(app: AppState, modifier: Modifier) {
     )
 }
 
-/** The tray: the shot timer, and the running drill's settings */
+/** The tray: the shot timer, and the running drill's settings. Folded, it keeps its titles. */
 @Composable
-private fun Tray(app: AppState, modifier: Modifier) {
+private fun Tray(app: AppState, collapsed: Boolean, modifier: Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TrayPanel("SHOT TIMER", Modifier.weight(1f)) { ShotTimerTable(app.timer, Modifier.fillMaxSize()) }
-        TrayPanel("SETTINGS", Modifier.width(380.dp)) {
+        TrayPanel("SHOT TIMER", collapsed, Modifier.weight(1f)) { ShotTimerTable(app.timer, Modifier.fillMaxSize()) }
+        TrayPanel("SETTINGS", collapsed, Modifier.width(380.dp), action = {
+            TextButton(onClick = { app.setTrayCollapsed(!collapsed) }, modifier = Modifier.height(28.dp).testTag("tray-fold")) {
+                Text(if (collapsed) "Show" else "Hide", fontSize = 11.sp)
+            }
+        }) {
             Column(Modifier.verticalScroll(rememberScrollState())) { DrillSettings(app.drill) }
         }
     }
 }
 
 @Composable
-private fun TrayPanel(title: String, modifier: Modifier, content: @Composable () -> Unit) {
+private fun TrayPanel(
+    title: String,
+    collapsed: Boolean,
+    modifier: Modifier,
+    action: @Composable () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     val colors = Range.colors
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -259,9 +298,12 @@ private fun TrayPanel(title: String, modifier: Modifier, content: @Composable ()
         border = BorderStroke(1.dp, colors.cardBorder),
         modifier = modifier.fillMaxSize(),
     ) {
-        Column(Modifier.padding(8.dp)) {
-            Text(title, color = colors.mutedStrong, fontSize = 10.sp, letterSpacing = 0.6.sp)
-            content()
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, color = colors.mutedStrong, fontSize = 10.sp, letterSpacing = 0.6.sp, modifier = Modifier.weight(1f))
+                action()
+            }
+            if (!collapsed) content()
         }
     }
 }

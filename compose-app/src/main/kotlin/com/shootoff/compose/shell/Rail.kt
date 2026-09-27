@@ -58,7 +58,12 @@ enum class Destination(val label: String, val icon: ImageVector, val enabled: Bo
 const val DISABLED_HINT = "In the JavaFX app for now"
 
 @Composable
-fun AppRail(selected: Destination, onSelect: (Destination) -> Unit, modifier: Modifier = Modifier) {
+fun AppRail(
+    selected: Destination,
+    onSelect: (Destination) -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: @Composable () -> Unit = {},
+) {
     val colors = Range.colors
     NavigationRail(modifier = modifier, containerColor = colors.rail) {
         Spacer(Modifier.height(12.dp))
@@ -93,5 +98,8 @@ fun AppRail(selected: Destination, onSelect: (Destination) -> Unit, modifier: Mo
             textAlign = TextAlign.Center,
             modifier = Modifier.width(72.dp).padding(horizontal = 4.dp).testTag("rail-hint"),
         )
+        Spacer(Modifier.weight(1f))
+        trailing()
+        Spacer(Modifier.height(12.dp))
     }
 }

@@ -70,6 +70,12 @@ fun SettingsScreen(app: AppState, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Settings", fontSize = 22.sp, color = colors.text)
 
+        Section("Theme") {
+            val dark by app.dark.collectAsState()
+            Choice("Range dark", dark, "theme-dark") { app.setDark(true) }
+            Choice("Range light", !dark, "theme-light") { app.setDark(false) }
+        }
+
         Section("Camera") {
             val found = cameras
             when {
