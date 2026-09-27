@@ -65,6 +65,12 @@ interface CalibrationViews {
      * @param paper the perspective paper's size, if auto-calibration found one
      */
     fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>)
+
+    /**
+     * A calibration the camera found (not the manual box) has finished and the arena looks as it did
+     * before: the pattern may show again, to measure it for the remembered calibration.
+     */
+    fun calibrationFinishedByCamera() {}
 }
 
 /**
@@ -216,7 +222,10 @@ class CalibrationController(
             Runnable {
                 if (generation == expectedGeneration && flow.isCalibrating) {
                     foundPaper = perspectivePaperDims
+                    val asked = session
                     flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
+                    // The flow has finished (it reported the success, and put the arena's look back)
+                    if (asked && !session) views.calibrationFinishedByCamera()
                 }
             },
         )

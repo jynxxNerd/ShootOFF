@@ -11,6 +11,7 @@ import com.shootoff.exercise.ButtonHandle
 import com.shootoff.exercise.Exercise
 import com.shootoff.exercise.ExerciseHost
 import com.shootoff.geom.Rect
+import com.shootoff.geom.Size
 import com.shootoff.plugins.ExerciseMetadata
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.targets.model.Hit
@@ -117,6 +118,7 @@ object AppFixture {
         detector: CalibrationCheck.Detector<BufferedImage> = CalibrationCheck.Detector { Optional.empty() },
         checkClock: () -> Long = System::currentTimeMillis,
         wallClock: () -> LocalTime = LocalTime::now,
+        patternSettleMillis: Long = 0,
     ): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
@@ -132,6 +134,7 @@ object AppFixture {
             wallClock = wallClock,
             detector = { detector },
             checkClock = checkClock,
+            patternSettleMillis = patternSettleMillis,
         )
     }
 
@@ -145,6 +148,16 @@ object AppFixture {
         app.arena.value!!.setFullScreen(true)
         app.startCalibration()
         app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+    }
+
+    /**
+     * The arena window on the owner's projector, as the window manager leaves it: full screen, and filling
+     * the 1280x720 screen (the remembered calibration's check and measurement wait for both)
+     */
+    fun putOnTheProjector(app: AppState) {
+        val arena = app.arena.value!!
+        arena.setSize(Size(1280.0, 720.0))
+        arena.setFullScreen(true)
     }
 
     fun app(screens: List<Rect> = ownerScreens): AppState {

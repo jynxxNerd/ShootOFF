@@ -47,7 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.shootoff.compose.calibration.CheckState
+import com.shootoff.compose.calibration.showsPattern
 import com.shootoff.compose.drill.DrillCard
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.theme.Range
@@ -114,7 +114,7 @@ fun DrillControls(app: AppState, modifier: Modifier = Modifier) {
             }
         } else if (picked != null) {
             // As AppState.projectorReady decides it
-            val ready = !picked.isProjectorOnly || (camera != null && calibrated && !calibrating && check != CheckState.Checking)
+            val ready = !picked.isProjectorOnly || (camera != null && calibrated && !calibrating && !check.showsPattern)
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = colors.highlightCard.copy(alpha = 0.93f),

@@ -8,6 +8,9 @@
   </appender>
 
   <logger name="com.shootoff.camera.cameratypes.SarxosCaptureCamera" level="INFO"/>
+  <!-- The remembered calibration's measurements and outcomes, and the camera's reconnect -->
+  <logger name="com.shootoff.calibration" level="INFO"/>
+  <logger name="com.shootoff.compose.app.AppState" level="INFO"/>
 
   <root level="warn">
     <appender-ref ref="STDOUT"/>

@@ -109,7 +109,7 @@ class TestNothingBlocks {
     }
 
     @Test
-    fun rule3TheCheckRunsOffTheUiThreadAndGivesUpQuietlyAfterThreeSeconds() {
+    fun rule3TheCheckRunsOffTheUiThreadAndGivesUpQuietlyAtItsTimeLimit() {
         val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
         settings.setRememberCalibration(true)
         settings.setSavedCalibration(SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty()))
@@ -123,7 +123,7 @@ class TestNothingBlocks {
         try {
             app.openStartCamera()
             app.openArena()
-            app.arena.value!!.setFullScreen(true)
+            AppFixture.putOnTheProjector(app)
             awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
             app.cameraView.updateBackground(BufferedImage(640, 480, BufferedImage.TYPE_3BYTE_BGR), Optional.empty())
             awaitTrue { lookedOn.get() != null }

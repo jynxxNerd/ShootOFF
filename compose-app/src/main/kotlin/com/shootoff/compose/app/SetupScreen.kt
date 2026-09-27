@@ -53,8 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shootoff.compose.arena.ArenaView
 import com.shootoff.compose.calibration.CalibrationOverlay
-import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.ProjectionOutline
+import com.shootoff.compose.calibration.showsPattern
 import com.shootoff.compose.feed.CameraFeedView
 import com.shootoff.compose.theme.Range
 import kotlinx.coroutines.delay
@@ -215,7 +215,7 @@ private fun CalibrateStep(app: AppState) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         when {
             calibrating -> FilledTonalButton(onClick = app::cancelCalibration, modifier = Modifier.testTag("setup-cancel")) { Text("Cancel") }
-            check == CheckState.Checking -> FilledTonalButton(onClick = app::cancelCheck, modifier = Modifier.testTag("setup-cancel")) { Text("Cancel") }
+            check.showsPattern -> FilledTonalButton(onClick = app::cancelCheck, modifier = Modifier.testTag("setup-cancel")) { Text("Cancel") }
             else -> Button(onClick = { app.startCalibration() }, enabled = controller != null, modifier = Modifier.testTag("setup-calibrate")) {
                 Text(if (calibrated) "Recalibrate" else "Calibrate")
             }
@@ -230,7 +230,7 @@ private fun CalibrateStep(app: AppState) {
         Switch(
             checked = grid,
             onCheckedChange = app::showGrid,
-            enabled = arena != null && !calibrating && check != CheckState.Checking && !projectorDrill,
+            enabled = arena != null && !calibrating && !check.showsPattern && !projectorDrill,
             modifier = Modifier.testTag("show-grid"),
         )
         Text("Show grid", color = colors.text)

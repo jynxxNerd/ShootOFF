@@ -2,6 +2,7 @@ package com.shootoff.compose.app
 
 import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationCheck.Reason
+import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.savedCalibrationMismatch
 import com.shootoff.config.SavedCalibration
@@ -53,7 +54,8 @@ class TestRememberedCalibration {
             looks.incrementAndGet()
             seen.get()
         },
-    ) = AppFixture.appWithCamera(settings, detector = detector, checkClock = now::get)
+        patternSettleMillis: Long = 0,
+    ) = AppFixture.appWithCamera(settings, detector = detector, checkClock = now::get, patternSettleMillis = patternSettleMillis)
 
     @AfterEach
     fun close() = app.close()
@@ -77,7 +79,7 @@ class TestRememberedCalibration {
     private fun openArenaOnTheProjector() {
         app.openStartCamera()
         app.openArena()
-        app.arena.value!!.setFullScreen(true)
+        AppFixture.putOnTheProjector(app)
     }
 
     // The camera sends frames until the check has its outcome
@@ -197,6 +199,11 @@ class TestRememberedCalibration {
 
         calibrateWithTheCamera(Rect(120.0, 90.0, 400.0, 300.0))
 
+        // With Remember on, the new calibration is measured next; once that ends, the arena's own
+        // background is back, not the check's pattern
+        assertEquals(CheckState.Measuring, app.check.value)
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+        app.cancelCheck()
         assertEquals(CheckState.Idle, app.check.value)
         assertNull(app.arena.value!!.background.value)
         assertEquals(Rect(120.0, 90.0, 400.0, 300.0), app.arena.value!!.projection.value)
@@ -358,7 +365,7 @@ class TestRememberedCalibration {
         app.openStartCamera()
         assertEquals(CheckState.Checking, app.check.value)
 
-        app.arena.value!!.setFullScreen(true)
+        AppFixture.putOnTheProjector(app)
         awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
         sendFramesUntil { app.check.value == CheckState.Idle }
 
@@ -400,6 +407,106 @@ class TestRememberedCalibration {
 
         assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
         assertNotNull(app.calibratedAt.value)
+    }
+
+    @Test
+    fun afterAnAutoCalibrationWithRememberOnThePatternIsMeasuredAndItsMedianRemembered() {
+        app.setRememberCalibration(true)
+        openArenaOnTheProjector()
+        seen.set(Optional.of(Rect(102.0, 80.0, 400.0, 300.0)))
+
+        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
+
+        // Saved at once as calibrated, then measured as the check will measure it next time
+        assertEquals(SAVED_KEYS, savedKeys())
+        assertEquals(CheckState.Measuring, app.check.value)
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+        sendFramesUntil { app.check.value == CheckState.Idle }
+
+        assertEquals("102.0,80.0,400.0,300.0", savedKeys()["shootoff.arena.calibration.bounds"])
+        // This session keeps the calibration it made
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+        assertNull(app.arena.value!!.background.value)
+    }
+
+    @Test
+    fun aManualBoxCalibrationIsRememberedAsTheBoxWithoutMeasuring() {
+        app.setRememberCalibration(true)
+        openArenaOnTheProjector()
+
+        app.startCalibration()
+        // The box, where the owner left it, as Done hands it to the flow
+        app.calibration.value!!.flow.calibrated(Rect(90.0, 70.0, 420.0, 310.0), Optional.empty(), true)
+
+        assertEquals(CheckState.Idle, app.check.value)
+        assertEquals("90.0,70.0,420.0,310.0", savedKeys()["shootoff.arena.calibration.bounds"])
+    }
+
+    @Test
+    fun cancellingTheMeasurementLeavesTheCalibrationsOwnBoundsRemembered() {
+        app.setRememberCalibration(true)
+        openArenaOnTheProjector()
+        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+
+        app.cancelCheck()
+
+        assertEquals(CheckState.Idle, app.check.value)
+        assertNull(app.arena.value!!.background.value)
+        assertEquals(SAVED_KEYS, savedKeys())
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+    }
+
+    @Test
+    fun aSmallDriftIsKeptAtTheFreshMeasurementWhichIsRememberedFromThenOn() {
+        remembered()
+        // 10 px: past the 8 px tolerance, within twice it
+        seen.set(Optional.of(Rect(110.0, 80.0, 400.0, 300.0)))
+
+        openArenaOnTheProjector()
+        sendFramesUntil { app.check.value == CheckState.Idle }
+
+        assertEquals(Rect(110.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+        assertEquals("110.0,80.0,400.0,300.0", savedKeys()["shootoff.arena.calibration.bounds"])
+    }
+
+    @Test
+    fun theCheckWaitsForTheArenaToFillTheProjectorAndSettle() {
+        remembered()
+        app.close()
+        app = appOn(Settings(file.path, arrayOf()), patternSettleMillis = 300)
+        app.openStartCamera()
+        app.openArena()
+        val arena = app.arena.value!!
+
+        // Full screen asked for, but the window manager hasn't resized the 640x480 window yet
+        arena.setFullScreen(true)
+        Thread.sleep(500)
+        assertNull(arena.background.value)
+
+        arena.setSize(Size(1280.0, 720.0))
+        Thread.sleep(100)
+        assertNull(arena.background.value)
+        awaitTrue { arena.background.value?.name == "pattern.png" }
+        assertEquals(CheckState.Checking, app.check.value)
+    }
+
+    @Test
+    fun aFastFullScreenFlapNeverTurnsDetectionOnUnderTheNextPattern() {
+        remembered()
+        openArenaOnTheProjector()
+        val camera = app.camera.value!!
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+
+        // F11 twice, well within the 600 ms the stopped run waits to turn detection back on
+        app.arena.value!!.setFullScreen(false)
+        awaitTrue { app.arena.value!!.background.value == null }
+        app.arena.value!!.setFullScreen(true)
+        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+
+        Thread.sleep(CalibrationFlow.DETECTION_RESTART_DELAY + 300)
+        assertEquals(CheckState.Checking, app.check.value)
+        assertFalse(camera.isDetecting)
     }
 
     @Test

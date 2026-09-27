@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -38,14 +37,24 @@ import androidx.compose.ui.window.rememberWindowState
 import com.shootoff.compose.surface.SurfaceTransform
 import com.shootoff.geom.Size
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 /** How long the arena window waits to reach its screen before going full screen there */
 private const val PLACEMENT_WAIT_MILLIS = 3000L
 
 /**
+ * Whether the arena is really full screen: asked to be, and its content as big as the screen it is on. The
+ * window manager resizes the window some time after full screen is asked for; until then the pattern would
+ * be drawn, and measured, at the window's old size (spec §8 Revision 2, decision 3).
+ */
+fun fillsItsScreen(requested: Boolean, content: Size, screen: Size): Boolean =
+    requested && abs(content.width - screen.width) <= 1 && abs(content.height - screen.height) <= 1
+
+/**
  * The projector arena's own window. It opens at [placement] and, once the window manager has put it on
  * that screen, goes full screen there (going full screen first would fill the screen it opened on).
- * F11 toggles full screen, as in the JavaFX app. Its size is the arena's size.
+ * F11 toggles full screen, as in the JavaFX app. Its size is the arena's size, and the arena is full screen
+ * once the window fills its screen ([fillsItsScreen]), not as soon as that is asked for.
  */
 @Composable
 fun ArenaWindow(
@@ -82,11 +91,14 @@ fun ArenaWindow(
             }
             state.placement = WindowPlacement.Fullscreen
         }
-        LaunchedEffect(state) {
-            snapshotFlow { state.placement == WindowPlacement.Fullscreen }.collect { arena.setFullScreen(it) }
-        }
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            LaunchedEffect(maxWidth, maxHeight) { arena.setSize(Size(maxWidth.value.toDouble(), maxHeight.value.toDouble())) }
+            val requested = state.placement == WindowPlacement.Fullscreen
+            LaunchedEffect(maxWidth, maxHeight, requested) {
+                val size = Size(maxWidth.value.toDouble(), maxHeight.value.toDouble())
+                arena.setSize(size)
+                val on = window.graphicsConfiguration.bounds
+                arena.setFullScreen(fillsItsScreen(requested, size, Size(on.width.toDouble(), on.height.toDouble())))
+            }
             ArenaCanvas(arena, Modifier.fillMaxSize(), overlay)
         }
     }

@@ -21,6 +21,7 @@ package com.shootoff.compose.app
 import com.shootoff.calibration.CalibrationCamera
 import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationFlow
+import com.shootoff.calibration.PatternMeasurement
 import com.shootoff.camera.CameraManager
 import com.shootoff.camera.CameraView
 import com.shootoff.camera.CamerasSupervisor
@@ -31,12 +32,15 @@ import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.compose.arena.ArenaPlacement
 import com.shootoff.compose.arena.ArenaScreens
-import com.shootoff.compose.calibration.CalibrationCheckRun
 import com.shootoff.compose.calibration.CalibrationController
 import com.shootoff.compose.calibration.CalibrationViews
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.LatestFrame
+import com.shootoff.compose.calibration.PatternRun
+import com.shootoff.compose.calibration.PatternWork
 import com.shootoff.compose.calibration.savedCalibrationMismatch
+import com.shootoff.compose.calibration.showsPattern
+import com.shootoff.compose.calibration.work
 import com.shootoff.compose.drill.ArenaHostSurface
 import com.shootoff.compose.drill.ComposeExerciseHost
 import com.shootoff.compose.drill.DrillState
@@ -76,6 +80,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -86,6 +93,7 @@ import java.time.LocalTime
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 const val MIN_TRAY_HEIGHT = 120f
@@ -103,6 +111,8 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param detector finds the calibration pattern in a camera's frames, for the remembered calibration's check
  * @param checkClock the check's time limit runs on it
  * @param reconnectMillis how often a lost camera is looked for, to reopen it when it is plugged back in
+ * @param patternSettleMillis how long the arena must have filled the projector's screen before a check or a
+ *   measurement shows the pattern
  */
 class AppState(
     val settings: Settings,
@@ -118,7 +128,13 @@ class AppState(
     private val detector: (CameraManager) -> CalibrationCheck.Detector<BufferedImage> = { PatternDetector(it.camera) },
     private val checkClock: () -> Long = System::currentTimeMillis,
     private val reconnectMillis: Long = 2000,
+    private val patternSettleMillis: Long = PATTERN_SETTLE_MILLIS,
 ) : CalibrationViews {
+    companion object {
+        /** How long the arena settles on the projector before a pattern shows for a check or measurement */
+        const val PATTERN_SETTLE_MILLIS = 500L
+    }
+
     private val logger = LoggerFactory.getLogger(AppState::class.java)
     private val scope = CoroutineScope(SupervisorJob() + background)
 
@@ -160,8 +176,11 @@ class AppState(
     private val rememberState = MutableStateFlow(settings.rememberCalibration())
     private val checkState = MutableStateFlow<CheckState>(CheckState.Idle)
     private val checkFrames = LatestFrame()
-    private var checkRun: CalibrationCheckRun? = null
-    private var checkWatch: Job? = null
+
+    // The check's or the measurement's run, while its pattern shows; read by CalibratingCamera on timer threads
+    @Volatile
+    private var patternRun: PatternRun<*>? = null
+    private var patternWatch: Job? = null
     private val waitingForState = MutableStateFlow<String?>(null)
     private var reconnectWatch: Job? = null
 
@@ -269,7 +288,7 @@ class AppState(
     /** Whether nothing else needs the arena, so the grid may show */
     fun gridAllowed(): Boolean = arenaState.value != null &&
         calibrationState.value?.state?.value?.calibrating != true &&
-        checkState.value != CheckState.Checking &&
+        !checkState.value.showsPattern &&
         runner.running.value?.host?.isProjector != true
 
     fun setDark(dark: Boolean) {
@@ -501,7 +520,7 @@ class AppState(
             // An uncalibrated arena is checked against the remembered calibration now that there is a camera
             // to check with (spec §8 Revision 2, decision 7); without Remember, Setup's Calibrate step is next
             if (settings.rememberCalibration() && settings.savedCalibration.isPresent &&
-                arena.projection.value == null && checkState.value != CheckState.Checking
+                arena.projection.value == null && !checkState.value.showsPattern
             ) {
                 checkRemembered(arena)
             }
@@ -624,12 +643,9 @@ class AppState(
         if (settings.rememberCalibration()) checkRemembered(arena)
     }
 
-    // The remembered calibration, checked (never at launch: only here, as the arena opens, or once a camera
-    // becomes available for an arena already open — see publish) if it was made with this camera and a
-    // projector screen like this one. The check tracks the arena's full screen state throughout, through
-    // watchFullScreenForCheck: it starts, or restarts, only while full screen, since the pattern on a window
-    // still on its way there, or one the owner has pulled off the projector (F11) mid-check, would be
-    // measured in the wrong place.
+    // The remembered calibration, checked as the arena opens, or once a camera becomes available for an arena
+    // already open (see publish), if it was made with this camera and a projector screen like this one. The
+    // pattern shows only while the arena is on the projector (watchArenaForPattern).
     private fun checkRemembered(arena: ArenaModel) {
         val saved = settings.savedCalibration.orElse(null) ?: return
         val camera = cameraState.value
@@ -644,62 +660,84 @@ class AppState(
         }
 
         checkState.value = CheckState.Checking
-        watchFullScreenForCheck(arena, camera, saved)
-    }
-
-    // Starts, and restarts, the check as the arena's full screen state comes and goes (spec §8, Finding 2):
-    // reaching full screen starts a run; losing it (F11 mid-check) stops the run quietly, the same way
-    // stopCheckQuietly's run?.stop(...) does (the pattern comes off, the background comes back), without
-    // reporting a Moved outcome measured in a window — checkState stays Checking so a return to full screen
-    // tries again. Runs until checkState leaves Checking: checked cancels it on a real outcome, and
-    // stopCheckQuietly cancels it on every other end (cancel, closing the arena, calibrating, remember off).
-    private fun watchFullScreenForCheck(arena: ArenaModel, camera: CameraManager, saved: SavedCalibration) {
-        checkWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            arena.fullScreen.collect { fullScreen ->
-                uiThread(Runnable {
-                    if (arenaState.value !== arena || checkState.value != CheckState.Checking) return@Runnable
-                    if (fullScreen) {
-                        if (checkRun == null) runCheck(arena, camera, saved)
-                    } else {
-                        stopRunQuietlyForFullScreenLoss()
-                    }
-                })
+        watchArenaForPattern(arena) {
+            startPatternRun(arena, camera, { CalibrationCheck(saved.bounds, detector(camera), checkClock).work() }) { outcome ->
+                checked(saved, outcome)
             }
         }
     }
 
-    // Finding 2: the arena left full screen mid-check. The run stops without a word, as stopCheckQuietly's
-    // run?.stop(...) does, but checkState stays Checking and the full screen watch keeps running, so
-    // watchFullScreenForCheck starts a fresh run once the arena is full screen again.
-    private fun stopRunQuietlyForFullScreenLoss() {
-        val run = checkRun ?: return
-        checkRun = null
-        cameraView.frameTap = null
-        run.stop(CalibrationCheck.Reason.CANCELLED)
+    // Starts [start] once the arena is on the projector (spec §8 Revision 2, decision 3): full screen, as big
+    // as the projector's screen, and settled there for [patternSettleMillis], so the pattern is never measured
+    // in a window on its way (or, after F11, off) the projector. Leaving the projector stops the run quietly
+    // (the state stays, so its return starts a fresh run). Runs until the check or measurement ends.
+    private fun watchArenaForPattern(arena: ArenaModel, start: () -> Unit) {
+        patternWatch?.cancel()
+        val screen = placementState.value?.screen
+        patternWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            combine(arena.fullScreen, arena.size) { fullScreen, size -> fullScreen && fills(size, screen) }
+                .distinctUntilChanged()
+                .collectLatest { onTheProjector ->
+                    if (onTheProjector) delay(patternSettleMillis)
+                    uiThread(Runnable {
+                        if (arenaState.value !== arena || !checkState.value.showsPattern) return@Runnable
+                        if (!onTheProjector) {
+                            stopRunQuietlyOffTheProjector()
+                        } else if (patternRun == null) {
+                            start()
+                        }
+                    })
+                }
+        }
     }
 
-    private fun runCheck(arena: ArenaModel, camera: CameraManager, saved: SavedCalibration) {
-        val run = CalibrationCheckRun(saved, arena, CalibratingCamera(camera), checkFrames, detector(camera), checkClock, scope, { task, delay ->
+    // Whether an arena of [size] fills [screen] (to the pixel, give or take rounding)
+    private fun fills(size: Size, screen: Rect?): Boolean =
+        screen == null || (abs(size.width - screen.width) <= 1 && abs(size.height - screen.height) <= 1)
+
+    // The arena left the projector mid-run. The run stops without a word, but the state stays (Checking or
+    // Measuring) and the watch keeps going, so a fresh run starts once the arena is back.
+    private fun stopRunQuietlyOffTheProjector() {
+        val run = patternRun ?: return
+        patternRun = null
+        cameraView.frameTap = null
+        run.stop()
+    }
+
+    // Shows the pattern and hands the camera's frames to [work]; [done] hears its result, unless the run was
+    // stopped or replaced first
+    private fun <T : Any> startPatternRun(arena: ArenaModel, camera: CameraManager, work: () -> PatternWork<T>, done: (T) -> Unit) {
+        val run = PatternRun(arena, CalibratingCamera(camera), checkFrames, work, scope, { task, delay ->
             TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
-        }, uiThread) { run, outcome -> checked(run, saved, outcome) }
-        checkRun = run
+        }, uiThread) { run, result ->
+            if (patternRun === run && result != null) {
+                patternRun = null
+                cameraView.frameTap = null
+                // A result ends the check or measurement: the watch has nothing left to restart
+                patternWatch?.cancel()
+                patternWatch = null
+                done(result)
+            }
+        }
+        patternRun = run
         cameraView.frameTap = checkFrames::offer
         arena.showGrid(false)
         run.start()
     }
 
-    // The check's outcome, on the UI thread; ignored if the check was stopped by something that replaced it
-    private fun checked(run: CalibrationCheckRun, saved: SavedCalibration, outcome: CalibrationCheck.Outcome) {
-        if (checkRun !== run) return
-        checkRun = null
-        cameraView.frameTap = null
-        // A real outcome ends the check: the full screen watch (Finding 2) has nothing left to restart
-        checkWatch?.cancel()
-        checkWatch = null
+    // The check's outcome, on the UI thread
+    private fun checked(saved: SavedCalibration, outcome: CalibrationCheck.Outcome) {
         when (outcome) {
             is CalibrationCheck.Kept -> {
-                calibrationState.value?.applySaved(saved)
-                currentCalibration = saved
+                // Kept as saved, or, for a drift within twice the tolerance, at the fresh measurement, which is
+                // then what is remembered
+                val kept = SavedCalibration(saved.camera, saved.feed, saved.screen, outcome.bounds(), saved.paper)
+                calibrationState.value?.applySaved(kept)
+                currentCalibration = kept
+                if (kept.bounds != saved.bounds && settings.rememberCalibration()) {
+                    settings.setSavedCalibration(kept)
+                    saveSettings()
+                }
                 calibratedAtState.value = wallClock()
                 checkState.value = CheckState.Idle
             }
@@ -708,22 +746,53 @@ class AppState(
         }
     }
 
-    // Ends a check without a word (something replaced it); the arena's background comes back
+    // After a calibration the camera found, with Remember on, the pattern is measured once more, the way the
+    // check measures it (the median of five detections), and that is what is remembered (spec §8 Revision 2,
+    // decision 3). The calibration's own bounds stay saved until then, and if it can't be measured.
+    override fun calibrationFinishedByCamera() {
+        val arena = arenaState.value ?: return
+        val camera = cameraState.value ?: return
+        val calibration = currentCalibration ?: return
+        if (!settings.rememberCalibration()) return
+        checkState.value = CheckState.Measuring
+        watchArenaForPattern(arena) {
+            val measurement = { PatternMeasurement("Calibration measurement", detector(camera), checkClock, Optional.of(calibration.bounds)).work() }
+            startPatternRun(arena, camera, measurement) { result ->
+                checkState.value = CheckState.Idle
+                if (result is PatternMeasurement.Measured && currentCalibration === calibration && settings.rememberCalibration()) {
+                    val measured = SavedCalibration(calibration.camera, calibration.feed, calibration.screen, result.median(), calibration.paper)
+                    currentCalibration = measured
+                    settings.setSavedCalibration(measured)
+                    saveSettings()
+                }
+            }
+        }
+    }
+
+    // Ends a check or a measurement without a word (something replaced it); the arena's look comes back
     private fun stopCheckQuietly() {
-        checkWatch?.cancel()
-        checkWatch = null
-        val run = checkRun
-        checkRun = null
+        patternWatch?.cancel()
+        patternWatch = null
+        val run = patternRun
+        patternRun = null
         cameraView.frameTap = null
-        run?.stop(CalibrationCheck.Reason.CANCELLED)
+        run?.stop()
         checkState.value = CheckState.Idle
     }
 
-    /** Cancel on the check: it ends, the arena stays uncalibrated, and Setup says it wasn't verified. */
+    /**
+     * Cancel on Setup while the pattern shows: a check ends with the arena uncalibrated and "not verified"; a
+     * measurement ends leaving the calibration's own bounds remembered.
+     */
     fun cancelCheck() {
-        if (checkState.value != CheckState.Checking) return
-        stopCheckQuietly()
-        checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
+        when (checkState.value) {
+            CheckState.Checking -> {
+                stopCheckQuietly()
+                checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
+            }
+            CheckState.Measuring -> stopCheckQuietly()
+            else -> {}
+        }
     }
 
     /**
@@ -737,7 +806,7 @@ class AppState(
         rememberState.value = remember
         settings.setRememberCalibration(remember)
         settings.setSavedCalibration(if (remember) currentCalibration else null)
-        if (!remember && checkState.value == CheckState.Checking) stopCheckQuietly()
+        if (!remember && checkState.value.showsPattern) stopCheckQuietly()
         saveSettings()
     }
 
@@ -865,7 +934,7 @@ class AppState(
     fun projectorReady(): Boolean = cameraState.value != null &&
         arenaState.value?.projection?.value != null &&
         calibrationState.value?.state?.value?.calibrating != true &&
-        checkState.value != CheckState.Checking
+        !checkState.value.showsPattern
 
     /**
      * Starts a fresh instance of [entry]; a projector drill needs [projectorReady].
@@ -914,11 +983,12 @@ class AppState(
     // after a success, as before. A camera drill doesn't use the arena and is left alone.
     private val drillForCalibration = CalibrationFlow.Exercises { pauseOrStopProjectorDrill() }
 
-    // The camera as calibration and the check see it: when they turn shot detection back on as they end,
-    // it stays off while the running drill has it paused (a paused drill turned it off itself)
+    // The camera as calibration, the check and the measurement see it: when they turn shot detection back on
+    // as they end, it stays off while a pattern still shows (a check or measurement started meanwhile: Plan 6's
+    // N1) and while the running drill has it paused (a paused drill turned it off itself)
     private inner class CalibratingCamera(private val camera: CameraManager) : CalibrationCamera by camera {
         override fun setDetecting(isDetecting: Boolean) {
-            camera.setDetecting(isDetecting && runner.running.value?.host?.shotDetectionPaused != true)
+            camera.setDetecting(isDetecting && patternRun == null && runner.running.value?.host?.shotDetectionPaused != true)
         }
     }
 

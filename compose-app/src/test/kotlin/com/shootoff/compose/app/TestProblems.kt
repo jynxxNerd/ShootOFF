@@ -248,7 +248,7 @@ class TestProblems {
         assertEquals("Slow camera", app.openingCamera.value)
 
         slow.release.countDown()
-        awaitTrue { app.camera.value != null }
+        awaitTrue { opened.get() != null }
         assertNull(app.openingCamera.value)
         assertEquals(true, opened.get())
         assertNotSame(Thread.currentThread(), slow.openedOn)

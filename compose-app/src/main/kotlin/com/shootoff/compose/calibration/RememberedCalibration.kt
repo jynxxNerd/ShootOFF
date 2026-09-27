@@ -22,6 +22,7 @@ import com.shootoff.calibration.CalibrationCamera
 import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.calibration.CalibrationFlow
+import com.shootoff.calibration.PatternMeasurement
 import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.config.SavedCalibration
@@ -45,6 +46,12 @@ sealed interface CheckState {
     /** Waiting for the arena to reach the projector, or looking for the pattern */
     data object Checking : CheckState
 
+    /**
+     * After a calibration, measuring the pattern as the check will measure it next time, so that is what is
+     * remembered (spec §8 Revision 2, decision 3)
+     */
+    data object Measuring : CheckState
+
     data class Moved(val pixels: Int) : CheckState
 
     data class NotVerified(val reason: Reason) : CheckState
@@ -53,10 +60,14 @@ sealed interface CheckState {
     data class DoesntFit(val why: String) : CheckState
 }
 
+/** Whether the pattern is on the arena for a check or a measurement, or waiting to go on */
+val CheckState.showsPattern: Boolean get() = this == CheckState.Checking || this == CheckState.Measuring
+
 /** What Setup and Range say about a check, or null when there is nothing to say */
 fun CheckState.text(): String? = when (this) {
     CheckState.Idle -> null
     CheckState.Checking -> "Checking the saved calibration…"
+    CheckState.Measuring -> "Measuring the calibration for next time…"
     is CheckState.Moved -> "The projection moved about $pixels px — recalibrate"
     is CheckState.NotVerified -> when (reason) {
         Reason.PATTERN_NOT_SEEN -> "The pattern wasn't seen: not verified — recalibrate on Setup"
@@ -92,26 +103,50 @@ class LatestFrame {
     fun take(): BufferedImage? = frame.getAndSet(null)
 }
 
+/** What a [PatternRun] does with the camera's frames: check a remembered calibration, or measure the pattern */
+interface PatternWork<T : Any> {
+    /** Looks at [frame]; the result, once there is one */
+    fun offer(frame: BufferedImage): T?
+
+    /** The result once the time is up, or null */
+    fun tick(): T?
+}
+
+/** A check of [CalibrationCheck], as a [PatternRun] does it */
+fun CalibrationCheck<BufferedImage>.work(): PatternWork<CalibrationCheck.Outcome> = object : PatternWork<CalibrationCheck.Outcome> {
+    override fun offer(frame: BufferedImage) = this@work.offer(frame).orElse(null)
+
+    override fun tick() = this@work.tick().orElse(null)
+}
+
+/** A [PatternMeasurement], as a [PatternRun] does it */
+fun PatternMeasurement<BufferedImage>.work(): PatternWork<PatternMeasurement.Result> = object : PatternWork<PatternMeasurement.Result> {
+    override fun offer(frame: BufferedImage) = this@work.offer(frame).orElse(null)
+
+    override fun tick() = this@work.tick().orElse(null)
+}
+
 /**
- * One check of a remembered calibration on the open arena (spec §8): the pattern shows on the arena,
- * the camera's frames are looked at in [scope], never on the UI thread, and [onDone] hears the outcome
- * on the UI thread once the arena's background is back. Shot detection is off while the pattern shows,
- * as in calibration, and comes back shortly after.
+ * The calibration pattern shown on the open arena, alone, while the camera's frames are looked at (spec §8):
+ * to check a remembered calibration, or to measure the pattern after a calibration. The frames are looked at
+ * in [scope], never on the UI thread, and [onDone] hears the result on the UI thread once the arena's look is
+ * back, or null if the run was stopped. Shot detection is off while the pattern shows, as in calibration,
+ * and asked back shortly after.
+ *
+ * @param work made as the pattern shows, so its time limit starts then
  */
-class CalibrationCheckRun(
-    private val saved: SavedCalibration,
+class PatternRun<T : Any>(
     private val arena: ArenaModel,
     private val camera: CalibrationCamera,
     private val frames: LatestFrame,
-    private val detector: CalibrationCheck.Detector<BufferedImage>,
-    private val clock: () -> Long,
+    private val work: () -> PatternWork<T>,
     private val scope: CoroutineScope,
     private val scheduler: CalibrationFlow.Scheduler,
     private val uiThread: (Runnable) -> Unit,
-    private val onDone: (CalibrationCheckRun, CalibrationCheck.Outcome) -> Unit,
+    private val onDone: (PatternRun<T>, T?) -> Unit,
 ) {
     companion object {
-        // How often a frame is looked at; detection itself takes a few tens of milliseconds
+        // How often a frame is looked at, at most; a detection itself takes about 400-500 ms on the owner's machine
         const val POLL_MILLIS = 50L
     }
 
@@ -128,13 +163,13 @@ class CalibrationCheckRun(
         arena.showResource("pattern.png")
         camera.setDetecting(false)
         frames.take()
-        val check = CalibrationCheck(saved.bounds, detector, clock)
+        val work = work()
         job = scope.launch {
             while (isActive) {
                 val frame = frames.take()
-                val outcome = (if (frame != null) check.offer(frame) else check.tick()).orElse(null)
-                if (outcome != null) {
-                    uiThread(Runnable { finish(outcome) })
+                val result = if (frame != null) work.offer(frame) else work.tick()
+                if (result != null) {
+                    uiThread(Runnable { finish(result) })
                     return@launch
                 }
                 delay(POLL_MILLIS)
@@ -143,20 +178,19 @@ class CalibrationCheckRun(
     }
 
     /**
-     * Stops the check for [reason]; on the UI thread. Never touches the [CalibrationCheck] itself: its
-     * `offer`/`stop` are `synchronized`, and `offer` can hold that lock for as long as pattern detection
-     * takes (hundreds of milliseconds when the pattern isn't found), which would freeze the UI thread here
-     * (spec §8 rule 6). [finish]'s compare-and-set makes the first outcome final regardless, so a detection
-     * that completes after this call, and calls [finish] with a real outcome from [start]'s loop, is a no-op.
+     * Stops the run; on the UI thread. Never touches the work itself: a check's or a measurement's `offer`
+     * is `synchronized` and can hold its lock for as long as a detection takes (hundreds of milliseconds when
+     * the pattern isn't found), which would freeze the UI thread here (spec §8 rule 6). [finish]'s
+     * compare-and-set makes the first end final, so a result arriving after this is ignored.
      */
-    fun stop(reason: Reason) = finish(CalibrationCheck.NotVerified(reason))
+    fun stop() = finish(null)
 
-    private fun finish(outcome: CalibrationCheck.Outcome) {
+    private fun finish(result: T?) {
         if (!finished.compareAndSet(false, true)) return
         job?.cancel()
         arena.setBackground(background)
         arena.cover(false)
         scheduler.schedule({ camera.setDetecting(true) }, CalibrationFlow.DETECTION_RESTART_DELAY)
-        onDone(this, outcome)
+        onDone(this, result)
     }
 }
