@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -66,6 +67,8 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.ConsoleAppender;
 import com.shootoff.geom.Point;
+import com.shootoff.geom.Rect;
+import com.shootoff.geom.Size;
 
 /**
  * Parses, stores and updates ShootOFF's persisted preferences (shootoff.properties) and
@@ -103,6 +106,26 @@ public class Settings {
 
 	private static final String POI_ADJUSTMENT_X = "shootoff.poiadjust.x";
 	private static final String POI_ADJUSTMENT_Y = "shootoff.poiadjust.y";
+
+	// The Compose app's remembered calibration (see SavedCalibration). Written only while in use, so a
+	// file that never had them is saved exactly as before.
+	private static final String REMEMBER_CALIBRATION_PROP = "shootoff.arena.calibration.remember";
+	private static final String SAVED_CALIBRATION_CAMERA_PROP = "shootoff.arena.calibration.camera";
+	private static final String SAVED_CALIBRATION_FEED_PROP = "shootoff.arena.calibration.feed";
+	private static final String SAVED_CALIBRATION_SCREEN_PROP = "shootoff.arena.calibration.screen";
+	private static final String SAVED_CALIBRATION_BOUNDS_PROP = "shootoff.arena.calibration.bounds";
+	private static final String SAVED_CALIBRATION_PAPER_PROP = "shootoff.arena.calibration.paper";
+
+	// Every key this class reads; any other key in the file is carried through a save untouched
+	private static final Set<String> KNOWN_KEYS = Set.of(FIRST_RUN_PROP, ERROR_REPORTING_PROP, IPCAMS_PROP,
+			WEBCAMS_PROP, RECORDING_WEBCAMS_PROP, MARKER_RADIUS_PROP, IGNORE_LASER_COLOR_PROP,
+			USE_RED_LASER_SOUND_PROP, RED_LASER_SOUND_PROP, USE_GREEN_LASER_SOUND_PROP, GREEN_LASER_SOUND_PROP,
+			USE_VIRTUAL_MAGAZINE_PROP, VIRTUAL_MAGAZINE_CAPACITY_PROP, USE_MALFUNCTIONS_PROP,
+			MALFUNCTIONS_PROBABILITY_PROP, ARENA_POSITION_X_PROP, ARENA_POSITION_Y_PROP, MUTED_CHIME_MESSAGES,
+			PERSPECTIVE_WEBCAM_DISTANCES, CALIBRATED_FEED_BEHAVIOR_PROP, SHOW_ARENA_SHOT_MARKERS,
+			CALIBRATE_AUTO_ADJUST_EXPOSURE, SHOWED_PERSPECTIVE_USAGE_MESSAGE, POI_ADJUSTMENT_X, POI_ADJUSTMENT_Y,
+			REMEMBER_CALIBRATION_PROP, SAVED_CALIBRATION_CAMERA_PROP, SAVED_CALIBRATION_FEED_PROP,
+			SAVED_CALIBRATION_SCREEN_PROP, SAVED_CALIBRATION_BOUNDS_PROP, SAVED_CALIBRATION_PAPER_PROP);
 
 	protected static final String MARKER_RADIUS_MESSAGE = "MARKER_RADIUS has an invalid value: %d. Acceptable values are "
 			+ "between 1 and 20.";
@@ -162,6 +185,12 @@ public class Settings {
 	private Optional<Double> poiAdjustmentY = Optional.empty();
 	private boolean adjustingPOI = false;
 	private int poiAdjustmentCount = 0;
+
+	private boolean rememberCalibration = false;
+	private Optional<SavedCalibration> savedCalibration = Optional.empty();
+
+	// Keys read from the file that this class doesn't know, e.g. written by a newer ShootOFF
+	private final Properties otherProperties = new Properties();
 
 	// Runtime state, never written to the configuration file
 	private final Set<CameraManager> recordingManagers = new HashSet<>();
@@ -420,7 +449,52 @@ public class Settings {
 			logger.info("POI Adjustment loaded from config, x {} y {}", poiAdjustmentX.get(), poiAdjustmentY.get());
 		}
 
+		if (prop.containsKey(REMEMBER_CALIBRATION_PROP)) {
+			setRememberCalibration(Boolean.parseBoolean(prop.getProperty(REMEMBER_CALIBRATION_PROP)));
+		}
+
+		savedCalibration = readSavedCalibration(prop);
+
+		for (final String key : prop.stringPropertyNames()) {
+			if (!KNOWN_KEYS.contains(key)) otherProperties.setProperty(key, prop.getProperty(key));
+		}
+
 		validateConfiguration();
+	}
+
+	// A saved calibration that can't be read is dropped (and so recalibrated), never an error
+	private static Optional<SavedCalibration> readSavedCalibration(Properties prop) {
+		final String camera = prop.getProperty(SAVED_CALIBRATION_CAMERA_PROP);
+		final String feed = prop.getProperty(SAVED_CALIBRATION_FEED_PROP);
+		final String screen = prop.getProperty(SAVED_CALIBRATION_SCREEN_PROP);
+		final String bounds = prop.getProperty(SAVED_CALIBRATION_BOUNDS_PROP);
+		if (camera == null || feed == null || screen == null || bounds == null) return Optional.empty();
+
+		try {
+			final double[] b = numbers(bounds, ",", 4);
+			final String paper = prop.getProperty(SAVED_CALIBRATION_PAPER_PROP);
+			return Optional.of(new SavedCalibration(camera, size(feed, "x"), size(screen, "x"),
+					new Rect(b[0], b[1], b[2], b[3]),
+					paper == null ? Optional.empty() : Optional.of(size(paper, ","))));
+		} catch (final IllegalArgumentException e) {
+			logger.warn("Ignoring the saved calibration, which can't be read: {}", e.getMessage());
+			return Optional.empty();
+		}
+	}
+
+	private static Size size(String value, String separator) {
+		final double[] parts = numbers(value, separator, 2);
+		return new Size(parts[0], parts[1]);
+	}
+
+	private static double[] numbers(String value, String separator, int count) {
+		final String[] parts = value.split(Pattern.quote(separator));
+		if (parts.length != count) throw new IllegalArgumentException("expected " + count + " numbers in " + value);
+
+		final double[] numbers = new double[count];
+		for (int i = 0; i < count; i++)
+			numbers[i] = Double.parseDouble(parts[i].trim());
+		return numbers;
 	}
 
 	public boolean writeConfigurationFile() throws ConfigurationException, IOException {
@@ -513,6 +587,23 @@ public class Settings {
 		if (isAdjustingPOI() && poiAdjustmentX.isPresent() && poiAdjustmentY.isPresent()) {
 			prop.setProperty(POI_ADJUSTMENT_X, String.valueOf(poiAdjustmentX.get()));
 			prop.setProperty(POI_ADJUSTMENT_Y, String.valueOf(poiAdjustmentY.get()));
+		}
+
+		if (rememberCalibration) prop.setProperty(REMEMBER_CALIBRATION_PROP, "true");
+
+		if (savedCalibration.isPresent()) {
+			final SavedCalibration saved = savedCalibration.get();
+			prop.setProperty(SAVED_CALIBRATION_CAMERA_PROP, saved.camera());
+			prop.setProperty(SAVED_CALIBRATION_FEED_PROP, format(saved.feed(), "x"));
+			prop.setProperty(SAVED_CALIBRATION_SCREEN_PROP, format(saved.screen(), "x"));
+			final Rect b = saved.bounds();
+			prop.setProperty(SAVED_CALIBRATION_BOUNDS_PROP,
+					b.getMinX() + "," + b.getMinY() + "," + b.getWidth() + "," + b.getHeight());
+			saved.paper().ifPresent(paper -> prop.setProperty(SAVED_CALIBRATION_PAPER_PROP, format(paper, ",")));
+		}
+
+		for (final String key : otherProperties.stringPropertyNames()) {
+			prop.setProperty(key, otherProperties.getProperty(key));
 		}
 
 		final OutputStream outputStream = new FileOutputStream(configName);
@@ -993,6 +1084,36 @@ public class Settings {
 
 	public Optional<SessionRecorder> getSessionRecorder() {
 		return sessionRecorder;
+	}
+
+	/**
+	 * @return whether the Compose app keeps the arena's calibration for the next session
+	 */
+	public boolean rememberCalibration() {
+		return rememberCalibration;
+	}
+
+	public void setRememberCalibration(boolean rememberCalibration) {
+		this.rememberCalibration = rememberCalibration;
+	}
+
+	/**
+	 * @return the calibration the Compose app kept, if any
+	 */
+	public Optional<SavedCalibration> getSavedCalibration() {
+		return savedCalibration;
+	}
+
+	/**
+	 * @param calibration
+	 *            the calibration to keep, or <tt>null</tt> to forget it
+	 */
+	public void setSavedCalibration(SavedCalibration calibration) {
+		savedCalibration = Optional.ofNullable(calibration);
+	}
+
+	private static String format(Size size, String separator) {
+		return size.getWidth() + separator + size.getHeight();
 	}
 
 	private final static int POI_NUM_TARGETS = 5;
