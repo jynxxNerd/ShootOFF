@@ -269,4 +269,68 @@ class TestCalibrationController {
         assertNull(fixture.camera.bounds)
         assertFalse(controller.state.value.calibrating)
     }
+
+    @Test
+    fun closingMidCalibrationRestoresTheOriginalBackgroundAndShowsTargetsAndShots() {
+        fixture.settings.setShowArenaShotMarkers(true)
+        val originalBackground = ArenaBackground(ImageBitmap(4, 4), "backgrounds/blackBG.png")
+        arena.setBackground(originalBackground)
+        val target = arena.targets.add(
+            TargetDefinition(Optional.empty(), mapOf(), listOf(RectangleRegion(0, 0.0, 0.0, 10.0, 10.0, "red", mapOf()))),
+            ResourceResolver.files(),
+        )
+        startOnTheProjector()
+        assertEquals("pattern.png", arena.background.value!!.name)
+        assertFalse(arena.targets.set.get(target.id).get().isVisible)
+        assertFalse(arena.markers.visible.value)
+
+        controller.arenaClosing()
+
+        // The model is left exactly as it was before calibration started
+        assertSame(originalBackground, arena.background.value)
+        assertTrue(arena.targets.set.get(target.id).get().isVisible)
+        assertTrue(arena.markers.visible.value)
+    }
+
+    @Test
+    fun reopeningThenCalibratingSuccessfullyRestoresTheOriginalBackgroundNotThePattern() {
+        val originalBackground = ArenaBackground(ImageBitmap(4, 4), "backgrounds/blackBG.png")
+        arena.setBackground(originalBackground)
+        startOnTheProjector()
+
+        controller.arenaClosing()
+
+        // Reopen the same model and let calibration succeed this time
+        startOnTheProjector()
+        controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        assertSame(originalBackground, arena.background.value)
+    }
+
+    @Test
+    fun aDetectionQueuedAfterCancellationSetsNoProjection() {
+        val uiTasks = mutableListOf<Runnable>()
+        val fixture = CalibrationFixture(uiThread = { uiTasks += it })
+        val controller = fixture.controller
+        val arena = fixture.arena
+
+        controller.toggle()
+        arena.setFullScreen(true)
+        controller.fullScreenChanged(true)
+        fixture.fire(CalibrationFlow.FULL_SCREEN_SETTLE_DELAY)
+        uiTasks.removeAt(0).run()
+        assertEquals(Message.AUTO_CALIBRATING, controller.state.value.message)
+
+        controller.arenaClosing()
+
+        // A detection from a frame that was already in flight when the arena closed: calibrate() only
+        // reads the generation once it (finally) runs here, after the close already bumped it, so the
+        // generation alone matches; the flow no longer calibrating is what has to stop it
+        controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+        assertEquals(1, uiTasks.size)
+        uiTasks.removeAt(0).run()
+
+        assertNull(arena.projection.value)
+        assertNull(fixture.camera.bounds)
+    }
 }

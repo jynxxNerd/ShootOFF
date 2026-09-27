@@ -86,6 +86,11 @@ class CalibrationController(
     @Volatile
     private var savedBackground: ArenaBackground? = null
 
+    // Whether savedBackground actually holds a save: calibration can be cancelled before it ever reaches
+    // the pattern (still asking for full screen), when there is nothing to restore
+    @Volatile
+    private var backgroundSaved = false
+
     // Bumped whenever the arena closes, so a calibrated() completion queued on the UI thread beforehand
     // (the camera found the pattern just as the window went away) finds out it is stale and does nothing
     @Volatile
@@ -114,13 +119,20 @@ class CalibrationController(
 
     /**
      * The arena window is closing: calibration ends abruptly, through [CalibrationFlow.cancel] if it was
-     * still going (the box, if any, is dropped unsaved; no drill restart; ruling 10), so the camera is
-     * left in a normal, not-calibrating state rather than stuck mid-calibration for whatever reopens it.
-     * The flow's own [CalibrationFlow.arenaClosing] always runs too, clearing the camera's projection.
+     * still going (no calibrating to the box, no drill restart; ruling 10), so the camera is left in a
+     * normal, not-calibrating state rather than stuck mid-calibration for whatever reopens it. The model
+     * itself is put back exactly as it was before calibration started (background, targets, shots), since
+     * [CalibrationFlow.cancel] does neither. The flow's own [CalibrationFlow.arenaClosing] always runs
+     * too, clearing the camera's projection.
      */
     fun arenaClosing() {
         generation++
-        if (flow.isCalibrating) flow.cancel()
+        if (flow.isCalibrating) {
+            flow.cancel()
+            restoreArenaBackground()
+            arena.setTargetsVisible(true)
+            arena.showShots(settings.showArenaShotMarkers())
+        }
         uiState.update { CalibrationUi() }
         flow.arenaClosing()
         arena.setProjection(null)
@@ -131,14 +143,17 @@ class CalibrationController(
     /**
      * The camera reports success on its own thread. Completing calibration touches the view (and can
      * restart a drill), so the whole of it runs on the UI thread, not the camera's. If the arena closes
-     * (or calibration is cancelled) before this reaches the UI thread, it does nothing: the [generation]
-     * it captured here no longer matches.
+     * (or calibration is cancelled) before this reaches the UI thread, it does nothing: either the
+     * [generation] it captured here no longer matches, or (a frame already in flight when it closed can
+     * still read the new generation) the flow just isn't calibrating any more.
      */
     override fun calibrate(arenaBounds: Rect, perspectivePaperDims: Optional<Size>, calibratedFromCanvas: Boolean, frameDelay: Long) {
         val expectedGeneration = generation
         uiThread(
             Runnable {
-                if (generation == expectedGeneration) flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
+                if (generation == expectedGeneration && flow.isCalibrating) {
+                    flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
+                }
             },
         )
     }
@@ -161,11 +176,13 @@ class CalibrationController(
 
     override fun saveArenaBackground() {
         savedBackground = arena.background.value
+        backgroundSaved = true
     }
 
     override fun restoreArenaBackground() {
-        arena.setBackground(savedBackground)
+        if (backgroundSaved) arena.setBackground(savedBackground)
         savedBackground = null
+        backgroundSaved = false
     }
 
     override fun showPattern() = arena.showResource("pattern.png")
