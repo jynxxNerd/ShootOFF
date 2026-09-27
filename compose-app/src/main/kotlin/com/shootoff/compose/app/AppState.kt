@@ -19,8 +19,11 @@
 package com.shootoff.compose.app
 
 import com.shootoff.camera.CameraManager
+import com.shootoff.camera.CameraView
 import com.shootoff.camera.CamerasSupervisor
+import com.shootoff.camera.DiagnosticMessage
 import com.shootoff.camera.cameratypes.Camera
+import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.compose.arena.ArenaPlacement
 import com.shootoff.compose.arena.ArenaScreens
@@ -58,6 +61,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,6 +70,8 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.EventQueue
+import java.awt.image.BufferedImage
+import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -115,6 +121,9 @@ class AppState(
 
     // Which camera open is the latest: an open that finishes after a newer one (or after the app closed) is dropped
     private val openGeneration = AtomicInteger()
+
+    // The open camera's view of the feed
+    private var openView: OpenView? = null
     private val destinationState = MutableStateFlow(Destination.RANGE)
     private val viewState = MutableStateFlow(BigView.CAMERA)
     private var viewBeforeCalibration: BigView? = null
@@ -215,61 +224,144 @@ class AppState(
      * @return false if it can't be opened
      */
     fun openCamera(camera: Camera): Boolean {
-        val generation = releaseCamera()
-        return publish(generation, camera, cameras.addCameraManager(camera, cameraProblems, cameraView).orElse(null))
+        if (cameraState.value?.camera === camera) return true
+        val (generation, old) = releaseCamera()
+        old?.let(::closeDevice)
+        return publish(generation, startCamera(camera))
     }
 
     /**
      * Opens [camera] in place of the open one without blocking the calling (UI) thread: the open one, and
      * the arena it calibrated, close at once; [openingCamera] names [camera] while it opens on the I/O
-     * dispatcher; then [then] hears on the UI thread whether it opened.
+     * dispatcher; then [then] hears on the UI thread whether it opened. One camera opens at a time.
+     *
+     * @return false if the pick was ignored, because another camera is still opening
      */
-    fun openCameraInBackground(camera: Camera, then: (Boolean) -> Unit = {}) {
-        val generation = releaseCamera()
+    fun openCameraInBackground(camera: Camera, then: (Boolean) -> Unit = {}): Boolean {
+        if (openingState.value != null) return false
+        if (cameraState.value?.camera === camera) {
+            then(true)
+            return true
+        }
+        val (generation, old) = releaseCamera()
         openingState.value = camera.name
         scope.launch(io) {
-            val manager = cameras.addCameraManager(camera, cameraProblems, cameraView).orElse(null)
-            uiThread(Runnable { then(publish(generation, camera, manager)) })
+            // The old device closes before the new one opens, in case they are the same hardware
+            old?.let(::closeDevice)
+            val opened = startCamera(camera)
+            // Dropped already (a newer open, or the app closing): cleaned up here, off the UI thread
+            if (generation != openGeneration.get()) {
+                discard(opened)
+            } else {
+                uiThread(Runnable { then(publish(generation, opened)) })
+            }
+        }
+        return true
+    }
+
+    // A camera open's outcome: its manager if it started, else why not
+    private class Opened(val camera: Camera, val view: OpenView, val manager: CameraManager?, val error: Throwable? = null)
+
+    // Starts a manager for [camera], blocking on the hardware. It isn't registered with [cameras] (only
+    // [publish] does that, on the UI thread), and a camera that fails to start is closed again.
+    private fun startCamera(camera: Camera): Opened {
+        val view = OpenView(cameraView)
+        var manager: CameraManager? = null
+        return try {
+            manager = CameraManager(camera, cameraProblems, view)
+            if (manager.start()) {
+                Opened(camera, view, manager)
+            } else {
+                discard(Opened(camera, view, manager))
+                Opened(camera, view, null)
+            }
+        } catch (e: Exception) {
+            logger.error("Cannot open the webcam {}", camera.name, e)
+            discard(Opened(camera, view, manager))
+            Opened(camera, view, null, e)
         }
     }
 
-    // Closes the open camera, and the arena it calibrated, as the JavaFX app's arena closes with its camera
-    // (ruling 13). Returns the new open's generation.
-    private fun releaseCamera(): Int {
-        val generation = openGeneration.incrementAndGet()
-        if (cameraState.value != null) closeArena()
-        cameraState.value?.let(cameras::clearManager)
-        cameraState.value = null
-        feed.clearFrame()
-        return generation
+    // Closes a camera that won't be shown, without touching the live feed
+    private fun discard(opened: Opened) {
+        opened.view.live = false
+        try {
+            opened.manager?.close()
+        } catch (e: Exception) {
+            logger.warn("Couldn't close the manager of webcam {}", opened.camera.name, e)
+        }
+        closeDevice(opened.camera)
     }
 
-    // An open finished: shows its camera, or why it couldn't open, unless a newer open (or the app closing)
-    // has replaced it
-    private fun publish(generation: Int, camera: Camera, manager: CameraManager?): Boolean {
+    // CameraManager.close() leaves the device open; this closes it (it can block)
+    private fun closeDevice(camera: Camera) {
+        try {
+            camera.close()
+        } catch (e: Exception) {
+            logger.warn("Couldn't close the webcam {}", camera.name, e)
+        }
+    }
+
+    private fun closeDeviceLater(camera: Camera) = io.asExecutor().execute { closeDevice(camera) }
+
+    // Closes the open camera's manager, and the arena it calibrated, as the JavaFX app's arena closes with its
+    // camera (ruling 13). Returns the new open's generation and the camera whose device is still to close.
+    private fun releaseCamera(): Pair<Int, Camera?> {
+        val generation = openGeneration.incrementAndGet()
+        openingState.value = null
+        val old = cameraState.value
+        if (old != null) closeArena()
+        old?.let(cameras::clearManager)
+        openView?.live = false
+        openView = null
+        cameraState.value = null
+        feed.clearFrame()
+        return generation to old?.camera
+    }
+
+    // An open finished, on the UI thread: shows its camera, or why it couldn't open, unless a newer open (or
+    // the app closing) has replaced it
+    private fun publish(generation: Int, opened: Opened): Boolean {
         if (generation != openGeneration.get()) {
-            manager?.let(cameras::clearManager)
+            if (opened.manager != null) {
+                opened.view.live = false
+                io.asExecutor().execute { discard(opened) }
+            }
             return false
         }
         openingState.value = null
+        val manager = opened.manager
         if (manager == null) {
-            logger.error("Cannot open the webcam {}", camera.name)
-            cameraProblems.showCameraLockError(camera, false)
+            val error = opened.error
+            if (error != null) {
+                cameraProblems.showOpenError(opened.camera, error)
+            } else {
+                logger.error("Cannot open the webcam {}", opened.camera.name)
+                cameraProblems.showCameraLockError(opened.camera, false)
+            }
             return false
         }
+        cameras.addStartedCameraManager(manager)
+        cameraView.setCameraManager(manager)
+        openView = opened.view
         problemState.value = null
         cameraState.value = manager
         return true
     }
 
-    // The camera stopped answering: close it, so the feed shows the picker and not its last frame, and close
-    // the arena it calibrated
+    // The camera stopped answering (reported on its thread, run here on the UI thread): if it is still the
+    // open one, close it and the arena it calibrated, and show the picker, not its last frame
     private fun cameraLost(camera: Camera) {
         val manager = cameraState.value ?: return
         if (manager.camera !== camera) return
         closeArena()
         cameraState.value = null
         cameras.clearManager(manager)
+        openView?.live = false
+        openView = null
+        feed.clearFrame()
+        problemState.value = cameraProblems.missingMessage(camera)
+        closeDeviceLater(camera)
     }
 
     // ---- The arena
@@ -416,4 +508,32 @@ fun calibrationStatus(arenaOpen: Boolean, calibrating: Boolean, calibrated: Bool
     calibrating -> CalibrationStatus.CALIBRATING
     calibrated -> CalibrationStatus.CALIBRATED
     else -> CalibrationStatus.NEEDS_CALIBRATION
+}
+
+/**
+ * One camera's view of the app's feed. It goes dead when that camera is replaced or dropped, so a camera
+ * still sending (or closing) after it has been replaced never draws on, or clears, the live feed.
+ */
+private class OpenView(private val view: ComposeCameraView) : CameraView by view {
+    @Volatile
+    var live = true
+
+    override fun setCameraManager(cameraManager: CameraManager) {
+        if (live) view.setCameraManager(cameraManager)
+    }
+
+    override fun updateBackground(frame: BufferedImage?, projectionBounds: Optional<Rect>) {
+        if (live) view.updateBackground(frame, projectionBounds)
+    }
+
+    override fun addShot(shot: ScaledShot) {
+        if (live) view.addShot(shot)
+    }
+
+    override fun addDiagnosticWarning(message: String): DiagnosticMessage =
+        if (live) view.addDiagnosticWarning(message) else DiagnosticMessage {}
+
+    override fun close() {
+        if (live) view.close()
+    }
 }

@@ -29,7 +29,7 @@ import com.shootoff.config.Settings
  * answering leaves the feed on its "No camera" panel (with a camera picker), never a frozen frame; a low
  * frame rate or a very bright picture is a banner on the feed.
  *
- * @param lost the camera stopped answering: the app closes it
+ * @param lost the camera stopped answering (on its own thread): the app closes it, if it is still the open one
  */
 class CameraProblems(
     private val settings: Settings,
@@ -42,11 +42,16 @@ class CameraProblems(
     override fun showCameraLockError(webcam: Camera, allCamerasFailed: Boolean) =
         problem("Cannot open the webcam ${name(webcam)}. It is being used by another program or it is an IPCam with the wrong credentials.")
 
-    override fun showMissingCameraError(webcam: Camera) {
-        feed.clearFrame()
-        problem(String.format(CameraErrorView.MISSING_ERROR, name(webcam)))
-        lost(webcam)
-    }
+    // Only the app knows whether [webcam] is still the open camera (a replaced one can report late): it
+    // clears the feed and shows [missingMessage] only if so
+    override fun showMissingCameraError(webcam: Camera) = lost(webcam)
+
+    /** What the feed says when [webcam] stops answering */
+    fun missingMessage(webcam: Camera): String = String.format(CameraErrorView.MISSING_ERROR, name(webcam))
+
+    /** [webcam]'s driver threw [error] as it opened */
+    fun showOpenError(webcam: Camera, error: Throwable) =
+        problem("Cannot open the webcam ${name(webcam)}: ${error.javaClass.simpleName}" + (error.message?.let { ": $it" } ?: ""))
 
     override fun showFPSWarning(webcam: Camera, fps: Double) {
         feed.addBanner(String.format(CameraErrorView.FPS_WARNING, name(webcam), fps), BannerKind.WARNING)

@@ -21,6 +21,7 @@ package com.shootoff.camera;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.shootoff.camera.cameratypes.Camera;
@@ -29,7 +30,8 @@ import com.shootoff.config.Settings;
 
 public class CamerasSupervisor {
 	private final Settings config;
-	private final List<CameraManager> managers = new ArrayList<>();
+	// Copy-on-write: a camera can be added on one thread while others walk the managers (reset, detection)
+	private final List<CameraManager> managers = new CopyOnWriteArrayList<>();
 
 	private final AtomicBoolean allDetecting = new AtomicBoolean(true);
 
@@ -42,12 +44,19 @@ public class CamerasSupervisor {
 		final CameraManager manager = new CameraManager(cameraInterface, cameraErrorView, cameraView);
 
 		if (manager.start()) {
-			managers.add(manager);
-			allDetecting.set(true);
+			addStartedCameraManager(manager);
 			return Optional.of(manager);
 		}
 
 		return Optional.empty();
+	}
+
+	/**
+	 * Adds a manager whose camera has already been started, e.g. off the UI thread.
+	 */
+	public void addStartedCameraManager(CameraManager manager) {
+		managers.add(manager);
+		allDetecting.set(true);
 	}
 
 	public void clearManagers() {

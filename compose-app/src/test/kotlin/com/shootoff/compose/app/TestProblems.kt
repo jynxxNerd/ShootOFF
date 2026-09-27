@@ -1,13 +1,16 @@
 package com.shootoff.compose.app
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.shootoff.calibration.CalibrationFlow.Message
 import com.shootoff.camera.MockCamera
 import com.shootoff.camera.cameratypes.CameraEventListener
 import com.shootoff.compose.feed.BannerKind
+import com.shootoff.compose.feed.FeedFrame
 import com.shootoff.compose.targets.ManualClock
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
 import com.shootoff.exercise.Exercise
+import com.shootoff.geom.Rect
 import com.shootoff.plugins.engine.PluginEngine
 import com.shootoff.plugins.engine.PluginJars
 import com.shootoff.plugins.engine.V2ExerciseLoader
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -28,6 +32,7 @@ import java.util.Optional
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.CoroutineContext
 
@@ -46,11 +51,15 @@ class TestProblems {
     }
 
     /** A camera whose open() blocks until released, as real hardware can for seconds */
-    class SlowCamera : AppFixture.TestCamera("Slow camera") {
+    class SlowCamera(name: String = "Slow camera") : AppFixture.TestCamera(name) {
         val release = CountDownLatch(1)
+        val opens = AtomicInteger()
 
         @Volatile
         var openedOn: Thread? = null
+
+        @Volatile
+        var closed = false
 
         @Volatile
         private var opened = false
@@ -58,10 +67,30 @@ class TestProblems {
         override fun isOpen() = opened
 
         override fun open(): Boolean {
+            opens.incrementAndGet()
             openedOn = Thread.currentThread()
             release.await(5, TimeUnit.SECONDS)
             opened = true
             return true
+        }
+
+        override fun close() {
+            opened = false
+            closed = true
+        }
+    }
+
+    /** A camera whose driver throws as it opens */
+    class ThrowingCamera : AppFixture.TestCamera("Broken camera") {
+        @Volatile
+        var closed = false
+
+        override fun isOpen() = false
+
+        override fun open(): Boolean = throw IllegalStateException("driver crashed")
+
+        override fun close() {
+            closed = true
         }
     }
 
@@ -230,6 +259,94 @@ class TestProblems {
         } finally {
             app.close()
         }
+    }
+
+    @Test
+    fun aNewerOpenBeatsAnOlderSlowOneAndTheOlderCameraIsClosed() {
+        val slow = SlowCamera()
+        app.openCameraInBackground(slow)
+        awaitTrue { slow.openedOn != null }
+
+        assertTrue(app.openCamera(AppFixture.TestCamera("Newer camera")))
+        slow.release.countDown()
+
+        awaitTrue { slow.closed }
+        assertEquals("Newer camera", app.camera.value!!.camera.name)
+        assertEquals(listOf("Newer camera"), app.cameras.cameraManagers.map { it.camera.name })
+        assertSame(app.camera.value, app.cameraView.cameraManager)
+        assertNull(app.openingCamera.value)
+    }
+
+    @Test
+    fun closingTheAppDuringABlockedOpenLeavesNothingOpen() {
+        val slow = SlowCamera()
+        app.openCameraInBackground(slow)
+        awaitTrue { slow.openedOn != null }
+
+        app.close()
+        slow.release.countDown()
+
+        awaitTrue { slow.closed }
+        assertNull(app.camera.value)
+        assertTrue(app.cameras.cameraManagers.isEmpty())
+    }
+
+    @Test
+    fun anOpenThatThrowsClearsTheOpeningStateAndSaysWhy() {
+        val broken = ThrowingCamera()
+        val opened = AtomicReference<Boolean?>()
+
+        app.openCameraInBackground(broken) { opened.set(it) }
+
+        awaitTrue { opened.get() != null }
+        assertEquals(false, opened.get())
+        assertNull(app.openingCamera.value)
+        assertNull(app.camera.value)
+        assertEquals("Cannot open the webcam Broken camera: IllegalStateException: driver crashed", app.cameraProblem.value)
+        assertTrue(broken.closed)
+        assertTrue(app.cameras.cameraManagers.isEmpty())
+    }
+
+    @Test
+    fun aSecondPickWhileACameraOpensIsIgnored() {
+        val first = SlowCamera("First camera")
+        val second = SlowCamera("Second camera")
+        second.release.countDown()
+
+        assertTrue(app.openCameraInBackground(first))
+        assertFalse(app.openCameraInBackground(second))
+        first.release.countDown()
+
+        awaitTrue { app.camera.value != null }
+        assertEquals("First camera", app.camera.value!!.camera.name)
+        assertEquals(0, second.opens.get())
+        assertEquals(1, app.cameras.cameraManagers.size)
+    }
+
+    @Test
+    fun pickingTheOpenCameraAgainKeepsIt() {
+        app.openStartCamera()
+        val manager = app.camera.value!!
+
+        app.openCameraInBackground(manager.camera)
+
+        assertSame(manager, app.camera.value)
+        assertEquals(listOf(manager), app.cameras.cameraManagers)
+    }
+
+    @Test
+    fun aLostCameraThatIsNoLongerOpenLeavesTheLiveFeedAlone() {
+        app.openStartCamera()
+        val old = app.camera.value!!.camera
+        app.openCamera(AppFixture.TestCamera("Newer camera"))
+        val frame = FeedFrame(ImageBitmap(4, 3), Rect(0.0, 0.0, 640.0, 480.0))
+        app.feed.showFrame(frame)
+
+        app.cameraProblems.showMissingCameraError(old)
+
+        assertSame(frame, app.feed.frame.value)
+        assertNull(app.cameraProblem.value)
+        assertEquals("Newer camera", app.camera.value!!.camera.name)
     }
 
     private fun awaitTrue(condition: () -> Boolean) {

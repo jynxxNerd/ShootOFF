@@ -5,9 +5,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -101,6 +104,32 @@ class TestProblemViews {
         slow.release.countDown()
         compose.waitUntil(5000) { app.camera.value != null }
         compose.onNodeWithTag("no-camera").assertDoesNotExist()
+    }
+
+    @Test
+    fun aCameraWhoseOpenThrowsLeavesThePanelWithTheReason() {
+        show()
+
+        app.openCameraInBackground(TestProblems.ThrowingCamera())
+
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Cannot open the webcam Broken camera: IllegalStateException: driver crashed").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("no-camera").assertExists()
+        compose.onNodeWithTag("opening-camera").assertDoesNotExist()
+    }
+
+    @Test
+    fun theSettingsCameraChoicesWaitWhileACameraOpens() {
+        compose.setContent { RangeTheme(dark = true) { SettingsScreen(app) } }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("camera-Test camera").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("camera-Test camera").assertIsEnabled()
+        val slow = TestProblems.SlowCamera()
+
+        app.openCameraInBackground(slow)
+
+        compose.onNodeWithTag("camera-Test camera").assertIsNotEnabled()
+        slow.release.countDown()
+        compose.waitUntil(5000) { app.camera.value != null }
+        compose.onNodeWithTag("camera-Test camera").assertIsEnabled()
     }
 
     @Test

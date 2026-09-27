@@ -77,7 +77,8 @@ fun SettingsScreen(app: AppState, modifier: Modifier = Modifier) {
                 found.isEmpty() -> Text("No cameras found.", color = colors.muted)
             }
             for (camera in found.orEmpty()) {
-                Choice(camera.name, openCamera?.camera == camera, "camera-${camera.name}") {
+                // One camera opens at a time: the choices wait while one is opening
+                Choice(camera.name, openCamera?.camera == camera, "camera-${camera.name}", enabled = opening == null) {
                     app.openCameraInBackground(camera) { opened ->
                         if (opened) {
                             app.settings.setWebcams(listOf(camera.name), listOf(camera))
@@ -128,12 +129,12 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, tag: String, onSelect: () -> Unit) {
+private fun Choice(label: String, selected: Boolean, tag: String, enabled: Boolean = true, onSelect: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.selectable(selected, role = Role.RadioButton, onClick = onSelect).testTag(tag),
+        modifier = Modifier.selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect).testTag(tag),
     ) {
-        RadioButton(selected = selected, onClick = null)
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
         Text(label, color = Range.colors.text, modifier = Modifier.padding(start = 8.dp))
     }
 }
