@@ -281,6 +281,38 @@ public final class CalibrationFlow {
 	}
 
 	/**
+	 * Ends calibrating abruptly, for when whatever was being calibrated (the arena) is gone: unlike
+	 * {@link #stop()}, this never calibrates to the manual box, never restores the arena's background
+	 * (there may be no arena left to show it on) and never restarts a stopped exercise. Shot detection
+	 * still comes back after the usual delay, so it isn't left off everywhere else.
+	 */
+	public void cancel() {
+		isCalibrating.set(false);
+
+		cancelAutoCalibrationTimer();
+
+		camera.disableAutoCalibration();
+
+		hideMessage(Message.FULL_SCREEN_REQUEST);
+		hideMessage(Message.AUTO_CALIBRATING);
+		hideMessage(Message.MANUAL_REQUEST);
+		view.removeManualBox();
+
+		view.setCalibrating(false);
+
+		view.restoreSelectedView();
+
+		camera.setCalibrating(false);
+
+		isShowingPattern.set(false);
+
+		camera.setDetecting(false);
+		scheduler.schedule(() -> camera.setDetecting(true), DETECTION_RESTART_DELAY);
+
+		restartExercise = Optional.empty();
+	}
+
+	/**
 	 * The arena's projection was found: by the camera (<tt>calibratedFromCanvas</tt> false, bounds on
 	 * the camera feed) or with the manual box (true, bounds on the feed's canvas). Ends calibrating if it
 	 * is still going.

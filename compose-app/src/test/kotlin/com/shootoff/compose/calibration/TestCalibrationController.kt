@@ -187,6 +187,16 @@ class TestCalibrationController {
         assertNull(arena.projection.value)
         assertNull(fixture.camera.bounds)
         assertTrue(order.isEmpty())
+
+        // The camera is left in a normal, not-calibrating state: auto-cal off, and detection back on
+        assertTrue(fixture.events.contains("auto off"))
+        assertTrue(fixture.events.contains("camera calibrating false"))
+        fixture.fire(CalibrationFlow.DETECTION_RESTART_DELAY)
+        assertTrue(fixture.events.contains("camera detecting true"))
+
+        // The cancelled auto-calibration timeout never brings the manual box back
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        assertNull(controller.state.value.box)
     }
 
     @Test
@@ -204,5 +214,59 @@ class TestCalibrationController {
         assertNull(arena.projection.value)
         assertNull(fixture.camera.bounds)
         assertTrue(order.isEmpty())
+
+        assertTrue(fixture.events.contains("auto off"))
+        assertTrue(fixture.events.contains("camera calibrating false"))
+        fixture.fire(CalibrationFlow.DETECTION_RESTART_DELAY)
+        assertTrue(fixture.events.contains("camera detecting true"))
+    }
+
+    @Test
+    fun closingThenReopeningStartsFreshWithNoStaleState() {
+        val restarts = mutableListOf<String>()
+        fixture.restartExercise = Optional.of(Runnable { restarts += "restart" })
+        startOnTheProjector()
+        assertEquals(1, fixture.events.count { it == "stop exercise" })
+
+        controller.arenaClosing()
+
+        // Reopening straight onto the (still full screen) projector must go through a fresh start(), not
+        // a stale "already calibrating" branch left over from the cancelled session
+        controller.fullScreenChanged(true)
+
+        assertEquals(2, fixture.events.count { it == "stop exercise" })
+        assertTrue(controller.state.value.calibrating)
+        assertEquals(Message.AUTO_CALIBRATING, controller.state.value.message)
+
+        controller.toggle()
+        assertEquals(listOf("restart"), restarts)
+    }
+
+    @Test
+    fun aCalibratedRunnableQueuedBeforeTheArenaClosesDoesNothingAfter() {
+        val uiTasks = mutableListOf<Runnable>()
+        val fixture = CalibrationFixture(uiThread = { uiTasks += it })
+        val controller = fixture.controller
+        val arena = fixture.arena
+
+        controller.toggle()
+        arena.setFullScreen(true)
+        controller.fullScreenChanged(true)
+        fixture.fire(CalibrationFlow.FULL_SCREEN_SETTLE_DELAY)
+        uiTasks.removeAt(0).run()
+        assertEquals(Message.AUTO_CALIBRATING, controller.state.value.message)
+
+        controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+        assertEquals(1, uiTasks.size)
+        val queuedCompletion = uiTasks.removeAt(0)
+
+        controller.arenaClosing()
+
+        // The stale completion, queued before the close, must do nothing now that it finally runs
+        queuedCompletion.run()
+
+        assertNull(arena.projection.value)
+        assertNull(fixture.camera.bounds)
+        assertFalse(controller.state.value.calibrating)
     }
 }

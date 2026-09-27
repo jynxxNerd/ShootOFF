@@ -347,6 +347,50 @@ class TestCalibrationFlow {
 	}
 
 	@Test
+	void cancelEndsCalibrationWithNoBackgroundRestoreOrRestartAndReEnablesDetection() {
+		projectorExerciseRunning = true;
+		final CalibrationFlow flow = flow();
+		flow.start();
+		events.clear();
+
+		flow.cancel();
+
+		assertFalse(flow.isCalibrating());
+		assertEquals(List.of("camera stops looking", "hide AUTO_CALIBRATING", "calibrate button calibrating false",
+				"restore selected view", "camera calibrating false", "camera detecting false"), events);
+		assertFalse(events.contains("restore background"));
+		assertFalse(events.contains("restart exercise"));
+		assertFalse(projectorExerciseRunning, "the drill was stopped, not restarted");
+
+		// The auto-calibration timeout is cancelled: firing it does nothing, so it never opens the box
+		assertTrue(timers.get(0).future().isCancelled());
+		events.clear();
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT);
+		assertEquals(List.of(), events);
+
+		// Shot detection comes back after the usual delay
+		runTimers(CalibrationFlow.DETECTION_RESTART_DELAY);
+		assertEquals(List.of("camera detecting true"), events);
+	}
+
+	@Test
+	void aStartAfterCancelWorksNormallyWithMessagesShownAgain() {
+		projectorExerciseRunning = true;
+		final CalibrationFlow flow = flow();
+		flow.start();
+		flow.cancel();
+		events.clear();
+
+		projectorExerciseRunning = true;
+		flow.start();
+
+		assertTrue(flow.isCalibrating());
+		assertEquals(List.of("stop exercise", "arena shots visible false", "calibrate button calibrating true",
+				"camera calibrating true", "camera bounds null", "arena hides its targets", "save background",
+				"show pattern", "camera looks for the pattern", "show AUTO_CALIBRATING"), events);
+	}
+
+	@Test
 	void theCalibratedFeedBehaviorDecidesCroppingAndLimiting() {
 		final CalibrationFlow flow = flow();
 
