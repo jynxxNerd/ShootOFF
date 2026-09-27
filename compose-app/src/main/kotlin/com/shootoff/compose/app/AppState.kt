@@ -598,8 +598,17 @@ class AppState(
     // its calibration was made with that camera, so it goes: calibration or a check under way ends, the arena
     // says "Needs Calibration" again, and the running drill pauses if it has a Pause button, camera drills
     // included; a projector drill with none is stopped instead, as calibration stops one too.
+    //
+    // Final review (Plan 7): pauseOrStopProjectorDrill() only ever touches a projector drill (it returns
+    // empty for anything else), so a running camera drill needs its own pauseDrill() call here to actually
+    // pause on camera loss.
     private fun detachCamera() {
-        pauseOrStopProjectorDrill()
+        val running = runner.running.value
+        if (running != null && running.host.isProjector) {
+            pauseOrStopProjectorDrill()
+        } else if (running != null) {
+            pauseDrill()
+        }
         // Review fix (Task 8 round 2): a drill a measurement was holding back is dropped, not restarted —
         // there's no camera left to calibrate it with, or to measure the pattern against (spec §8 Revision 2,
         // decision 7)
@@ -783,7 +792,7 @@ class AppState(
         if (!settings.rememberCalibration()) return
         checkState.value = CheckState.Measuring
         watchArenaForPattern(arena) {
-            val measurement = { PatternMeasurement("Calibration measurement", detector(camera), checkClock, Optional.of(calibration.bounds)).work() }
+            val measurement = { PatternMeasurement("Calibration measurement", uncroppedDetector(camera, calibration), checkClock, Optional.of(calibration.bounds)).work() }
             startPatternRun(arena, camera, measurement) { result ->
                 checkState.value = CheckState.Idle
                 if (result is PatternMeasurement.Measured && currentCalibration === calibration && settings.rememberCalibration()) {
@@ -795,6 +804,31 @@ class AppState(
                 // Measured or not, the measurement is over: a drill it held back from restarting runs now
                 // (Task 8 review fix)
                 runDeferredDrillRestart()
+            }
+        }
+    }
+
+    // With CalibrationOption.CROP, CameraManager crops every frame to the projection before frameTap hands
+    // it to the measurement (CameraManager, around updateFrame's crop and updateBackground calls), so the
+    // detector's rects are relative to the crop's own top-left corner, not the camera's full frame. The
+    // saved median must be in full-frame coordinates, to match the relaunch check's own (uncropped)
+    // detections (spec §8 Revision 2, decision 3's "both sides measure the same way"), so [calibration]'s
+    // own origin — the crop's own rectangle — is added back to every detection while cropping is on.
+    //
+    // Final review (Plan 7): turning cropping off for the measurement's duration, and back on afterwards,
+    // was the other option; it was rejected because restoring it needs a call on every one of the
+    // measurement's several end paths (done, cancel, stopCheckQuietly, camera loss, arena close) — a single
+    // missed one would leave the Setup feed uncropped, or a later measurement uncorrected. Adding the
+    // offset back here is a pure, stateless correction with nothing left to restore.
+    private fun uncroppedDetector(camera: CameraManager, calibration: SavedCalibration): CalibrationCheck.Detector<BufferedImage> {
+        val base = detector(camera)
+        return CalibrationCheck.Detector { frame ->
+            base.detect(frame).map { detected ->
+                if (camera.isCroppingFeedToProjection) {
+                    Rect(detected.minX + calibration.bounds.minX, detected.minY + calibration.bounds.minY, detected.width, detected.height)
+                } else {
+                    detected
+                }
             }
         }
     }
@@ -1012,10 +1046,10 @@ class AppState(
         return true
     }
 
-    // Pauses the running drill if it has a Pause button (camera drills included); a projector drill with
-    // none is stopped instead, since nothing else can hold it off the arena while the arena isn't
-    // available to it (calibrating, or, per spec §8 Revision 2 decision 7, the camera gone). Returns what
-    // starts it again, for calibration to use afterwards; empty when nothing was stopped.
+    // For a running projector drill only (a camera drill is left to detachCamera's own pauseDrill() call):
+    // pauses it if it has a Pause button, or stops it instead, since nothing else can hold it off the arena
+    // while the arena isn't available to it (calibrating, or, per spec §8 Revision 2 decision 7, the camera
+    // gone). Returns what starts it again, for calibration to use afterwards; empty when nothing was stopped.
     private fun pauseOrStopProjectorDrill(): Optional<Runnable> {
         val running = runner.running.value
         return when {

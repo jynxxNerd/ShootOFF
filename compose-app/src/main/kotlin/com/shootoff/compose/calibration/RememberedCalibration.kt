@@ -23,6 +23,7 @@ import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.calibration.PatternMeasurement
+import com.shootoff.compose.app.sameCamera
 import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.config.SavedCalibration
@@ -85,7 +86,9 @@ fun CheckState.text(): String? = when (this) {
  */
 fun savedCalibrationMismatch(saved: SavedCalibration, camera: String, feed: Size, screen: Rect?): String? = when {
     screen == null -> "No projector screen found"
-    saved.camera != camera -> "The saved calibration was made with another camera (${saved.camera})"
+    // sameCamera (CameraSource.kt): a replug can renumber the camera onto another /dev/videoN, which is all
+    // that differs between the saved name and the plugged-in one's
+    !sameCamera(saved.camera, camera) -> "The saved calibration was made with another camera (${saved.camera})"
     saved.feed != feed -> "The saved calibration was made at ${describe(saved.feed)}; the camera is at ${describe(feed)}"
     saved.screen != Size(screen.width, screen.height) ->
         "The saved calibration was made for a ${describe(saved.screen)} projector; this one is ${describe(Size(screen.width, screen.height))}"

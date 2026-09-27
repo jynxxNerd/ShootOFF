@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,6 +116,20 @@ public final class CameraFactory {
 		return Optional.ofNullable(defaultCam);
 	}
 
+	// A sarxos webcam name ends in its real device node, e.g. "UVC Camera (046d:0825) /dev/video2".
+	private static final Pattern DEVICE_NODE = Pattern.compile("/dev/video(\\d+)$");
+
+	/**
+	 * The device index a webcam opens at: the trailing <tt>/dev/videoN</tt> in <tt>cameraName</tt>, if it has
+	 * one (the real node, which a replug can leave out of step with the webcam list's own order), else
+	 * <tt>position</tt>, the camera's place in that list. Linux-only in effect, since only sarxos names on
+	 * Linux carry a device node; elsewhere every name falls back to <tt>position</tt>, as before.
+	 */
+	static int deviceIndex(String cameraName, int position) {
+		final Matcher m = DEVICE_NODE.matcher(cameraName);
+		return m.find() ? Integer.parseInt(m.group(1)) : position;
+	}
+
 	public static List<Camera> getWebcams() {
 		if (isMac) return knownWebcams;
 
@@ -122,11 +138,12 @@ public final class CameraFactory {
 		int cameraIndex = 0;
 		for (final Webcam w : Webcam.getWebcams()) {
 			final boolean ipCamera = w.getDevice() instanceof IpCamDevice;
+			final int nodeIndex = ipCamera ? cameraIndex : deviceIndex(w.getName(), cameraIndex);
 
 			// OpenCV opens camera index N as /dev/videoN. A node that can't capture video (a UVC webcam's
 			// metadata node, listed under the same name as its camera) is left out; its index still counts.
-			if (!ipCamera && SystemInfo.isLinux() && !V4l2Controls.isCaptureNode("/dev/video" + cameraIndex)) {
-				logger.debug("{} at /dev/video{} doesn't capture video: not listed", w.getName(), cameraIndex);
+			if (!ipCamera && SystemInfo.isLinux() && !V4l2Controls.isCaptureNode("/dev/video" + nodeIndex)) {
+				logger.debug("{} at /dev/video{} doesn't capture video: not listed", w.getName(), nodeIndex);
 				cameraIndex++;
 				continue;
 			}
@@ -135,7 +152,7 @@ public final class CameraFactory {
 			if (ipCamera)
 				c = new IpCamera(w);
 			else
-				c = new SarxosCaptureCamera(w.getName(), cameraIndex);
+				c = new SarxosCaptureCamera(w.getName(), nodeIndex);
 
 			synchronized (openCameras) {
 				// If we already have an open instance of the camera

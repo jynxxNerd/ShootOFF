@@ -98,9 +98,34 @@ object AppFixture {
         override fun stop() {}
     }
 
+    /**
+     * A camera (feed) drill that pauses as [PausingDrill] does, but doesn't use the arena: a running non-projector
+     * drill should still pause when the camera it depends on is lost.
+     */
+    class PausingFeedDrill : Exercise {
+        override fun metadata() = ExerciseMetadata("Pausing feed drill", "1.0", "ShootOFF tests", "Pauses like the par drill, on the camera feed")
+
+        override fun start(host: ExerciseHost) {
+            var paused = false
+            lateinit var button: ButtonHandle
+            button = host.addButton("Pause") {
+                paused = !paused
+                button.setLabel(if (paused) "Resume" else "Pause")
+                host.pauseShotDetection(paused)
+            }
+        }
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {}
+
+        override fun stop() {}
+    }
+
     val projectorDrill = V2ExerciseEntry(ProjectorDrill::class.java, ProjectorDrill().metadata())
     val feedDrill = V2ExerciseEntry(FeedDrill::class.java, FeedDrill().metadata())
     val pausingDrill = V2ExerciseEntry(PausingDrill::class.java, PausingDrill().metadata())
+    val pausingFeedDrill = V2ExerciseEntry(PausingFeedDrill::class.java, PausingFeedDrill().metadata())
     val unpausableDrill = V2ExerciseEntry(UnpausableDrill::class.java, UnpausableDrill().metadata())
 
     /** A camera source with one [TestCamera], which the app opens at start */
@@ -123,6 +148,7 @@ object AppFixture {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
         catalog.registerExercise(feedDrill)
+        catalog.registerExercise(pausingFeedDrill)
         return AppState(
             settings,
             catalog,

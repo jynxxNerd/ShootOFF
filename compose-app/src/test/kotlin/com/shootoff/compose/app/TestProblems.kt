@@ -173,6 +173,25 @@ class TestProblems {
         }
     }
 
+    // Final review (Plan 7): detachCamera moved to pauseOrStopProjectorDrill(), which does nothing for a
+    // non-projector (camera feed) drill; a camera drill with a Pause button must still pause when the camera
+    // it depends on is lost.
+    @Test
+    fun losingTheCameraPausesARunningCameraDrill() {
+        val app = AppFixture.appWithCamera()
+        try {
+            app.openStartCamera()
+            assertTrue(app.startDrill(AppFixture.pausingFeedDrill))
+            awaitTrue { app.drill.buttons.value.any { it.label == "Pause" } }
+
+            app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+
+            awaitTrue { app.drill.buttons.value.any { it.label == "Resume" } }
+        } finally {
+            app.close()
+        }
+    }
+
     @Test
     fun lowFpsAndBrightnessAreBannersOnTheFeed() {
         app.openStartCamera()

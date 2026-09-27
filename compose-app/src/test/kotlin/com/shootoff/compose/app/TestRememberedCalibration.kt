@@ -5,6 +5,7 @@ import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.savedCalibrationMismatch
+import com.shootoff.config.CalibrationOption
 import com.shootoff.config.SavedCalibration
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
@@ -128,6 +129,28 @@ class TestRememberedCalibration {
         assertEquals(emptyMap<String, String>(), savedKeys())
     }
 
+    // Final review (Plan 7): with CalibrationOption.CROP, CameraManager crops each frame to the projection
+    // before ComposeCameraView.frameTap hands it to the measurement, so the detector sees the pattern near
+    // the crop's own origin, not full-frame coordinates. The saved median must be shifted back by the
+    // crop's own origin, so it lines up with the relaunch check's full-frame detections.
+    @Test
+    fun withCropOnTheMeasuredMedianIsInFullFrameCoordinates() {
+        app.setRememberCalibration(true)
+        app.settings.setCalibratedFeedBehavior(CalibrationOption.CROP)
+        openArenaOnTheProjector()
+        // As a cropped frame's detector would report it: near the crop's own origin, not the camera's
+        seen.set(Optional.of(Rect(2.0, -1.0, 400.0, 300.0)))
+
+        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
+
+        assertTrue(app.camera.value!!.isCroppingFeedToProjection)
+        assertEquals(CheckState.Measuring, app.check.value)
+        sendFramesUntil { app.check.value == CheckState.Idle }
+
+        // The crop's origin (100, 80) added back to the detection (2, -1): full-frame coordinates
+        assertEquals("102.0,79.0,400.0,300.0", savedKeys()["shootoff.arena.calibration.bounds"])
+    }
+
     @Test
     fun openingTheArenaChecksTheSavedCalibrationAndKeepsItWhenThePatternIsInPlace() {
         remembered()
@@ -189,6 +212,20 @@ class TestRememberedCalibration {
             "The saved calibration was made at 640×480; the camera is at 1280×720",
             savedCalibrationMismatch(saved, "Test camera", Size(1280.0, 720.0), projector),
         )
+    }
+
+    // Final review (Plan 7): a replugged camera can re-enumerate under another /dev/videoN, so the saved
+    // camera's name and the plugged-in one's differ only in that trailing device path; the match must use
+    // compose-app's sameCamera helper (CameraSource.kt), not an exact name comparison.
+    @Test
+    fun savedCalibrationMismatchMatchesACameraRenumberedToAnotherDeviceNode() {
+        val projector = Rect(4480.0, 0.0, 1280.0, 720.0)
+        val feed = Size(640.0, 480.0)
+        val savedOnVideo0 = SavedCalibration(
+            "UVC Camera (046d:0825) /dev/video0", feed, Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(),
+        )
+
+        assertNull(savedCalibrationMismatch(savedOnVideo0, "UVC Camera (046d:0825) /dev/video2", feed, projector))
     }
 
     @Test
