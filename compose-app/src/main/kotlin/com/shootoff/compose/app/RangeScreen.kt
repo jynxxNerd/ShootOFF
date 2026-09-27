@@ -28,6 +28,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -83,6 +84,18 @@ import com.shootoff.compose.theme.Range
 import kotlinx.coroutines.delay
 import java.awt.Cursor
 
+/** The big view never shrinks under this, however tall the tray is asked to be */
+private const val MIN_VIEW_HEIGHT = 160f
+private const val TRAY_HANDLE_HEIGHT = 8f
+
+/**
+ * The tray's height as drawn: [trayHeight] (what the user set, and what's saved), unless
+ * [availableHeight] is too short to give the big view [MIN_VIEW_HEIGHT] dp above it. Layout only —
+ * the stored preference is never touched by this.
+ */
+fun clampedTrayHeight(trayHeight: Float, availableHeight: Float): Float =
+    trayHeight.coerceAtMost((availableHeight - TRAY_HANDLE_HEIGHT - MIN_VIEW_HEIGHT).coerceAtLeast(0f))
+
 /**
  * The Range screen: the big view (the camera feed or the arena) with the Camera | Arena switch, the
  * drill card and the status strip over it, and the tray with the shot timer and the drill's settings.
@@ -92,22 +105,25 @@ fun RangeScreen(app: AppState, modifier: Modifier = Modifier) {
     val trayHeight by app.trayHeight.collectAsState()
     val collapsed by app.trayCollapsed.collectAsState()
     val density = LocalDensity.current
-    Column(modifier.fillMaxSize().padding(end = 8.dp, top = 8.dp, bottom = 8.dp)) {
-        BigViewArea(app, Modifier.weight(1f).fillMaxWidth())
-        // Drag the tray's edge to size it
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .pointerHoverIcon(PointerIcon(Cursor(Cursor.N_RESIZE_CURSOR)))
-                .draggable(
-                    orientation = Orientation.Vertical,
-                    enabled = !collapsed,
-                    state = rememberDraggableState { delta -> app.setTrayHeight(app.trayHeight.value - with(density) { delta.toDp().value }) },
-                )
-                .testTag("tray-handle"),
-        )
-        Tray(app, collapsed, Modifier.fillMaxWidth().animateContentSize().height(if (collapsed) 36.dp else trayHeight.dp))
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val shownTrayHeight = clampedTrayHeight(trayHeight, maxHeight.value)
+        Column(Modifier.fillMaxSize().padding(end = 8.dp, top = 8.dp, bottom = 8.dp)) {
+            BigViewArea(app, Modifier.weight(1f).fillMaxWidth())
+            // Drag the tray's edge to size it
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .pointerHoverIcon(PointerIcon(Cursor(Cursor.N_RESIZE_CURSOR)))
+                    .draggable(
+                        orientation = Orientation.Vertical,
+                        enabled = !collapsed,
+                        state = rememberDraggableState { delta -> app.setTrayHeight(app.trayHeight.value - with(density) { delta.toDp().value }) },
+                    )
+                    .testTag("tray-handle"),
+            )
+            Tray(app, collapsed, Modifier.fillMaxWidth().animateContentSize().height(if (collapsed) 36.dp else shownTrayHeight.dp))
+        }
     }
 }
 

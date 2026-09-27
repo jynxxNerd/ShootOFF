@@ -80,7 +80,8 @@ fun main() {
         val placement by app.arenaPlacement.collectAsState()
         val running by app.runner.running.collectAsState()
         val dark by app.dark.collectAsState()
-        val remembered = app.prefs.window
+        // A saved place that no longer reaches a current screen (a monitor unplugged) is discarded
+        val remembered = app.prefs.window?.let { placeMainWindow(it, app.screensNow()) }
         val state = rememberWindowState(
             position = remembered?.let { WindowPosition(it.x.dp, it.y.dp) } ?: WindowPosition.PlatformDefault,
             size = remembered?.let { DpSize(it.width.dp, it.height.dp) } ?: DpSize(1280.dp, 860.dp),
