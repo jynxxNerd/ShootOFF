@@ -52,7 +52,9 @@ import com.shootoff.geom.Size
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.shots.RangeReset
 import com.shootoff.util.TimerPool
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -65,6 +67,7 @@ import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.EventQueue
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicInteger
 
 /** The Range screen's big view */
 enum class BigView { CAMERA, ARENA }
@@ -74,7 +77,9 @@ enum class BigView { CAMERA, ARENA }
  * timer, and where the user is. Composables read it; user actions call it.
  *
  * @param screens the screens the arena can go on, in AWT's coordinates
- * @param uiThread runs calibration's timers on the UI thread
+ * @param uiThread runs calibration's timers, and the results of camera work, on the UI thread
+ * @param background runs the app's watchers
+ * @param io opens and lists cameras, which can take seconds, off the UI thread
  */
 class AppState(
     val settings: Settings,
@@ -83,9 +88,11 @@ class AppState(
     private val screens: () -> List<Rect> = ArenaScreens::screens,
     private val clock: AnimationClock = AnimationClock.background,
     private val uiThread: (Runnable) -> Unit = EventQueue::invokeLater,
+    background: CoroutineDispatcher = Dispatchers.Default,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : CalibrationViews {
     private val logger = LoggerFactory.getLogger(AppState::class.java)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + background)
 
     val displaySize = Size(settings.displayWidth.toDouble(), settings.displayHeight.toDouble())
     val cameras = CamerasSupervisor(settings)
@@ -102,6 +109,12 @@ class AppState(
     private val placementState = MutableStateFlow<ArenaPlacement?>(null)
     private val calibrationState = MutableStateFlow<CalibrationController?>(null)
     private val cameraState = MutableStateFlow<CameraManager?>(null)
+    private val problemState = MutableStateFlow<String?>(null)
+    private val openingState = MutableStateFlow<String?>(null)
+    private val cameraListState = MutableStateFlow<List<Camera>?>(null)
+
+    // Which camera open is the latest: an open that finishes after a newer one (or after the app closed) is dropped
+    private val openGeneration = AtomicInteger()
     private val destinationState = MutableStateFlow(Destination.RANGE)
     private val viewState = MutableStateFlow(BigView.CAMERA)
     private var viewBeforeCalibration: BigView? = null
@@ -117,6 +130,18 @@ class AppState(
 
     /** The open camera, or null */
     val camera: StateFlow<CameraManager?> = cameraState.asStateFlow()
+
+    /** Why there is no camera, if something went wrong */
+    val cameraProblem: StateFlow<String?> = problemState.asStateFlow()
+
+    /** The name of the camera being opened in the background, or null */
+    val openingCamera: StateFlow<String?> = openingState.asStateFlow()
+
+    /** The cameras plugged in, as last found by [refreshCameras]; null until found */
+    val cameraList: StateFlow<List<Camera>?> = cameraListState.asStateFlow()
+
+    /** Problems for the user from code without a user interface (see Settings.setUserNotifier) */
+    val notices = Notices()
 
     val destination: StateFlow<Destination> = destinationState.asStateFlow()
     val view: StateFlow<BigView> = viewState.asStateFlow()
@@ -134,6 +159,12 @@ class AppState(
     )
 
     val cameraView = ComposeCameraView("Default", feed, feedSurface)
+
+    /**
+     * What the cameras report their troubles to. A camera is lost on its own thread; the app closes it, and
+     * the arena it calibrated, on the UI thread, where the arena and calibration are changed.
+     */
+    val cameraProblems = CameraProblems(settings, feed, { problemState.value = it }) { camera -> uiThread(Runnable { cameraLost(camera) }) }
 
     private val feedCommands = RegionCommandRunner(feedTargets, settings, ::reset, ::exerciseResources)
 
@@ -165,24 +196,80 @@ class AppState(
         cameraSource.startCamera(settings)?.let(::openCamera)
     }
 
-    fun availableCameras(): List<Camera> = cameraSource.cameras()
+    /** Looks for the cameras plugged in, off the UI thread (it can take seconds), and publishes them in [cameraList]. */
+    fun refreshCameras() {
+        scope.launch(io) {
+            cameraListState.value = try {
+                cameraSource.cameras()
+            } catch (e: Exception) {
+                logger.error("Couldn't list the cameras", e)
+                emptyList()
+            }
+        }
+    }
 
     /**
-     * Opens [camera] in place of the open one.
+     * Opens [camera] in place of the open one, on the calling thread. It can block for as long as the
+     * hardware takes; the UI uses [openCameraInBackground].
      *
      * @return false if it can't be opened
      */
     fun openCamera(camera: Camera): Boolean {
+        val generation = releaseCamera()
+        return publish(generation, camera, cameras.addCameraManager(camera, cameraProblems, cameraView).orElse(null))
+    }
+
+    /**
+     * Opens [camera] in place of the open one without blocking the calling (UI) thread: the open one, and
+     * the arena it calibrated, close at once; [openingCamera] names [camera] while it opens on the I/O
+     * dispatcher; then [then] hears on the UI thread whether it opened.
+     */
+    fun openCameraInBackground(camera: Camera, then: (Boolean) -> Unit = {}) {
+        val generation = releaseCamera()
+        openingState.value = camera.name
+        scope.launch(io) {
+            val manager = cameras.addCameraManager(camera, cameraProblems, cameraView).orElse(null)
+            uiThread(Runnable { then(publish(generation, camera, manager)) })
+        }
+    }
+
+    // Closes the open camera, and the arena it calibrated, as the JavaFX app's arena closes with its camera
+    // (ruling 13). Returns the new open's generation.
+    private fun releaseCamera(): Int {
+        val generation = openGeneration.incrementAndGet()
+        if (cameraState.value != null) closeArena()
         cameraState.value?.let(cameras::clearManager)
         cameraState.value = null
+        feed.clearFrame()
+        return generation
+    }
 
-        val manager = cameras.addCameraManager(camera, null, cameraView).orElse(null)
-        if (manager == null) {
-            logger.error("Cannot open the webcam {}", camera.name)
+    // An open finished: shows its camera, or why it couldn't open, unless a newer open (or the app closing)
+    // has replaced it
+    private fun publish(generation: Int, camera: Camera, manager: CameraManager?): Boolean {
+        if (generation != openGeneration.get()) {
+            manager?.let(cameras::clearManager)
             return false
         }
+        openingState.value = null
+        if (manager == null) {
+            logger.error("Cannot open the webcam {}", camera.name)
+            cameraProblems.showCameraLockError(camera, false)
+            return false
+        }
+        problemState.value = null
         cameraState.value = manager
         return true
+    }
+
+    // The camera stopped answering: close it, so the feed shows the picker and not its last frame, and close
+    // the arena it calibrated
+    private fun cameraLost(camera: Camera) {
+        val manager = cameraState.value ?: return
+        if (manager.camera !== camera) return
+        closeArena()
+        cameraState.value = null
+        cameras.clearManager(manager)
     }
 
     // ---- The arena
@@ -225,7 +312,9 @@ class AppState(
         // Calibration hears the arena going full screen, as the JavaFX arena tells it
         // on the UI thread, as calibration's other inputs are, and only while this arena is still the open one:
         // the flow starts calibrating on a full-screen change, which must never happen after the arena closed
-        fullScreenWatch = scope.launch {
+        // Started undispatched, so it is watching before this returns: a flip right after the arena opens is
+        // not taken for the value drop(1) skips
+        fullScreenWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             arena.fullScreen.drop(1).collect { fullScreen ->
                 uiThread(Runnable { if (calibrationState.value === controller) controller.fullScreenChanged(fullScreen) })
             }
@@ -253,14 +342,11 @@ class AppState(
         calibrationState.value?.toggle()
     }
 
-    fun calibrationStatus(): CalibrationStatus {
-        val arena = arenaState.value ?: return CalibrationStatus.NO_ARENA
-        return when {
-            calibrationState.value?.state?.value?.calibrating == true -> CalibrationStatus.CALIBRATING
-            arena.projection.value != null -> CalibrationStatus.CALIBRATED
-            else -> CalibrationStatus.NEEDS_CALIBRATION
-        }
-    }
+    fun calibrationStatus(): CalibrationStatus = calibrationStatus(
+        arenaState.value != null,
+        calibrationState.value?.state?.value?.calibrating == true,
+        arenaState.value?.projection?.value != null,
+    )
 
     private fun arenaCommands(arena: ArenaModel) = RegionCommandRunner(arena.targets, settings, ::reset, ::exerciseResources, toCamera = { point ->
         // poi_adjust measures the region's center on the camera feed, through the calibrated projection
@@ -315,9 +401,19 @@ class AppState(
 
     /** Stops everything, for the app's exit */
     fun close() {
+        // A camera still opening is closed when it finishes
+        openGeneration.incrementAndGet()
         runner.stop()
         closeArena()
         cameras.closeAll()
         scope.cancel()
     }
+}
+
+/** What the status strip says about calibration */
+fun calibrationStatus(arenaOpen: Boolean, calibrating: Boolean, calibrated: Boolean): CalibrationStatus = when {
+    !arenaOpen -> CalibrationStatus.NO_ARENA
+    calibrating -> CalibrationStatus.CALIBRATING
+    calibrated -> CalibrationStatus.CALIBRATED
+    else -> CalibrationStatus.NEEDS_CALIBRATION
 }

@@ -64,6 +64,7 @@ fun main() {
     plugins.startWatching()
 
     val app = AppState(settings, catalog, CameraSource.System)
+    Settings.setUserNotifier(app.notices)
     app.openStartCamera()
 
     application {

@@ -111,6 +111,11 @@ public class PluginEngine implements Runnable {
 			// loading, or kill the plugin watcher thread.
 			logger.error("Skipping plugin {}: it is missing a class it needs", jarPath, e);
 			return false;
+		} catch (final UnsupportedApiVersionException e) {
+			// Not broken, only for another app (e.g. a v1 exercise where only v2 exercises run): one quiet line
+			logger.info("Skipping {}: it needs plugin API version {}, which this app doesn't run",
+					jarPath.getFileName(), e.getApiVersion());
+			return false;
 		} catch (final Exception e) {
 			logger.error("Error creating new plugin", e);
 			return false;

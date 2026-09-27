@@ -31,6 +31,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,7 +59,10 @@ private val logger = LoggerFactory.getLogger("com.shootoff.compose.app.SettingsS
 fun SettingsScreen(app: AppState, modifier: Modifier = Modifier) {
     val colors = Range.colors
     val openCamera by app.camera.collectAsState()
-    val cameras = remember { app.availableCameras() }
+    // Listed, and a picked one opened, off the UI thread: both can take seconds
+    val cameras by app.cameraList.collectAsState()
+    val opening by app.openingCamera.collectAsState()
+    LaunchedEffect(Unit) { app.refreshCameras() }
     var markerRadius by remember { mutableIntStateOf(app.settings.markerRadius) }
     var arenaScreen by remember { mutableStateOf(app.arenaPlacementNow().screen) }
     val screens = remember { app.screensNow() }
@@ -67,15 +71,22 @@ fun SettingsScreen(app: AppState, modifier: Modifier = Modifier) {
         Text("Settings", fontSize = 22.sp, color = colors.text)
 
         Section("Camera") {
-            if (cameras.isEmpty()) Text("No cameras found.", color = colors.muted)
-            for (camera in cameras) {
+            val found = cameras
+            when {
+                found == null -> Text("Looking for cameras…", color = colors.muted)
+                found.isEmpty() -> Text("No cameras found.", color = colors.muted)
+            }
+            for (camera in found.orEmpty()) {
                 Choice(camera.name, openCamera?.camera == camera, "camera-${camera.name}") {
-                    if (app.openCamera(camera)) {
-                        app.settings.setWebcams(listOf(camera.name), listOf(camera))
-                        save(app)
+                    app.openCameraInBackground(camera) { opened ->
+                        if (opened) {
+                            app.settings.setWebcams(listOf(camera.name), listOf(camera))
+                            save(app)
+                        }
                     }
                 }
             }
+            opening?.let { Text("Opening camera $it…", color = colors.muted, modifier = Modifier.testTag("opening-camera")) }
         }
 
         Section("Shot marker size") {

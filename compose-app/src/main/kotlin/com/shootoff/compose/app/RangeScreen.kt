@@ -92,6 +92,8 @@ private fun BigViewArea(app: AppState, modifier: Modifier) {
     val running by app.runner.running.collectAsState()
     val message by app.drill.message.collectAsState()
     val calibration by app.calibration.collectAsState()
+    val camera by app.camera.collectAsState()
+    val failure by app.runner.failure.collectAsState()
     val colors = Range.colors
     val projectorDrill = running?.host?.isProjector == true
 
@@ -102,6 +104,8 @@ private fun BigViewArea(app: AppState, modifier: Modifier) {
                 ArenaView(shownArena, Modifier.fillMaxSize()) { transform ->
                     if (projectorDrill) ExerciseOverlay(app.drill, transform)
                 }
+            } else if (camera == null) {
+                NoCameraPanel(app)
             } else {
                 CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
                     TargetLayer(app.feedTargets, transform)
@@ -117,6 +121,7 @@ private fun BigViewArea(app: AppState, modifier: Modifier) {
             }
             DrillCard(app.drill, Modifier.align(Alignment.TopEnd).padding(10.dp))
             Column(Modifier.align(Alignment.TopCenter).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                failure?.let { BannerView(Banner(-1, it, BannerKind.ERROR), onDismiss = app.runner::dismissFailure) }
                 message?.let { BannerView(Banner(0, it, BannerKind.INFO), onDismiss = { app.drill.setMessage(null) }) }
                 FeedBanners(app.feed)
             }
@@ -131,9 +136,11 @@ fun ViewSwitch(app: AppState) {
     val view by app.view.collectAsState()
     val arena by app.arena.collectAsState()
     val colors = Range.colors
+    // Looking for the projector asks AWT about every screen: once per arena change, not on every recomposition
+    val projectorFound = remember(arena) { arena == null && app.projectorScreenFound() }
     val arenaHint = when {
         arena != null -> null
-        app.projectorScreenFound() -> "Open the arena first"
+        projectorFound -> "Open the arena first"
         else -> "No projector screen found"
     }
 
@@ -204,6 +211,11 @@ private fun RangeActions(app: AppState) {
 private fun StatusLine(app: AppState, modifier: Modifier) {
     val camera by app.camera.collectAsState()
     val shownFps by app.feed.fps.collectAsState()
+    // Calibration's status, collected so the strip follows each change
+    val arena by app.arena.collectAsState()
+    val calibration by app.calibration.collectAsState()
+    val calibrating = calibration?.state?.collectAsState()?.value?.calibrating == true
+    val calibrated = arena?.projection?.collectAsState()?.value != null
     var cameraFps by remember { mutableStateOf(0.0) }
     // The camera's own frame rate, read once a second
     LaunchedEffect(camera) {
@@ -220,7 +232,7 @@ private fun StatusLine(app: AppState, modifier: Modifier) {
             shownFps,
             manager.feedWidth,
             manager.feedHeight,
-            app.calibrationStatus(),
+            calibrationStatus(arena != null, calibrating, calibrated),
             app.settings.sessionRecorder.isPresent,
         ),
         modifier,

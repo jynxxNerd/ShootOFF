@@ -34,8 +34,10 @@ public class Plugin {
 	private final ExerciseEntry entry;
 
 	/**
+	 * @throws UnsupportedApiVersionException
+	 *             if none of <tt>loaders</tt> is for the jar's API version
 	 * @throws IllegalArgumentException
-	 *             if the jar isn't a plugin, or none of <tt>loaders</tt> can load its exercise
+	 *             if the jar isn't a plugin, or its version's loader can't load its exercise
 	 */
 	public Plugin(final Path jarPath, final List<ExerciseLoader> loaders) throws IOException {
 		this.jarPath = jarPath;
@@ -47,9 +49,7 @@ public class Plugin {
 
 			final ExerciseLoader exerciseLoader = loaders.stream()
 					.filter(candidate -> candidate.apiVersion() == descriptor.apiVersion()).findFirst()
-					.orElseThrow(() -> new IllegalArgumentException(String.format(
-							"%s needs plugin API version %d, which this ShootOFF doesn't support", jarPath,
-							descriptor.apiVersion())));
+					.orElseThrow(() -> new UnsupportedApiVersionException(jarPath, descriptor.apiVersion()));
 
 			final Class<?> exerciseClass;
 			try {

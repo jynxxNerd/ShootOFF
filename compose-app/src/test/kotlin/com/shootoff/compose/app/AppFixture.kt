@@ -1,6 +1,8 @@
 package com.shootoff.compose.app
 
+import com.shootoff.camera.MockCamera
 import com.shootoff.camera.Shot
+import com.shootoff.camera.cameratypes.CameraEventListener
 import com.shootoff.compose.targets.ManualClock
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
@@ -15,6 +17,16 @@ import java.util.Optional
 /** An app with no camera, the owner's three screens, and two drills in its catalog. */
 object AppFixture {
     val ownerScreens = listOf(Rect(1920.0, 0.0, 2560.0, 1440.0), Rect(0.0, 0.0, 1920.0, 1080.0), Rect(4480.0, 0.0, 1280.0, 720.0))
+
+    /** A camera that opens and sends no frames */
+    open class TestCamera(private val name: String = "Test camera") : MockCamera() {
+        override fun getName() = name
+
+        // Closing a camera clears its listener, which MockCamera doesn't allow
+        override fun setCameraEventListener(cameraEventListener: CameraEventListener?) {
+            this.cameraEventListener = Optional.ofNullable(cameraEventListener)
+        }
+    }
 
     class ProjectorDrill : Exercise {
         override fun metadata() = ExerciseMetadata("Projector drill", "2.0", "ShootOFF tests", "On the arena", true)
