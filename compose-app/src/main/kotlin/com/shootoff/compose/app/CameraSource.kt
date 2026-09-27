@@ -42,7 +42,10 @@ interface CameraSource {
         override fun startCamera(settings: Settings): Camera? =
             settings.webcams.values.firstOrNull() ?: CameraFactory.getDefault().orElse(null)
 
-        override fun current(camera: Camera): Camera? = cameras().firstOrNull { it.name == camera.name }
+        override fun current(camera: Camera): Camera? {
+            val found = cameras()
+            return found.firstOrNull { it.name == camera.name } ?: found.firstOrNull { sameCamera(it.name, camera.name) }
+        }
     }
 
     object None : CameraSource {
@@ -51,3 +54,15 @@ interface CameraSource {
         override fun startCamera(settings: Settings): Camera? = null
     }
 }
+
+private val DEVICE_PATH = Regex(""" /dev/video\d+$""")
+
+/**
+ * Whether [a] and [b] name the same physical camera: an exact match, or a match once a trailing
+ * ` /dev/videoN` device path is stripped from both sides. Sarxos camera names include the device node
+ * (e.g. "UVC Camera (046d:0825) /dev/video0"), and the node can change when a camera re-enumerates after
+ * being unplugged and replugged. Internal to the module so Task 6's reconnect can reuse it.
+ */
+internal fun sameCamera(a: String, b: String): Boolean = a == b || stripDevicePath(a) == stripDevicePath(b)
+
+private fun stripDevicePath(name: String): String = name.replace(DEVICE_PATH, "")

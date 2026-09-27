@@ -394,14 +394,15 @@ class TestProblems {
 
     @Test
     fun aCameraPluggedBackInIsFoundByNameAndThatOneOpens() {
-        val stale = SlowCamera("HD Webcam C270")
-        val replugged = AppFixture.TestCamera("HD Webcam C270")
+        // Sarxos names include the device node, and it can change when a camera re-enumerates
+        val stale = SlowCamera("UVC Camera (046d:0825) /dev/video0")
+        val replugged = AppFixture.TestCamera("UVC Camera (046d:0825) /dev/video2")
         val source = object : CameraSource {
             override fun cameras() = listOf(replugged)
 
             override fun startCamera(settings: Settings) = null
 
-            override fun current(camera: Camera) = cameras().firstOrNull { it.name == camera.name }
+            override fun current(camera: Camera) = cameras().firstOrNull { sameCamera(it.name, camera.name) }
         }
         val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), source, { AppFixture.ownerScreens }, ManualClock(), { it.run() })
         try {

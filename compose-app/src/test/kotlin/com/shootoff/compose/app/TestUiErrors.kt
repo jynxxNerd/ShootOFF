@@ -46,4 +46,59 @@ class TestUiErrors {
 
         assertEquals("ShootOFF kept running; the details are in the log.", notices.notices.value.single().message)
     }
+
+    @Test
+    fun reportingANewErrorBumpsTheGeneration() {
+        // Main keys each Window on this, so a report rebuilds it with a fresh recomposer (a composition,
+        // LaunchedEffect or pointerInput exception cancels the window's own recomposer before this handler runs)
+        val errors = UiErrors(Notices())
+        assertEquals(0, errors.generation.value)
+
+        errors.report(IllegalStateException("boom"))
+
+        assertEquals(1, errors.generation.value)
+    }
+
+    @Test
+    fun aRecurringErrorIsReportedOnceAndDoesNotKeepBumpingTheGeneration() {
+        val notices = Notices()
+        var now = 0L
+        val errors = UiErrors(notices) { now }
+
+        errors.report(IllegalStateException("boom"))
+        now += 1000
+        errors.report(IllegalStateException("boom"))
+        now += 1000
+        errors.report(IllegalStateException("boom"))
+
+        assertEquals(1, notices.notices.value.size)
+        assertEquals(1, errors.generation.value)
+    }
+
+    @Test
+    fun theSameErrorAfterTheDedupWindowPassesReportsAgain() {
+        val notices = Notices()
+        var now = 0L
+        val errors = UiErrors(notices) { now }
+
+        errors.report(IllegalStateException("boom"))
+        now += 6000
+        errors.report(IllegalStateException("boom"))
+
+        assertEquals(2, notices.notices.value.size)
+        assertEquals(2, errors.generation.value)
+    }
+
+    @Test
+    fun aDifferentErrorDuringTheDedupWindowStillReports() {
+        val notices = Notices()
+        var now = 0L
+        val errors = UiErrors(notices) { now }
+
+        errors.report(IllegalStateException("boom"))
+        errors.report(IllegalArgumentException("boom"))
+
+        assertEquals(2, notices.notices.value.size)
+        assertEquals(2, errors.generation.value)
+    }
 }

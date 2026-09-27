@@ -22,6 +22,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.key.key
@@ -89,6 +90,9 @@ fun main() {
         val placement by app.arenaPlacement.collectAsState()
         val running by app.runner.running.collectAsState()
         val dark by app.dark.collectAsState()
+        // Bumped by uiErrors.report: keying each window on it discards a window whose composition an
+        // escaped exception left frozen (its own recomposer cancelled) and rebuilds it with a fresh one
+        val generation by uiErrors.generation.collectAsState()
         // A saved place that no longer reaches a current screen (a monitor unplugged) is discarded
         val remembered = app.prefs.window?.let { placeMainWindow(it, app.screensNow()) }
         val state = rememberWindowState(
@@ -104,29 +108,35 @@ fun main() {
         }
 
         CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides uiErrors) {
-            Window(
-                onCloseRequest = ::exit,
-                state = state,
-                title = "ShootOFF",
-                onPreviewKeyEvent = { app.handleKey(it.key, it.type) },
-            ) {
-                // Where the window is tells which screen ShootOFF is on; its place and size are remembered
-                LaunchedEffect(state) {
-                    snapshotFlow { state.position to state.size }.collect { (position, size) ->
-                        app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
-                        if (position.isSpecified) {
-                            app.prefs.window = WindowBounds(position.x.value, position.y.value, size.width.value, size.height.value)
+            key(generation) {
+                Window(
+                    onCloseRequest = ::exit,
+                    state = state,
+                    title = "ShootOFF",
+                    onPreviewKeyEvent = { app.handleKey(it.key, it.type) },
+                ) {
+                    // Where the window is tells which screen ShootOFF is on; its place and size are remembered
+                    LaunchedEffect(state) {
+                        snapshotFlow { state.position to state.size }.collect { (position, size) ->
+                            app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
+                            if (position.isSpecified) {
+                                app.prefs.window = WindowBounds(position.x.value, position.y.value, size.width.value, size.height.value)
+                            }
                         }
                     }
+                    RangeTheme(dark = dark) { ShootOffApp(app) }
                 }
-                RangeTheme(dark = dark) { ShootOffApp(app) }
             }
 
             val shownArena = arena
             val shownPlacement = placement
             if (shownArena != null && shownPlacement != null) {
-                ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
-                    if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
+                // The arena's own state (ArenaModel) lives in AppState, outside composition, so rebuilding
+                // this window loses only its chrome (position, full-screen), never the arena itself
+                key(generation) {
+                    ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
+                        if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
+                    }
                 }
             }
         }
