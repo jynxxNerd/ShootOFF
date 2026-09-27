@@ -55,10 +55,6 @@ class UiPrefs(private val store: PrefsStore = PrefsStore.Memory()) {
         get() = store.get("theme") != "light"
         set(value) = store.put("theme", if (value) "dark" else "light")
 
-    var view: BigView
-        get() = store.get("view")?.let { runCatching { BigView.valueOf(it) }.getOrNull() } ?: BigView.CAMERA
-        set(value) = store.put("view", value.name)
-
     var trayHeight: Float
         get() = store.get("tray.height")?.toFloatOrNull() ?: DEFAULT_TRAY_HEIGHT
         set(value) = store.put("tray.height", value.toString())

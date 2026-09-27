@@ -34,40 +34,53 @@ class TestAppState {
     }
 
     @Test
-    fun aProjectorDrillNeedsTheArenaAndStartingGoesToTheRange() {
-        app.navigate(Destination.DRILLS)
-        assertFalse(app.startDrill(AppFixture.projectorDrill))
+    fun aProjectorDrillNeedsTheArenaOpenAndCalibrated() {
+        val cameraApp = AppFixture.appWithCamera()
+        try {
+            assertFalse(cameraApp.startDrill(AppFixture.projectorDrill))
+            cameraApp.openStartCamera()
+            cameraApp.openArena()
+            assertFalse(cameraApp.startDrill(AppFixture.projectorDrill))
 
-        app.openArena()
-        assertTrue(app.startDrill(AppFixture.projectorDrill))
+            AppFixture.setUpForProjectorDrills(cameraApp)
+            assertTrue(cameraApp.startDrill(AppFixture.projectorDrill))
 
-        assertEquals(Destination.RANGE, app.destination.value)
-        assertEquals(listOf("Pause"), waitForButtons())
+            assertEquals(Destination.RANGE, cameraApp.destination.value)
+            assertEquals(listOf("Pause"), waitForButtons(cameraApp))
+        } finally {
+            cameraApp.close()
+        }
     }
 
     @Test
     fun theArenaOpensOnTheProjectorAndClosingItStopsAProjectorDrill() {
-        app.mainWindowCorner = Point(2000.0, 100.0)
-        app.openArena()
-        assertEquals(Rect(4480.0, 0.0, 1280.0, 720.0), app.arenaPlacement.value!!.screen)
-        app.startDrill(AppFixture.projectorDrill)
-        app.showView(BigView.ARENA)
+        val cameraApp = AppFixture.appWithCamera()
+        try {
+            cameraApp.mainWindowCorner = Point(2000.0, 100.0)
+            AppFixture.setUpForProjectorDrills(cameraApp)
+            assertEquals(Rect(4480.0, 0.0, 1280.0, 720.0), cameraApp.arenaPlacement.value!!.screen)
+            assertTrue(cameraApp.startDrill(AppFixture.projectorDrill))
 
-        app.closeArena()
+            cameraApp.closeArena()
 
-        assertNull(app.arena.value)
-        assertNull(app.runner.running.value)
-        assertEquals(BigView.CAMERA, app.view.value)
+            assertNull(cameraApp.arena.value)
+            assertNull(cameraApp.runner.running.value)
+            assertNull(cameraApp.calibratedAt.value)
+        } finally {
+            cameraApp.close()
+        }
     }
 
     @Test
-    fun theArenaViewNeedsAnOpenArena() {
-        app.showView(BigView.ARENA)
-        assertEquals(BigView.CAMERA, app.view.value)
+    fun theDrillPickedIsTheFirstUntilAnotherIsPickedWhileItIsInTheCatalog() {
+        val entries = app.catalog.entries.value
+        assertEquals(AppFixture.feedDrill, app.pickedDrill(entries))
 
-        app.openArena()
-        app.showView(BigView.ARENA)
-        assertEquals(BigView.ARENA, app.view.value)
+        app.pickDrill(AppFixture.projectorDrill)
+        assertEquals(AppFixture.projectorDrill, app.pickedDrill(entries))
+
+        // Its jar was removed
+        assertEquals(AppFixture.feedDrill, app.pickedDrill(listOf(AppFixture.feedDrill)))
     }
 
     @Test
@@ -135,16 +148,21 @@ class TestAppState {
 
     @Test
     fun closingTheArenaShutsItToNewProjectorDrillsBeforeStoppingTheRunningOne() {
-        app.openArena()
-        ArenaWatchingDrill.app = app
-        assertTrue(app.startDrill(ArenaWatchingDrill.entry))
+        val cameraApp = AppFixture.appWithCamera()
+        try {
+            AppFixture.setUpForProjectorDrills(cameraApp)
+            ArenaWatchingDrill.app = cameraApp
+            assertTrue(cameraApp.startDrill(ArenaWatchingDrill.entry))
 
-        app.closeArena()
+            cameraApp.closeArena()
 
-        // By the time the drill is told to stop, no projector drill can start in its place
-        assertEquals(false, ArenaWatchingDrill.arenaOpenAtStop)
-        assertNull(app.runner.running.value)
-        assertFalse(app.startDrill(AppFixture.projectorDrill))
+            // By the time the drill is told to stop, no projector drill can start in its place
+            assertEquals(false, ArenaWatchingDrill.arenaOpenAtStop)
+            assertNull(cameraApp.runner.running.value)
+            assertFalse(cameraApp.startDrill(AppFixture.projectorDrill))
+        } finally {
+            cameraApp.close()
+        }
     }
 
     /** A projector drill that notes, as it stops, whether the arena is still open */
@@ -172,7 +190,7 @@ class TestAppState {
         }
     }
 
-    private fun waitForButtons(): List<String> {
+    private fun waitForButtons(app: AppState): List<String> {
         val deadline = System.currentTimeMillis() + 5000
         while (app.drill.buttons.value.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(5)
         return app.drill.buttons.value.map { it.label }

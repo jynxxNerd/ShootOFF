@@ -1,7 +1,9 @@
 package com.shootoff.compose.app
 
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.compose.calibration.CheckState
@@ -49,5 +51,31 @@ class TestNothingBlocksViews {
         compose.onNodeWithTag("calibration-cancel").performClick()
         compose.waitForIdle()
         assertFalse(app.calibration.value!!.state.value.calibrating)
+    }
+
+    @Test
+    fun rule4WithNoCameraAndNoProjectorEachSaysSoAndTheRestOfTheAppWorks() {
+        val bare = AppFixture.app(listOf(Rect(0.0, 0.0, 1920.0, 1080.0)))
+        try {
+            compose.setContent { RangeTheme(dark = true) { ShootOffApp(bare) } }
+
+            // Range: the no-camera panel, and a drill that needs no projector can still be picked
+            compose.onNodeWithTag("no-camera").assertExists()
+            compose.onNodeWithTag("drill-picker").assertIsEnabled()
+
+            compose.onNodeWithTag("rail-SETUP").performClick()
+            compose.onNodeWithTag("camera-missing").assertExists()
+            compose.onNodeWithTag("no-projector").assertExists()
+            // The arena still opens, as a window
+            compose.onNodeWithTag("open-arena").performClick()
+            compose.onNodeWithTag("arena-preview").assertExists()
+
+            compose.onNodeWithTag("rail-DRILLS").performClick()
+            compose.onNodeWithText("Feed drill").assertExists()
+            compose.onNodeWithTag("rail-SETTINGS").performClick()
+            compose.onNodeWithText("SHOT MARKER SIZE").assertExists()
+        } finally {
+            bare.close()
+        }
     }
 }

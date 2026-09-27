@@ -51,7 +51,7 @@ class ArenaBackground(val image: ImageBitmap, val name: String) {
 }
 
 /**
- * The projector arena: one model that both the projector window and the in-app Arena view draw, so
+ * The projector arena: one model that both the projector window and Setup's preview draw, so
  * whatever an exercise does to it (a target hidden, a background set) shows on both.
  */
 class ArenaModel(

@@ -26,7 +26,6 @@ import com.shootoff.compose.shell.Destination
  * The Compose app's keyboard shortcuts. Function keys, so they never clash with typing in a field.
  */
 enum class Shortcut(val key: Key, val label: String) {
-    SWITCH_VIEW(Key.F2, "Switch between the camera and the arena"),
     PAUSE_DRILL(Key.F3, "Pause or resume the drill"),
     CLEAR_SHOTS(Key.F4, "Clear the shots"),
     CALIBRATE(Key.F6, "Open Setup and start calibrating"),
@@ -47,10 +46,6 @@ private val PAUSE_LABELS = setOf("Pause", "Resume")
  */
 fun AppState.perform(shortcut: Shortcut): Boolean {
     when (shortcut) {
-        Shortcut.SWITCH_VIEW -> {
-            if (arena.value == null) return false
-            showView(if (view.value == BigView.CAMERA) BigView.ARENA else BigView.CAMERA)
-        }
         Shortcut.PAUSE_DRILL -> {
             val pause = drill.buttons.value.firstOrNull { it.label in PAUSE_LABELS } ?: return false
             pause.onClick()

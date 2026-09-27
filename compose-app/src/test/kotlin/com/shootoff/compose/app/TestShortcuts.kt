@@ -25,18 +25,6 @@ class TestShortcuts {
     private fun press(key: Key) = app.handleKey(key, KeyEventType.KeyDown)
 
     @Test
-    fun f2SwitchesBetweenTheCameraAndAnOpenArena() {
-        press(Key.F2)
-        assertEquals(BigView.CAMERA, app.view.value)
-
-        app.openArena()
-        press(Key.F2)
-        assertEquals(BigView.ARENA, app.view.value)
-        press(Key.F2)
-        assertEquals(BigView.CAMERA, app.view.value)
-    }
-
-    @Test
     fun f3PressesTheDrillsPauseOrResumeButton() {
         val pressed = mutableListOf<String>()
         app.drill.addButton(DrillButton(1, "Clear Shots") { pressed += "clear" })
@@ -64,7 +52,9 @@ class TestShortcuts {
         assertFalse(app.perform(Shortcut.PAUSE_DRILL))
         assertFalse(app.perform(Shortcut.CALIBRATE))
         // Only a key going down counts, and only a shortcut's
-        assertFalse(app.handleKey(Key.F2, KeyEventType.KeyUp))
+        assertFalse(app.handleKey(Key.F3, KeyEventType.KeyUp))
+        // F2 switched the view in Plan 5; there is no view to switch now
+        assertFalse(app.handleKey(Key.F2, KeyEventType.KeyDown))
         assertFalse(app.handleKey(Key.A, KeyEventType.KeyDown))
     }
 

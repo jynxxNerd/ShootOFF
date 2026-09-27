@@ -49,11 +49,12 @@ import com.shootoff.compose.theme.Range
 
 /**
  * The running drill's card, floating over the big view: its name, its texts' first lines (the first
- * one big, as the score is in the mockup) and its buttons. Nothing shows while no drill runs.
+ * one big, as the score is in the mockup), its buttons, then [actions] (Range's Stop). Nothing shows
+ * while no drill runs.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DrillCard(drill: DrillState, modifier: Modifier = Modifier) {
+fun DrillCard(drill: DrillState, modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}) {
     val name by drill.name.collectAsState()
     val texts by drill.texts.collectAsState()
     val buttons by drill.buttons.collectAsState()
@@ -102,6 +103,7 @@ fun DrillCard(drill: DrillState, modifier: Modifier = Modifier) {
                     }
                 }
             }
+            actions()
         }
     }
 }

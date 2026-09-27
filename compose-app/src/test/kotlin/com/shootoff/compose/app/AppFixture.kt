@@ -92,6 +92,18 @@ object AppFixture {
         )
     }
 
+    /**
+     * Sets [app] (with a camera) up for projector drills, as the owner does on Setup: the camera, the arena
+     * on the projector, and a calibration the camera found.
+     */
+    fun setUpForProjectorDrills(app: AppState) {
+        app.openStartCamera()
+        app.openArena()
+        app.arena.value!!.setFullScreen(true)
+        app.startCalibration()
+        app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+    }
+
     fun app(screens: List<Rect> = ownerScreens): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)

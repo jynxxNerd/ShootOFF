@@ -141,7 +141,7 @@ fun AlignmentGrid(size: GeomSize, transform: SurfaceTransform) {
     }
 }
 
-/** The in-app Arena view: the arena fitted into the Range screen's big view. */
+/** Setup's small live preview of the arena, fitted into the space it is given. */
 @Composable
 fun ArenaView(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Composable (SurfaceTransform) -> Unit = {}) {
     ArenaCanvas(arena, modifier.testTag("arena-view"), overlay)

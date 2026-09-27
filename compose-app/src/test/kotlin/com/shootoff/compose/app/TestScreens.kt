@@ -34,31 +34,6 @@ class TestScreens {
         compose.setContent { RangeTheme(dark = true) { content() } }
 
     @Test
-    fun theSwitchOffersTheArenaOnlyOnceItIsOpen() {
-        show { ShootOffApp(app) }
-
-        compose.onNodeWithTag("view-camera").assertIsSelected()
-        compose.onNodeWithTag("view-arena").assertIsNotEnabled()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Open the arena first"))
-
-        compose.onNodeWithTag("open-arena").performClick()
-        compose.onNodeWithTag("view-arena").assertIsEnabled().performClick()
-
-        compose.onNodeWithTag("view-arena").assertIsSelected()
-        compose.onNodeWithTag("arena-view").assertExists()
-    }
-
-    @Test
-    fun withoutAProjectorScreenTheSwitchSaysSo() {
-        app.close()
-        app = AppFixture.app(listOf(Rect(0.0, 0.0, 1920.0, 1080.0)))
-        show { ShootOffApp(app) }
-
-        compose.onNodeWithTag("arena-hint").assertExists()
-        compose.onNodeWithText("No projector screen found").assertExists()
-    }
-
-    @Test
     fun drillsMarkProjectorDrillsUntilTheArenaIsOpen() {
         show { DrillsScreen(app) }
 

@@ -18,11 +18,8 @@
 
 package com.shootoff.compose.app
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -52,22 +49,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.shootoff.compose.arena.ArenaView
-import com.shootoff.compose.calibration.CalibrationOverlay
-import com.shootoff.compose.drill.DrillCard
 import com.shootoff.compose.drill.DrillSettings
 import com.shootoff.compose.drill.ExerciseOverlay
 import com.shootoff.compose.drill.ShotTimerTable
@@ -97,8 +84,10 @@ fun clampedTrayHeight(trayHeight: Float, availableHeight: Float): Float =
     trayHeight.coerceAtMost((availableHeight - TRAY_HANDLE_HEIGHT - MIN_VIEW_HEIGHT).coerceAtLeast(0f))
 
 /**
- * The Range screen: the big view (the camera feed or the arena) with the Camera | Arena switch, the
- * drill card and the status strip over it, and the tray with the shot timer and the drill's settings.
+ * The Range screen, for training only (spec §8): the camera feed with the status chip, Clear shots, the
+ * drill picker and card (Start, the drill's own buttons, Stop), the not-ready prompt and the status strip
+ * over it, and the tray with the shot timer and the drill's settings. Setup is where the camera, the
+ * projector and calibration are set up.
  */
 @Composable
 fun RangeScreen(app: AppState, modifier: Modifier = Modifier) {
@@ -108,7 +97,7 @@ fun RangeScreen(app: AppState, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxSize()) {
         val shownTrayHeight = clampedTrayHeight(trayHeight, maxHeight.value)
         Column(Modifier.fillMaxSize().padding(end = 8.dp, top = 8.dp, bottom = 8.dp)) {
-            BigViewArea(app, Modifier.weight(1f).fillMaxWidth())
+            FeedArea(app, Modifier.weight(1f).fillMaxWidth())
             // Drag the tray's edge to size it
             Box(
                 Modifier
@@ -128,12 +117,9 @@ fun RangeScreen(app: AppState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun BigViewArea(app: AppState, modifier: Modifier) {
-    val view by app.view.collectAsState()
-    val arena by app.arena.collectAsState()
+private fun FeedArea(app: AppState, modifier: Modifier) {
     val running by app.runner.running.collectAsState()
     val message by app.drill.message.collectAsState()
-    val calibration by app.calibration.collectAsState()
     val camera by app.camera.collectAsState()
     val failure by app.runner.failure.collectAsState()
     val colors = Range.colors
@@ -141,30 +127,26 @@ private fun BigViewArea(app: AppState, modifier: Modifier) {
 
     Surface(shape = RoundedCornerShape(16.dp), color = colors.feedEdge, modifier = modifier) {
         Box(Modifier.fillMaxSize()) {
-            val shownArena = arena
-            val shown = if (view == BigView.ARENA && shownArena != null) BigView.ARENA else BigView.CAMERA
-            Crossfade(shown, label = "big view") { current ->
-                if (current == BigView.ARENA && shownArena != null) {
-                    ArenaView(shownArena, Modifier.fillMaxSize()) { transform ->
-                        if (projectorDrill) ExerciseOverlay(app.drill, transform)
-                    }
-                } else if (camera == null) {
-                    NoCameraPanel(app)
-                } else {
-                    CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
-                        TargetLayer(app.feedTargets, transform)
-                        MarkerLayer(app.feedMarkers, transform)
-                        if (running != null && !projectorDrill) ExerciseOverlay(app.drill, transform)
-                        calibration?.let { CalibrationOverlay(it, transform) }
-                    }
+            if (camera == null) {
+                NoCameraPanel(app)
+            } else {
+                CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
+                    TargetLayer(app.feedTargets, transform)
+                    MarkerLayer(app.feedMarkers, transform)
+                    if (running != null && !projectorDrill) ExerciseOverlay(app.drill, transform)
                 }
+                NotReadyPrompt(app, Modifier.align(Alignment.Center))
             }
 
-            Column(Modifier.align(Alignment.TopStart).padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ViewSwitch(app)
-                RangeActions(app)
+            Row(
+                Modifier.align(Alignment.TopStart).padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatusChip(app)
+                FilledTonalButton(onClick = app::clearShots, modifier = Modifier.testTag("clear-shots")) { Text("Clear shots") }
             }
-            DrillCard(app.drill, Modifier.align(Alignment.TopEnd).padding(10.dp))
+            DrillControls(app, Modifier.align(Alignment.TopEnd).padding(10.dp))
             Column(Modifier.align(Alignment.TopCenter).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 failure?.let { BannerView(Banner(-1, it, BannerKind.ERROR), onDismiss = app.runner::dismissFailure) }
                 message?.let { BannerView(Banner(0, it, BannerKind.INFO), onDismiss = { app.drill.setMessage(null) }) }
@@ -172,87 +154,6 @@ private fun BigViewArea(app: AppState, modifier: Modifier) {
             }
             StatusLine(app, Modifier.align(Alignment.BottomStart).padding(10.dp))
         }
-    }
-}
-
-/** The Camera | Arena segmented switch. Arena is disabled, with a hint, until the arena is open. */
-@Composable
-fun ViewSwitch(app: AppState) {
-    val view by app.view.collectAsState()
-    val arena by app.arena.collectAsState()
-    val colors = Range.colors
-    // Looking for the projector asks AWT about every screen: once per arena change, not on every recomposition
-    val projectorFound = remember(arena) { arena == null && app.projectorScreenFound() }
-    val arenaHint = when {
-        arena != null -> null
-        projectorFound -> "Open the arena first"
-        else -> "No projector screen found"
-    }
-
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = colors.background.copy(alpha = 0.87f),
-            border = BorderStroke(1.dp, colors.chipBorder),
-        ) {
-            Row(Modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                Segment("Camera", view == BigView.CAMERA, enabled = true, tag = "view-camera") { app.showView(BigView.CAMERA) }
-                Segment("Arena", view == BigView.ARENA, enabled = arena != null, tag = "view-arena", hint = arenaHint) {
-                    app.showView(BigView.ARENA)
-                }
-            }
-        }
-        arenaHint?.let { Text(it, color = colors.muted, fontSize = 11.sp, modifier = Modifier.testTag("arena-hint")) }
-    }
-}
-
-@Composable
-private fun Segment(label: String, selected: Boolean, enabled: Boolean, tag: String, hint: String? = null, onClick: () -> Unit) {
-    val colors = Range.colors
-    val text = when {
-        selected -> colors.onAccentSoft
-        enabled -> colors.mutedStrong
-        else -> colors.muted.copy(alpha = 0.45f)
-    }
-    Text(
-        label,
-        color = text,
-        fontSize = 13.sp,
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) colors.accentSoft else Color.Transparent)
-            .clickable(enabled = enabled, onClick = onClick)
-            .semantics {
-                role = Role.Tab
-                this.selected = selected
-                if (hint != null) stateDescription = hint
-            }
-            .padding(horizontal = 14.dp, vertical = 5.dp)
-            .testTag(tag),
-    )
-}
-
-/** Open or close the arena, calibrate, reset and clear the shots */
-@Composable
-private fun RangeActions(app: AppState) {
-    val arena by app.arena.collectAsState()
-    val calibration by app.calibration.collectAsState()
-    val calibrating = calibration?.state?.collectAsState()?.value?.calibrating == true
-
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (arena == null) {
-            FilledTonalButton(onClick = { app.openArena() }, modifier = Modifier.testTag("open-arena")) { Text("Open arena") }
-        } else {
-            FilledTonalButton(onClick = { app.closeArena() }, modifier = Modifier.testTag("close-arena")) { Text("Close arena") }
-            FilledTonalButton(
-                onClick = { if (calibrating) app.cancelCalibration() else app.startCalibration() },
-                enabled = calibration != null,
-                modifier = Modifier.testTag("calibrate"),
-            ) {
-                Text(if (calibrating) "Cancel calibrating" else "Calibrate")
-            }
-        }
-        FilledTonalButton(onClick = app::reset, modifier = Modifier.testTag("reset")) { Text("Reset") }
     }
 }
 

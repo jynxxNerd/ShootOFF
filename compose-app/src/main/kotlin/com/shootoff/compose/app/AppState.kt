@@ -85,9 +85,6 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
-/** The Range screen's big view */
-enum class BigView { CAMERA, ARENA }
-
 const val MIN_TRAY_HEIGHT = 120f
 const val MAX_TRAY_HEIGHT = 480f
 
@@ -148,11 +145,12 @@ class AppState(
     // The open camera's view of the feed
     private var openView: OpenView? = null
     private val destinationState = MutableStateFlow(Destination.RANGE)
-    private val viewState = MutableStateFlow(BigView.CAMERA)
     private val darkState = MutableStateFlow(prefs.dark)
     private val trayHeightState = MutableStateFlow(prefs.trayHeight)
     private val trayCollapsedState = MutableStateFlow(prefs.trayCollapsed)
     private val calibratedAtState = MutableStateFlow<LocalTime?>(null)
+    private val pickedDrillState = MutableStateFlow<V2ExerciseEntry?>(null)
+    private val promptSkippedState = MutableStateFlow(false)
     private val rememberState = MutableStateFlow(settings.rememberCalibration())
     private val checkState = MutableStateFlow<CheckState>(CheckState.Idle)
     private val checkFrames = LatestFrame()
@@ -162,7 +160,6 @@ class AppState(
     // The arena's calibration now, as it would be remembered; null while uncalibrated, or when it can't be
     // remembered (no projector screen)
     private var currentCalibration: SavedCalibration? = null
-    private var viewBeforeCalibration: BigView? = null
     private var fullScreenWatch: Job? = null
 
     /** The open arena, or null */
@@ -175,6 +172,12 @@ class AppState(
 
     /** When the open arena was last calibrated; null while it isn't */
     val calibratedAt: StateFlow<LocalTime?> = calibratedAtState.asStateFlow()
+
+    /** The drill picked on Range, if the user picked one (see [pickedDrill]) */
+    val drillChoice: StateFlow<V2ExerciseEntry?> = pickedDrillState.asStateFlow()
+
+    /** Whether Range's not-ready prompt was skipped; it comes back when the camera drops or the arena closes */
+    val promptSkipped: StateFlow<Boolean> = promptSkippedState.asStateFlow()
 
     /** Whether calibrations are kept for the next session ("Remember calibration") */
     val rememberCalibration: StateFlow<Boolean> = rememberState.asStateFlow()
@@ -198,7 +201,6 @@ class AppState(
     val notices = Notices()
 
     val destination: StateFlow<Destination> = destinationState.asStateFlow()
-    val view: StateFlow<BigView> = viewState.asStateFlow()
 
     /** Range dark, or its light variant */
     val dark: StateFlow<Boolean> = darkState.asStateFlow()
@@ -253,12 +255,6 @@ class AppState(
         checkState.value != CheckState.Checking &&
         runner.running.value?.host?.isProjector != true
 
-    fun showView(view: BigView) {
-        if (view == BigView.ARENA && arenaState.value == null) return
-        viewState.value = view
-        prefs.view = view
-    }
-
     fun setDark(dark: Boolean) {
         darkState.value = dark
         prefs.dark = dark
@@ -277,16 +273,10 @@ class AppState(
     }
 
     // The manual box is showing: it is dragged over Setup's camera feed
-    override fun showCalibratingFeed() {
-        viewBeforeCalibration = viewState.value
-        viewState.value = BigView.CAMERA
-        navigate(Destination.SETUP)
-    }
+    override fun showCalibratingFeed() = navigate(Destination.SETUP)
 
-    override fun restoreSelectedView() {
-        viewBeforeCalibration?.let { viewState.value = it }
-        viewBeforeCalibration = null
-    }
+    // Calibration ending leaves the user where they are; a success from Setup goes to Range (calibrationSucceeded)
+    override fun restoreSelectedView() {}
 
     // ---- The camera
 
@@ -295,7 +285,6 @@ class AppState(
         cameraSource.startCamera(settings)?.let(::openCamera)
     }
 
-    /** Looks for the cameras plugged in, off the UI thread (it can take seconds), and publishes them in [cameraList]. */
     /**
      * The user picked [camera] (on Setup or Settings): it opens in the background and, once open, is saved as
      * the camera to start with, as the JavaFX preferences save it.
@@ -309,6 +298,7 @@ class AppState(
         }
     }
 
+    /** Looks for the cameras plugged in, off the UI thread (it can take seconds), and publishes them in [cameraList]. */
     fun refreshCameras() {
         scope.launch(io) {
             cameraListState.value = try {
@@ -461,6 +451,7 @@ class AppState(
         val manager = cameraState.value ?: return
         if (manager.camera !== camera) return
         closeArena()
+        promptSkippedState.value = false
         cameraState.value = null
         cameras.clearManager(manager)
         openView?.live = false
@@ -501,8 +492,6 @@ class AppState(
         lateinit var arena: ArenaModel
         arena = ArenaModel(settings, { runner }, { arenaCommands(arena) }, clock)
         arenaState.value = arena
-        // Back to the view the user last left the app on
-        if (prefs.view == BigView.ARENA) viewState.value = BigView.ARENA
 
         cameraState.value?.let { makeCalibratable(arena, it) }
         if (settings.rememberCalibration()) checkRemembered(arena)
@@ -620,7 +609,7 @@ class AppState(
         }
     }
 
-    /** The arena window closed: calibration ends, a projector drill stops, and the view goes back to the camera. */
+    /** The arena window closed: calibration or a check ends, a projector drill stops, and Range asks for setup again. */
     fun closeArena() {
         val arena = arenaState.value ?: return
         stopCheckQuietly()
@@ -634,7 +623,7 @@ class AppState(
         calibratedAtState.value = null
         runner.stopProjectorExercise()
         placementState.value = null
-        viewState.value = BigView.CAMERA
+        promptSkippedState.value = false
         arena.targets.set.targets.forEach { arena.targets.remove(it.id) }
     }
 
@@ -691,12 +680,35 @@ class AppState(
 
     // ---- Drills
 
+    /** Picks the drill Range's card starts */
+    fun pickDrill(entry: V2ExerciseEntry) {
+        pickedDrillState.value = entry
+    }
+
+    /** The drill Range's card starts: the one picked, while it is still in [entries], else the first */
+    fun pickedDrill(entries: List<V2ExerciseEntry>): V2ExerciseEntry? = pickedDrillState.value?.takeIf { it in entries } ?: entries.firstOrNull()
+
+    /** Hides Range's not-ready prompt, for camera-only use, until the camera drops or the arena closes */
+    fun skipPrompt() {
+        promptSkippedState.value = true
+    }
+
     /**
-     * Starts a fresh instance of [entry]; a projector drill needs the open arena.
+     * Whether a projector drill can run: a camera, the arena open and calibrated, and neither calibration
+     * nor the check under way (spec §8; Plan 5's guard, with calibration added).
+     */
+    fun projectorReady(): Boolean = cameraState.value != null &&
+        arenaState.value?.projection?.value != null &&
+        calibrationState.value?.state?.value?.calibrating != true &&
+        checkState.value != CheckState.Checking
+
+    /**
+     * Starts a fresh instance of [entry]; a projector drill needs [projectorReady].
      *
      * @return false if it couldn't start
      */
     fun startDrill(entry: V2ExerciseEntry): Boolean {
+        if (entry.isProjectorOnly && !projectorReady()) return false
         arenaState.value?.showGrid(false)
         val started = runner.start(entry)
         if (started) destinationState.value = Destination.RANGE
