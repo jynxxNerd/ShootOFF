@@ -18,33 +18,79 @@
 
 package com.shootoff.compose
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import com.shootoff.compose.shell.AppRail
-import com.shootoff.compose.shell.Destination
-import com.shootoff.compose.theme.Range
+import androidx.compose.ui.window.rememberWindowState
+import com.shootoff.compose.app.AppState
+import com.shootoff.compose.app.CameraSource
+import com.shootoff.compose.app.ExerciseCatalog
+import com.shootoff.compose.app.ShootOffApp
+import com.shootoff.compose.arena.ArenaWindow
+import com.shootoff.compose.drill.ExerciseOverlay
 import com.shootoff.compose.theme.RangeTheme
+import com.shootoff.config.Settings
+import com.shootoff.geom.Point
+import com.shootoff.plugins.TextToSpeech
+import com.shootoff.plugins.engine.PluginEngine
+import com.shootoff.plugins.engine.V2ExerciseLoader
+import com.shootoff.util.TimerPool
+import org.bytedeco.javacpp.Loader
+import org.bytedeco.opencv.opencv_java
+import java.io.File
 
-fun main() = application {
-    Window(onCloseRequest = ::exitApplication, title = "ShootOFF") {
-        RangeTheme(dark = true) {
-            var destination by remember { mutableStateOf(Destination.RANGE) }
-            Row(Modifier.fillMaxSize().background(Range.colors.background)) {
-                AppRail(destination, { destination = it })
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(destination.label, color = Range.colors.muted)
-                }
+/**
+ * The Compose app. It shares the JavaFX app's folder: shootoff.properties, targets/, sounds/,
+ * exercises/ and exercise-data/ in the working directory.
+ */
+fun main() {
+    val home = System.getProperty("shootoff.home") ?: System.getProperty("user.dir").also { System.setProperty("shootoff.home", it) }
+    System.setProperty("shootoff.sessions", home + File.separator + "sessions")
+    System.setProperty("shootoff.courses", home + File.separator + "courses")
+    System.setProperty("shootoff.plugins", home + File.separator + "exercises")
+
+    Loader.load(opencv_java::class.java)
+
+    val settings = Settings(home + File.separator + "shootoff.properties", arrayOf())
+    // Speech synthesis starts slowly: warm it up in the background
+    Thread({ TextToSpeech.say("") }, "Speech warm-up").apply { isDaemon = true }.start()
+
+    val catalog = ExerciseCatalog()
+    val plugins = PluginEngine(catalog, listOf(V2ExerciseLoader()), emptyList())
+    plugins.startWatching()
+
+    val app = AppState(settings, catalog, CameraSource.System)
+    app.openStartCamera()
+
+    application {
+        val arena by app.arena.collectAsState()
+        val placement by app.arenaPlacement.collectAsState()
+        val running by app.runner.running.collectAsState()
+        val state = rememberWindowState(size = DpSize(1280.dp, 860.dp))
+
+        fun exit() {
+            plugins.stopWatching()
+            app.close()
+            TimerPool.close()
+            exitApplication()
+        }
+
+        Window(onCloseRequest = ::exit, state = state, title = "ShootOFF") {
+            LaunchedEffect(state.position) {
+                app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
+            }
+            RangeTheme(dark = true) { ShootOffApp(app) }
+        }
+
+        val shownArena = arena
+        val shownPlacement = placement
+        if (shownArena != null && shownPlacement != null) {
+            ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena) { transform ->
+                if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
             }
         }
     }

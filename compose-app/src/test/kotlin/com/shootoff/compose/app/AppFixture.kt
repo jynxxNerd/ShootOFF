@@ -1,0 +1,61 @@
+package com.shootoff.compose.app
+
+import com.shootoff.camera.Shot
+import com.shootoff.compose.targets.ManualClock
+import com.shootoff.config.ScratchConfig
+import com.shootoff.config.Settings
+import com.shootoff.exercise.Exercise
+import com.shootoff.exercise.ExerciseHost
+import com.shootoff.geom.Rect
+import com.shootoff.plugins.ExerciseMetadata
+import com.shootoff.plugins.engine.V2ExerciseEntry
+import com.shootoff.targets.model.Hit
+import java.util.Optional
+
+/** An app with no camera, the owner's three screens, and two drills in its catalog. */
+object AppFixture {
+    val ownerScreens = listOf(Rect(1920.0, 0.0, 2560.0, 1440.0), Rect(0.0, 0.0, 1920.0, 1080.0), Rect(4480.0, 0.0, 1280.0, 720.0))
+
+    class ProjectorDrill : Exercise {
+        override fun metadata() = ExerciseMetadata("Projector drill", "2.0", "ShootOFF tests", "On the arena", true)
+
+        override fun start(host: ExerciseHost) {
+            host.addButton("Pause") {}
+        }
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {}
+
+        override fun stop() {}
+    }
+
+    class FeedDrill : Exercise {
+        override fun metadata() = ExerciseMetadata("Feed drill", "1.0", "ShootOFF tests", "On the camera feed")
+
+        override fun start(host: ExerciseHost) {}
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {}
+
+        override fun stop() {}
+    }
+
+    val projectorDrill = V2ExerciseEntry(ProjectorDrill::class.java, ProjectorDrill().metadata())
+    val feedDrill = V2ExerciseEntry(FeedDrill::class.java, FeedDrill().metadata())
+
+    fun app(screens: List<Rect> = ownerScreens): AppState {
+        val catalog = ExerciseCatalog()
+        catalog.registerProjectorExercise(projectorDrill)
+        catalog.registerExercise(feedDrill)
+        return AppState(
+            Settings(ScratchConfig.emptyFile().path, arrayOf()),
+            catalog,
+            CameraSource.None,
+            { screens },
+            ManualClock(),
+            { it.run() },
+        )
+    }
+}
