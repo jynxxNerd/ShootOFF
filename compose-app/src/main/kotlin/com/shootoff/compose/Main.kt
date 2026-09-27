@@ -43,6 +43,7 @@ import com.shootoff.compose.app.WindowBounds
 import com.shootoff.compose.app.handleKey
 import com.shootoff.compose.app.ShootOffApp
 import com.shootoff.compose.app.UiErrors
+import com.shootoff.compose.app.WindowRole
 import com.shootoff.compose.arena.ArenaWindow
 import com.shootoff.compose.drill.ExerciseOverlay
 import com.shootoff.compose.theme.RangeTheme
@@ -82,17 +83,23 @@ fun main() {
     // Only the camera opens, in the background: the window shows at once (spec §8 rules 1 and 6)
     app.launch()
 
-    // An exception in a window's event handling or composition is logged and shown, and never exits the app
+    // An exception in a window's event handling or composition is logged and shown, and never exits the
+    // app. Each window gets its own factory, so an error is always attributed to the window it escaped
+    // from, and never rebuilds the other one
     val uiErrors = UiErrors(app.notices)
+    val mainWindowErrors = uiErrors.forWindow(WindowRole.MAIN)
+    val arenaWindowErrors = uiErrors.forWindow(WindowRole.ARENA)
 
     application {
         val arena by app.arena.collectAsState()
         val placement by app.arenaPlacement.collectAsState()
         val running by app.runner.running.collectAsState()
         val dark by app.dark.collectAsState()
-        // Bumped by uiErrors.report: keying each window on it discards a window whose composition an
-        // escaped exception left frozen (its own recomposer cancelled) and rebuilds it with a fresh one
-        val generation by uiErrors.generation.collectAsState()
+        // Bumped by uiErrors.report, one counter per window: keying a window on its own generation
+        // discards it (whose composition an escaped exception left frozen, its own recomposer cancelled)
+        // and rebuilds it with a fresh one, without disturbing the other window
+        val mainGeneration by uiErrors.generation(WindowRole.MAIN).collectAsState()
+        val arenaGeneration by uiErrors.generation(WindowRole.ARENA).collectAsState()
         // A saved place that no longer reaches a current screen (a monitor unplugged) is discarded
         val remembered = app.prefs.window?.let { placeMainWindow(it, app.screensNow()) }
         val state = rememberWindowState(
@@ -107,8 +114,8 @@ fun main() {
             exitApplication()
         }
 
-        CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides uiErrors) {
-            key(generation) {
+        CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides mainWindowErrors) {
+            key(mainGeneration) {
                 Window(
                     onCloseRequest = ::exit,
                     state = state,
@@ -127,13 +134,15 @@ fun main() {
                     RangeTheme(dark = dark) { ShootOffApp(app) }
                 }
             }
+        }
 
-            val shownArena = arena
-            val shownPlacement = placement
-            if (shownArena != null && shownPlacement != null) {
+        val shownArena = arena
+        val shownPlacement = placement
+        if (shownArena != null && shownPlacement != null) {
+            CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides arenaWindowErrors) {
                 // The arena's own state (ArenaModel) lives in AppState, outside composition, so rebuilding
                 // this window loses only its chrome (position, full-screen), never the arena itself
-                key(generation) {
+                key(arenaGeneration) {
                     ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
                         if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
                     }

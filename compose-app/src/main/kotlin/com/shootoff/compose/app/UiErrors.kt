@@ -26,44 +26,59 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.slf4j.LoggerFactory
-import java.awt.Window
 import java.util.concurrent.ConcurrentHashMap
+
+/** Which top-level window an error escaped from: each is tracked, rebuilt and rate-limited independently */
+enum class WindowRole { MAIN, ARENA }
 
 /**
  * The safety net under the Compose app's windows (spec §8 Revision 2, decision 8): an exception that
  * escapes event handling or composition is logged and shown as a notice, and never closes a window or
  * exits the app. Compose Desktop's own handler shows a dialog and closes the window the exception came
- * from, which for the main window exits the app. Provided to every window through
- * `LocalWindowExceptionHandlerFactory` (see Main).
+ * from, which for the main window exits the app. [forWindow] gives each window (see Main) its own
+ * `WindowExceptionHandlerFactory` for `LocalWindowExceptionHandlerFactory`, so an error is always
+ * attributed to the [WindowRole] it actually escaped from, never the other window.
  *
  * In Compose 1.12.1, an exception in composition, a `LaunchedEffect` or a `pointerInput` coroutine
  * cancels that window's own recomposer before this handler ever runs (Recomposer.kt:289-312, 826-846;
  * Modifier.kt:184-190): the window stays open but never redraws again, so its notice would never be seen.
- * [generation] is bumped once per newly-reported error so Main can rebuild the window (a fresh recomposer)
- * by keying it on `generation` (`key(generation) { Window(...) { ... } }`).
+ * [generation] is bumped, per window, once per newly-reported, non-throttled error, so Main can rebuild
+ * just that window (a fresh recomposer) by keying it on its own generation
+ * (`key(generation(role)) { Window(...) { ... } }`). Keeping the two windows' generations separate
+ * matters: a key-event or render error that `catchExceptions` catches without killing the recomposer
+ * still reaches this handler, and it must never rebuild the *other* window (for the arena that would mean
+ * leaving full screen, restarting a calibration check, or resizing mid-drill).
  */
 @OptIn(ExperimentalComposeUiApi::class)
 class UiErrors(
     private val notices: Notices,
     private val clock: () -> Long = System::currentTimeMillis,
-) : WindowExceptionHandlerFactory {
+) {
     private val logger = LoggerFactory.getLogger(UiErrors::class.java)
-    private val generationState = MutableStateFlow(0)
-    private val lastReported = ConcurrentHashMap<Pair<String, String?>, Long>()
+    private val generations = WindowRole.entries.associateWith { MutableStateFlow(0) }
+    private val lastReported = ConcurrentHashMap<ReportKey, Long>()
+    private val lastRebuilt = ConcurrentHashMap<WindowRole, Long>()
 
-    /** Bumped once per newly-reported error (never for a de-duplicated repeat); see the class doc */
-    val generation: StateFlow<Int> = generationState.asStateFlow()
+    /** Bumped once per newly-reported, non-throttled error attributed to [role]; see the class doc */
+    fun generation(role: WindowRole): StateFlow<Int> = generations.getValue(role).asStateFlow()
 
-    override fun exceptionHandler(window: Window): WindowExceptionHandler = WindowExceptionHandler(::report)
+    /** [role]'s own factory: every error `LocalWindowExceptionHandlerFactory` reports through it is [role]'s */
+    fun forWindow(role: WindowRole): WindowExceptionHandlerFactory =
+        WindowExceptionHandlerFactory { WindowExceptionHandler { error -> report(role, error) } }
 
     /**
-     * Logs [error] and tells the user, then returns: the window and the app carry on. An error with the
-     * same class and message as one reported within the last [DEDUP_WINDOW_MILLIS] is a repeat: it is
-     * dropped without a new log line, notice or [generation] bump. That keeps a render error that recurs
-     * every frame from flooding the log and the notices, and from driving the window rebuild in a loop.
+     * Logs [error] and tells the user, then returns: the window and the app carry on.
+     *
+     * An error with the same class and message as one reported for [role] within the last
+     * [DEDUP_WINDOW_MILLIS] is a repeat: it is dropped without a new log line, notice or generation bump.
+     *
+     * A distinct error (a different class, or a message that carries changing data, such as "Index 37 out
+     * of bounds…", which defeats that check every time) is always logged; but [role]'s notice and
+     * generation bump are floored to at most one per [REBUILD_FLOOR_MILLIS], whatever the error, so a
+     * message that changes every frame can't grow the notices, or rebuild the window, at frame rate.
      */
-    fun report(error: Throwable) {
-        val key = error.javaClass.name to error.message
+    fun report(role: WindowRole, error: Throwable) {
+        val key = ReportKey(role, error.javaClass.name, error.message)
         val now = clock()
         var duplicate = false
         lastReported.compute(key) { _, last ->
@@ -73,12 +88,27 @@ class UiErrors(
         if (duplicate) return
 
         logger.error("Unexpected error in the user interface; ShootOFF kept running", error)
+
+        var throttled = false
+        lastRebuilt.compute(role) { _, last ->
+            if (last != null && now - last < REBUILD_FLOOR_MILLIS) {
+                throttled = true
+                last
+            } else {
+                now
+            }
+        }
+        if (throttled) return
+
         val detail = error.message?.let { "$it. " } ?: ""
         notices.showError("Something went wrong", error.javaClass.simpleName, "${detail}ShootOFF kept running; the details are in the log.")
-        generationState.update { it + 1 }
+        generations.getValue(role).update { it + 1 }
     }
+
+    private data class ReportKey(val role: WindowRole, val exceptionClass: String, val message: String?)
 
     private companion object {
         const val DEDUP_WINDOW_MILLIS = 5000L
+        const val REBUILD_FLOOR_MILLIS = 3000L
     }
 }

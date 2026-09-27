@@ -22,7 +22,7 @@ class TestUiErrors {
             }
         })
         try {
-            val handler = UiErrors(notices).exceptionHandler(window)
+            val handler = UiErrors(notices).forWindow(WindowRole.MAIN).exceptionHandler(window)
 
             // Returns, where Compose's default handler rethrows and asks the window to close (for the
             // main window, that exits the app)
@@ -42,21 +42,22 @@ class TestUiErrors {
     fun anExceptionWithNoMessageStillSaysWhatHappened() {
         val notices = Notices()
 
-        UiErrors(notices).report(IllegalStateException())
+        UiErrors(notices).report(WindowRole.MAIN, IllegalStateException())
 
         assertEquals("ShootOFF kept running; the details are in the log.", notices.notices.value.single().message)
     }
 
     @Test
     fun reportingANewErrorBumpsTheGeneration() {
-        // Main keys each Window on this, so a report rebuilds it with a fresh recomposer (a composition,
-        // LaunchedEffect or pointerInput exception cancels the window's own recomposer before this handler runs)
+        // Main keys each window on its own generation, so a report rebuilds it with a fresh recomposer (a
+        // composition, LaunchedEffect or pointerInput exception cancels the window's own recomposer before
+        // this handler runs)
         val errors = UiErrors(Notices())
-        assertEquals(0, errors.generation.value)
+        assertEquals(0, errors.generation(WindowRole.MAIN).value)
 
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
 
-        assertEquals(1, errors.generation.value)
+        assertEquals(1, errors.generation(WindowRole.MAIN).value)
     }
 
     @Test
@@ -65,14 +66,14 @@ class TestUiErrors {
         var now = 0L
         val errors = UiErrors(notices) { now }
 
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
         now += 1000
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
         now += 1000
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
 
         assertEquals(1, notices.notices.value.size)
-        assertEquals(1, errors.generation.value)
+        assertEquals(1, errors.generation(WindowRole.MAIN).value)
     }
 
     @Test
@@ -81,12 +82,12 @@ class TestUiErrors {
         var now = 0L
         val errors = UiErrors(notices) { now }
 
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
         now += 6000
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
 
         assertEquals(2, notices.notices.value.size)
-        assertEquals(2, errors.generation.value)
+        assertEquals(2, errors.generation(WindowRole.MAIN).value)
     }
 
     @Test
@@ -95,10 +96,68 @@ class TestUiErrors {
         var now = 0L
         val errors = UiErrors(notices) { now }
 
-        errors.report(IllegalStateException("boom"))
-        errors.report(IllegalArgumentException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
+        // Past the rebuild floor (so this isn't throttled by that), but still inside the 5s dedup window:
+        // proves dedup is keyed by (class, message), not "any recent report"
+        now += 4000
+        errors.report(WindowRole.MAIN, IllegalArgumentException("boom"))
 
         assertEquals(2, notices.notices.value.size)
-        assertEquals(2, errors.generation.value)
+        assertEquals(2, errors.generation(WindowRole.MAIN).value)
+    }
+
+    @Test
+    fun anErrorReportedForOneWindowBumpsOnlyThatWindowsGeneration() {
+        val errors = UiErrors(Notices())
+
+        errors.report(WindowRole.ARENA, IllegalStateException("boom"))
+
+        assertEquals(0, errors.generation(WindowRole.MAIN).value)
+        assertEquals(1, errors.generation(WindowRole.ARENA).value)
+    }
+
+    @Test
+    fun aBurstOfDistinctErrorsOnOneWindowRebuildsAtMostOncePerFloorPeriod() {
+        // A message that carries changing data (e.g. "Index 37 out of bounds…") defeats the (class,
+        // message) de-duplication above: each is a distinct key. The floor still caps the rebuild rate.
+        val notices = Notices()
+        var now = 0L
+        val errors = UiErrors(notices) { now }
+
+        errors.report(WindowRole.MAIN, IndexOutOfBoundsException("Index 37 out of bounds"))
+        now += 500
+        errors.report(WindowRole.MAIN, IndexOutOfBoundsException("Index 38 out of bounds"))
+        now += 500
+        errors.report(WindowRole.MAIN, IndexOutOfBoundsException("Index 39 out of bounds"))
+
+        assertEquals(1, notices.notices.value.size)
+        assertEquals(1, errors.generation(WindowRole.MAIN).value)
+    }
+
+    @Test
+    fun afterTheFloorPeriodADistinctErrorRebuildsAgain() {
+        val notices = Notices()
+        var now = 0L
+        val errors = UiErrors(notices) { now }
+
+        errors.report(WindowRole.MAIN, IndexOutOfBoundsException("Index 37 out of bounds"))
+        now += 4000
+        errors.report(WindowRole.MAIN, IndexOutOfBoundsException("Index 99 out of bounds"))
+
+        assertEquals(2, notices.notices.value.size)
+        assertEquals(2, errors.generation(WindowRole.MAIN).value)
+    }
+
+    @Test
+    fun theRebuildFloorIsPerWindow() {
+        val notices = Notices()
+        val errors = UiErrors(notices) { 0L }
+
+        errors.report(WindowRole.MAIN, IndexOutOfBoundsException("Index 37 out of bounds"))
+        errors.report(WindowRole.ARENA, IndexOutOfBoundsException("Index 38 out of bounds"))
+
+        assertEquals(2, notices.notices.value.size)
+        assertEquals(1, errors.generation(WindowRole.MAIN).value)
+        assertEquals(1, errors.generation(WindowRole.ARENA).value)
     }
 }

@@ -24,7 +24,7 @@ class TestKeyedRebuild {
         val errors = UiErrors(Notices())
         val built = AtomicInteger()
         compose.setContent {
-            val generation by errors.generation.collectAsState()
+            val generation by errors.generation(WindowRole.MAIN).collectAsState()
             key(generation) {
                 remember { built.incrementAndGet() }
             }
@@ -32,9 +32,28 @@ class TestKeyedRebuild {
         compose.waitForIdle()
         assertEquals(1, built.get())
 
-        errors.report(IllegalStateException("boom"))
+        errors.report(WindowRole.MAIN, IllegalStateException("boom"))
         compose.waitForIdle()
 
         assertEquals(2, built.get())
+    }
+
+    @Test
+    fun anErrorForTheOtherWindowLeavesThisSubtreeAlone() {
+        val errors = UiErrors(Notices())
+        val built = AtomicInteger()
+        compose.setContent {
+            val generation by errors.generation(WindowRole.MAIN).collectAsState()
+            key(generation) {
+                remember { built.incrementAndGet() }
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(1, built.get())
+
+        errors.report(WindowRole.ARENA, IllegalStateException("boom"))
+        compose.waitForIdle()
+
+        assertEquals(1, built.get())
     }
 }
