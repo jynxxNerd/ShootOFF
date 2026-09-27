@@ -2,6 +2,7 @@ package com.shootoff.compose.arena
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +29,7 @@ import com.shootoff.targets.model.RectangleRegion
 import com.shootoff.targets.model.ResourceResolver
 import com.shootoff.targets.model.TargetDefinition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -104,5 +106,38 @@ class TestArenaViews {
         arena.setCalibrationLabelVisible(false)
         compose.waitForIdle()
         compose.onAllNodesWithTag("needs-calibration").assertCountEquals(0)
+    }
+
+    @Test
+    fun whileCoveredOnlyTheBackgroundShowsAndEverythingComesBackAsItWas() {
+        val target = arena.targets.add(
+            TargetDefinition(Optional.empty(), mapOf(), listOf(RectangleRegion(0, 0.0, 0.0, 80.0, 80.0, "red", mapOf("opacity" to "1")))),
+            ResourceResolver.files(),
+            Placement(600.0, 300.0, 1.0, 1.0, true),
+        )
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                ArenaCanvas(arena, Modifier.size(640.dp, 360.dp).testTag("projector")) {
+                    Text("Score: 3", Modifier.testTag("drill-text"))
+                }
+            }
+        }
+        compose.onNodeWithTag("drill-text").assertExists()
+
+        arena.cover(true)
+        compose.waitForIdle()
+
+        // The pattern (the background) alone: no target, no label, none of the drill's texts
+        assertEquals(Color(0xFF333333), pixels("projector")[320, 170])
+        compose.onAllNodesWithTag("needs-calibration").assertCountEquals(0)
+        compose.onAllNodesWithTag("drill-text").assertCountEquals(0)
+        assertTrue(arena.targets.set.get(target.id).get().isVisible)
+
+        arena.cover(false)
+        compose.waitForIdle()
+
+        assertEquals(Color.Red, pixels("projector")[320, 170])
+        compose.onAllNodesWithTag("needs-calibration").assertCountEquals(1)
+        compose.onNodeWithTag("drill-text").assertExists()
     }
 }

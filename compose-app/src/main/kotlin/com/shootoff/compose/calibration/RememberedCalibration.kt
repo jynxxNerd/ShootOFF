@@ -121,9 +121,10 @@ class CalibrationCheckRun(
     @Volatile
     private var job: Job? = null
 
-    /** Shows the pattern and starts looking; on the UI thread. */
+    /** Shows the pattern, alone, and starts looking; on the UI thread. */
     fun start() {
         background = arena.background.value
+        arena.cover(true)
         arena.showResource("pattern.png")
         camera.setDetecting(false)
         frames.take()
@@ -154,6 +155,7 @@ class CalibrationCheckRun(
         if (!finished.compareAndSet(false, true)) return
         job?.cancel()
         arena.setBackground(background)
+        arena.cover(false)
         scheduler.schedule({ camera.setDetecting(true) }, CalibrationFlow.DETECTION_RESTART_DELAY)
         onDone(this, outcome)
     }

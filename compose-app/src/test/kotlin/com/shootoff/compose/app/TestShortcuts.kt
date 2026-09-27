@@ -6,15 +6,11 @@ import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.camera.shot.ShotColor
 import com.shootoff.compose.drill.DrillButton
 import com.shootoff.compose.shell.Destination
-import com.shootoff.geom.Rect
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotSame
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.util.Optional
 
 class TestShortcuts {
     private val app = AppFixture.app()
@@ -69,32 +65,6 @@ class TestShortcuts {
 
             assertEquals(Destination.SETUP, app.destination.value)
             assertTrue(app.calibration.value!!.state.value.calibrating)
-        } finally {
-            app.close()
-        }
-    }
-
-    @Test
-    fun f6DuringAProjectorDrillStopsItCalibratesAndStartsItAfresh() {
-        val app = AppFixture.appWithCamera()
-        try {
-            app.openStartCamera()
-            app.openArena()
-            app.arena.value!!.setFullScreen(true)
-            app.startCalibration()
-            app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
-            assertTrue(app.startDrill(AppFixture.projectorDrill))
-            val first = app.runner.running.value!!.host
-
-            app.handleKey(Key.F6, KeyEventType.KeyDown)
-            assertNull(app.runner.running.value)
-            assertTrue(app.calibration.value!!.state.value.calibrating)
-
-            app.calibration.value!!.calibrate(Rect(102.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
-
-            assertNotSame(first, app.runner.running.value!!.host)
-            // F6 opened Setup, and a finished calibration stays there
-            assertEquals(Destination.SETUP, app.destination.value)
         } finally {
             app.close()
         }

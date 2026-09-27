@@ -203,6 +203,21 @@ class TestExerciseHostSupport {
 	}
 
 	@Test
+	void whetherTheExerciseHasDetectionPausedIsKnownUntilItStops() {
+		assertFalse(support.isShotDetectionPaused());
+
+		support.pauseShotDetection(true, detecting -> {});
+		assertTrue(support.isShotDetectionPaused());
+
+		support.pauseShotDetection(false, detecting -> {});
+		assertFalse(support.isShotDetectionPaused());
+
+		support.pauseShotDetection(true, detecting -> {});
+		support.stop();
+		assertFalse(support.isShotDetectionPaused());
+	}
+
+	@Test
 	void callbacksRunOnTheExercisesThreadInOrder() throws Exception {
 		support.start(null);
 		support.deliverShot(new Shot(ShotColor.RED, 1, 2, 3), Optional.empty());

@@ -196,7 +196,7 @@ class CalibrationController(
     // The arena's look before calibration: its background, targets, shots, and the label if uncalibrated
     private fun putArenaBack() {
         restoreArenaBackground()
-        arena.setTargetsVisible(true)
+        arena.cover(false)
         arena.showShots(settings.showArenaShotMarkers())
         arena.setCalibrationLabelVisible(arena.projection.value == null)
     }
@@ -233,8 +233,9 @@ class CalibrationController(
 
     override fun setCalibrating(calibrating: Boolean) = uiState.update { it.copy(calibrating = calibrating) }
 
+    // Covered rather than hidden: a paused drill keeps its targets as it left them (spec §8 Revision 2, decision 2)
     override fun calibrationStarted() {
-        arena.setTargetsVisible(false)
+        arena.cover(true)
         arena.setCalibrationLabelVisible(false)
     }
 
@@ -274,7 +275,7 @@ class CalibrationController(
     override fun calibrated(perspectiveManager: Optional<PerspectiveManager>) {
         arena.perspective = perspectiveManager.orElse(null)
         arena.setCalibrationLabelVisible(false)
-        arena.setTargetsVisible(true)
+        arena.cover(false)
         // Targets take their real-world sizes once the perspective is known
         if (perspectiveManager.isPresent) {
             for (target in arena.targets.set.targets) arena.placeNewTarget(target)

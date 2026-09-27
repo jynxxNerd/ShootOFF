@@ -18,7 +18,9 @@
 
 package com.shootoff.compose.app
 
+import com.shootoff.calibration.CalibrationCamera
 import com.shootoff.calibration.CalibrationCheck
+import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.camera.CameraManager
 import com.shootoff.camera.CameraView
 import com.shootoff.camera.CamerasSupervisor
@@ -603,7 +605,7 @@ class AppState(
     }
 
     private fun runCheck(arena: ArenaModel, camera: CameraManager, saved: SavedCalibration) {
-        val run = CalibrationCheckRun(saved, arena, camera, checkFrames, detector(camera), checkClock, scope, { task, delay ->
+        val run = CalibrationCheckRun(saved, arena, CalibratingCamera(camera), checkFrames, detector(camera), checkClock, scope, { task, delay ->
             TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
         }, uiThread) { run, outcome -> checked(run, saved, outcome) }
         checkRun = run
@@ -677,7 +679,7 @@ class AppState(
     // camera opens (or becomes available) after the arena, which otherwise would leave Calibrate and F6
     // disabled until the arena is closed and reopened.
     private fun makeCalibratable(arena: ArenaModel, camera: CameraManager) {
-        val controller = CalibrationController(camera, arena, settings, runner, this, { task, delay ->
+        val controller = CalibrationController(CalibratingCamera(camera), arena, settings, drillForCalibration, this, { task, delay ->
             TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
         }, uiThread)
         camera.setCalibrationManager(controller)
@@ -805,6 +807,40 @@ class AppState(
     }
 
     fun stopDrill() = runner.stop()
+
+    /**
+     * Pauses the running drill through its own Pause button, as F3 does, unless it is paused already (its
+     * button reads Resume). The v2 exercise API has no pause of its own: the drill's button is the pause.
+     *
+     * @return false if no drill with a Pause button runs
+     */
+    fun pauseDrill(): Boolean {
+        val buttons = drill.buttons.value
+        if (buttons.any { it.label == RESUME_LABEL }) return true
+        val pause = buttons.firstOrNull { it.label == PAUSE_LABEL } ?: return false
+        pause.onClick()
+        return true
+    }
+
+    // What calibration does to the running drill (spec §8 Revision 2, decision 2): a projector drill is paused,
+    // and stays paused afterwards, never restarted; one with no Pause button is stopped and started afresh
+    // after a success, as before. A camera drill doesn't use the arena and is left alone.
+    private val drillForCalibration = CalibrationFlow.Exercises {
+        val running = runner.running.value
+        when {
+            running == null || !running.host.isProjector -> Optional.empty()
+            pauseDrill() -> Optional.empty()
+            else -> runner.stopProjectorExercise()
+        }
+    }
+
+    // The camera as calibration and the check see it: when they turn shot detection back on as they end,
+    // it stays off while the running drill has it paused (a paused drill turned it off itself)
+    private inner class CalibratingCamera(private val camera: CameraManager) : CalibrationCamera by camera {
+        override fun setDetecting(isDetecting: Boolean) {
+            camera.setDetecting(isDetecting && runner.running.value?.host?.shotDetectionPaused != true)
+        }
+    }
 
     /** Reset: the cameras, the arena's animations and the shots, then the drill, then a short pause in detection */
     fun reset() = rangeReset.reset { runner.reset() }

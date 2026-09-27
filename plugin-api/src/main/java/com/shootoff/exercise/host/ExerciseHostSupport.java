@@ -249,6 +249,14 @@ public final class ExerciseHostSupport<T> {
 		detecting.accept(!paused);
 	}
 
+	/**
+	 * @return whether the exercise has shot detection paused and is still running, so that something
+	 *         turning detection back on for its own reasons (the end of a calibration) can leave it off
+	 */
+	public synchronized boolean isShotDetectionPaused() {
+		return detectionPaused && !stopped;
+	}
+
 	// ---- Names
 
 	/**

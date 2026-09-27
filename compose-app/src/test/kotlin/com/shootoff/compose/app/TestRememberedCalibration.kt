@@ -134,9 +134,12 @@ class TestRememberedCalibration {
         openArenaOnTheProjector()
         assertEquals(CheckState.Checking, app.check.value)
         awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
+        // Only the pattern shows: no "Needs Calibration" label, targets or drill texts over it
+        assertTrue(app.arena.value!!.covered.value)
 
         sendFramesUntil { app.check.value == CheckState.Idle }
 
+        assertFalse(app.arena.value!!.covered.value)
         assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
         assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.camera.value!!.projectionBounds.get())
         assertNotNull(app.calibratedAt.value)

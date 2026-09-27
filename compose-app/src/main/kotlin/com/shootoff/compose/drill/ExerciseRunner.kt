@@ -36,7 +36,8 @@ class Running(val entry: V2ExerciseEntry, val host: ComposeExerciseHost)
 /**
  * The Compose app's current exercise: at most one runs. Starting one stops the one before. Shots reach
  * it by surface: arena shots only a projector exercise, camera shots only a camera exercise. Calibration
- * stops a projector exercise and starts it afresh afterwards.
+ * pauses a projector exercise (see AppState.pauseDrill); one with no Pause button is stopped through
+ * [stopProjectorExercise] and started afresh afterwards.
  *
  * @param isCalibrating whether the arena is currently calibrating; a projector drill refuses to start
  *   while it is, so no path (the Drills screen or otherwise) can start one under calibration's feet

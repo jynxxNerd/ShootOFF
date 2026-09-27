@@ -51,7 +51,8 @@ private val CALIBRATION_ORANGE = Color(0xFFF5A807)
 /**
  * The arena as both of its views draw it, fitted to the space it is given: the background stretched over
  * the arena, its targets and shot markers, the "Needs calibration" label, then [overlay] (the exercise's
- * texts and markers) in arena coordinates.
+ * texts and markers) in arena coordinates. While the arena is covered (a calibration pattern showing), only
+ * the background is drawn.
  */
 @Composable
 fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Composable (SurfaceTransform) -> Unit = {}) {
@@ -59,6 +60,7 @@ fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Comp
     val background by arena.background.collectAsState()
     val label by arena.needsCalibrationLabel.collectAsState()
     val grid by arena.grid.collectAsState()
+    val covered by arena.covered.collectAsState()
     val density = LocalDensity.current
 
     BoxWithConstraints(modifier.background(Color.Black)) {
@@ -75,9 +77,11 @@ fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Comp
                 dstSize = IntSize(areaSize.width.roundToInt(), areaSize.height.roundToInt()),
             )
         }
-        TargetLayer(arena.targets, transform)
-        MarkerLayer(arena.markers, transform)
-        if (label) {
+        if (!covered) {
+            TargetLayer(arena.targets, transform)
+            MarkerLayer(arena.markers, transform)
+        }
+        if (label && !covered) {
             // The JavaFX arena's label: 48 px orange, centered in a 628x90 box at (6, 6)
             val topLeft = transform.toView(6.0, 6.0)
             with(density) {
@@ -95,7 +99,7 @@ fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Comp
                 }
             }
         }
-        overlay(transform)
+        if (!covered) overlay(transform)
         if (grid) AlignmentGrid(size, transform)
     }
 }

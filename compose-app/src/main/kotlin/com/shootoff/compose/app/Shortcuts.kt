@@ -36,8 +36,14 @@ enum class Shortcut(val key: Key, val label: String) {
     }
 }
 
-/** Labels a drill's pause button may have: the par drill's are "Pause" and "Resume" */
-private val PAUSE_LABELS = setOf("Pause", "Resume")
+/** The par drill's pause button reads this while the drill runs */
+const val PAUSE_LABEL = "Pause"
+
+/** … and this while it is paused */
+const val RESUME_LABEL = "Resume"
+
+/** Labels a drill's pause button may have */
+private val PAUSE_LABELS = setOf(PAUSE_LABEL, RESUME_LABEL)
 
 /**
  * Does what a shortcut does.

@@ -59,7 +59,9 @@ class TestCalibrationController {
             ResourceResolver.files(),
         )
         startOnTheProjector()
-        assertFalse(arena.targets.set.get(target.id).get().isVisible)
+        // Covered, not hidden: the target keeps its own visibility under the pattern
+        assertTrue(arena.covered.value)
+        assertTrue(arena.targets.set.get(target.id).get().isVisible)
 
         // The camera reports the pattern on its 640x480 feed, shown 1:1 on the canvas
         controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
@@ -67,6 +69,7 @@ class TestCalibrationController {
         assertEquals(Rect(100.0, 80.0, 400.0, 300.0), arena.projection.value)
         assertEquals(Rect(100.0, 80.0, 400.0, 300.0), fixture.camera.bounds)
         assertSame(drillBackground, arena.background.value)
+        assertFalse(arena.covered.value)
         assertTrue(arena.targets.set.get(target.id).get().isVisible)
         assertFalse(controller.state.value.calibrating)
         assertNull(controller.state.value.message)
@@ -286,15 +289,32 @@ class TestCalibrationController {
         )
         startOnTheProjector()
         assertEquals("pattern.png", arena.background.value!!.name)
-        assertFalse(arena.targets.set.get(target.id).get().isVisible)
+        assertTrue(arena.covered.value)
         assertFalse(arena.markers.visible.value)
 
         controller.arenaClosing()
 
         // The model is left exactly as it was before calibration started
         assertSame(originalBackground, arena.background.value)
+        assertFalse(arena.covered.value)
         assertTrue(arena.targets.set.get(target.id).get().isVisible)
         assertTrue(arena.markers.visible.value)
+    }
+
+    @Test
+    fun aTargetThePausedDrillHidWhileCalibratingStaysHiddenAfterwards() {
+        val target = arena.targets.add(
+            TargetDefinition(Optional.empty(), mapOf(), listOf(RectangleRegion(0, 0.0, 0.0, 10.0, 10.0, "red", mapOf()))),
+            ResourceResolver.files(),
+        )
+        startOnTheProjector()
+
+        // The drill pauses on its own thread once calibration has started, and hides its round's target
+        arena.targets.set.setVisible(target.id, false)
+        controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        assertFalse(arena.covered.value)
+        assertFalse(arena.targets.set.get(target.id).get().isVisible)
     }
 
     @Test

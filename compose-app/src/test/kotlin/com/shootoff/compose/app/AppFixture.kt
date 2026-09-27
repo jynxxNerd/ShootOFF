@@ -7,6 +7,7 @@ import com.shootoff.camera.cameratypes.CameraEventListener
 import com.shootoff.compose.targets.ManualClock
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
+import com.shootoff.exercise.ButtonHandle
 import com.shootoff.exercise.Exercise
 import com.shootoff.exercise.ExerciseHost
 import com.shootoff.geom.Rect
@@ -47,6 +48,43 @@ object AppFixture {
         override fun stop() {}
     }
 
+    /**
+     * A projector drill that pauses as the par drill does: its button reads "Pause" while it runs and
+     * "Resume" while paused, and pausing turns shot detection off.
+     */
+    class PausingDrill : Exercise {
+        override fun metadata() = ExerciseMetadata("Pausing drill", "2.0", "ShootOFF tests", "Pauses like the par drill", true)
+
+        override fun start(host: ExerciseHost) {
+            var paused = false
+            lateinit var button: ButtonHandle
+            button = host.addButton("Pause") {
+                paused = !paused
+                button.setLabel(if (paused) "Resume" else "Pause")
+                host.pauseShotDetection(paused)
+            }
+        }
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {}
+
+        override fun stop() {}
+    }
+
+    /** A projector drill with no Pause button */
+    class UnpausableDrill : Exercise {
+        override fun metadata() = ExerciseMetadata("Unpausable drill", "2.0", "ShootOFF tests", "No pause", true)
+
+        override fun start(host: ExerciseHost) {}
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {}
+
+        override fun stop() {}
+    }
+
     class FeedDrill : Exercise {
         override fun metadata() = ExerciseMetadata("Feed drill", "1.0", "ShootOFF tests", "On the camera feed")
 
@@ -61,6 +99,8 @@ object AppFixture {
 
     val projectorDrill = V2ExerciseEntry(ProjectorDrill::class.java, ProjectorDrill().metadata())
     val feedDrill = V2ExerciseEntry(FeedDrill::class.java, FeedDrill().metadata())
+    val pausingDrill = V2ExerciseEntry(PausingDrill::class.java, PausingDrill().metadata())
+    val unpausableDrill = V2ExerciseEntry(UnpausableDrill::class.java, UnpausableDrill().metadata())
 
     /** A camera source with one [TestCamera], which the app opens at start */
     fun oneCamera(camera: TestCamera = TestCamera()) = object : CameraSource {

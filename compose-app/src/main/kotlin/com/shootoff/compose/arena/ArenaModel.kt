@@ -71,6 +71,7 @@ class ArenaModel(
     private val fullScreenState = MutableStateFlow(false)
     private val labelState = MutableStateFlow(true)
     private val gridState = MutableStateFlow(false)
+    private val coveredState = MutableStateFlow(false)
 
     /** The arena window's size, in dp: the arena's coordinates */
     val size: StateFlow<Size> = sizeState.asStateFlow()
@@ -87,6 +88,13 @@ class ArenaModel(
 
     /** Whether the arena shows Setup's alignment grid in place of everything else */
     val grid: StateFlow<Boolean> = gridState.asStateFlow()
+
+    /**
+     * Whether only the background shows, while a calibration pattern needs the arena: the targets, shot
+     * markers, the "Needs calibration" label and the exercise's texts are left out, each keeping its own
+     * state, so what a paused drill hid meanwhile stays hidden once the cover comes off.
+     */
+    val covered: StateFlow<Boolean> = coveredState.asStateFlow()
 
     @Volatile
     var perspective: PerspectiveManager? = null
@@ -132,6 +140,10 @@ class ArenaModel(
 
     fun showGrid(show: Boolean) {
         gridState.value = show
+    }
+
+    fun cover(covered: Boolean) {
+        coveredState.value = covered
     }
 
     /** Shows or hides every arena target, as calibration does. */

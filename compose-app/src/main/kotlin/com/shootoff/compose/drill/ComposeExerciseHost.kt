@@ -122,6 +122,9 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
 
     val name: String get() = support.exerciseName()
 
+    /** Whether the exercise has paused shot detection (a paused drill does) */
+    val shotDetectionPaused: Boolean get() = support.isShotDetectionPaused
+
     // ---- Lifecycle, driven by the ExerciseRunner
 
     fun start() {
