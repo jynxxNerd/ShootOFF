@@ -36,7 +36,7 @@
 
 Plan 4 is done; the gate stands at **431**.
 
-**Prototype.** The whole plan was built and run in a scratch clone of `compose-ui` at `4ded24d1`. Every task compiled with its tests green, in order. The full gate finished at **579/579** with the working tree's `shootoff.properties` unchanged. `./gradlew :compose-app:run` opened the Compose app on this machine: the C270 negotiated 640x480 YUYV at 30 FPS, and "Open arena" put the arena window full screen on the projector (1280x720 at x=4480). The code blocks below are the prototype's files.
+**Prototype.** The whole plan was built and run in a scratch clone of `compose-ui` at `4ded24d1`. Every task compiled with its tests green, in order. The full gate finished at **581/581** with the working tree's `shootoff.properties` unchanged. `./gradlew :compose-app:run` opened the Compose app on this machine: the C270 negotiated 640x480 YUYV at 30 FPS, and "Open arena" put the arena window full screen on the projector (1280x720 at x=4480). The code blocks below are the prototype's files.
 
 ## Plan-author rulings
 
@@ -125,9 +125,12 @@ Where the spec is silent, or the code disagrees with it, the plan decides as fol
     *Cost:* none known.
 12. **Only v2 exercises.**
     - The Compose app's plugin engine gets only `V2ExerciseLoader`.
-    - The owner's v1 `RandomTargetParDrill.jar` is skipped with core's logged "Error creating new plugin … needs plugin API version 1"; the v2 jar beside it registers. This matches 1a's "broken or mismatched jars are skipped".
+    - The owner's v1 `RandomTargetParDrill.jar` is skipped; the v2 jar beside it registers. This matches 1a's "broken or mismatched jars are skipped".
+    - A jar for an API version no configured loader runs isn't broken, so it is skipped quietly (Task 12). `Plugin` throws the new `UnsupportedApiVersionException` (an `IllegalArgumentException`, with the same message as before). `PluginEngine` logs one INFO line with no stack trace: "Skipping RandomTargetParDrill.jar: it needs plugin API version 1, which this app doesn't run".
+    - Genuinely broken jars keep their ERROR logging with the cause: a missing class (`LinkageError`), a bad descriptor, a class the loader rejects, and so on.
+    - In the JavaFX app both loaders are configured, so no jar there takes the new path.
 
-    *Cost:* one ERROR line in the log at start.
+    *Cost:* a new public exception type in `core`'s `plugins.engine`.
 13. **One camera at a time; Settings writes `shootoff.properties`.**
     - The owner has one camera, so the Camera | Arena switch has one camera segment. Choosing a camera writes `shootoff.webcams` (as the JavaFX preferences do).
     - Marker size writes `shootoff.markerradius`. The arena display is saved as the arena position (`shootoff.arena.x/y`), the way JavaFX saves an arena the user placed by hand.
@@ -173,6 +176,7 @@ Where the spec is silent, or the code disagrees with it, the plan decides as fol
   - `ShootOFFController.reset()` and `disableShotDetection(int)` delegate to `RangeReset`: the same order and rules; the "did not re-enable" info line now logs under `RangeReset`
   - `ProjectorArenaPane.autoPlaceArena()` asks `ProjectorScreens`: the same choice and placement; debug lines differ as in ruling 8
   - four images, the backgrounds folder and `TextToSpeech` moved to `core`: the same class-path names and class name
+- One change inside `core` that the JavaFX app never reaches: a jar for an unsupported API version is skipped with an INFO line instead of an ERROR with a stack trace (ruling 12). The JavaFX app configures both loaders.
 - No public or protected JavaFX member changes. No existing test changes.
 
 ## Global Constraints
@@ -247,7 +251,7 @@ The owner's check (Task 15) covers what no unit test reaches: the webcam and the
 | `…/compose/drill/{DrillState,HostSurface,SoundOutput,ComposeExerciseHost,ExerciseRunner}.kt` | the host and the runner | 9 |
 | `…/compose/drill/{WebColors,DrillCard,ExerciseTexts,ShotTimerTable,DrillSettings}.kt` | the drill panel | 10 |
 | `…/compose/app/{ExerciseCatalog,CameraSource,AppState,RangeScreen,DrillsScreen,SettingsScreen,ShootOffApp}.kt`; `Main.kt` | screens and wiring | 11 |
-| `…/compose/app/{CameraProblems,NoCameraPanel,Notices}.kt`; `AppState.kt`, `RangeScreen.kt`, `ShootOffApp.kt`, `Main.kt` | errors and edge cases | 12 |
+| `…/compose/app/{CameraProblems,NoCameraPanel,Notices}.kt`; `AppState.kt`, `RangeScreen.kt`, `ShootOffApp.kt`, `Main.kt`; `core/…/plugins/engine/{UnsupportedApiVersionException,Plugin,PluginEngine}.java` | errors and edge cases; the quiet skip | 12 |
 | `…/compose/app/{UiPrefs,Shortcuts}.kt`; `AppState.kt`, `RangeScreen.kt`, `ShootOffApp.kt`, `SettingsScreen.kt`, `Main.kt`, `shell/Rail.kt`, `feed/FeedBanners.kt`, `arena/ArenaWindow.kt` | polish | 13 |
 | `compose-app/src/test/…/compose/TestNoJavaFxInComposeApp.kt` | the boundary | 14 |
 | none | owner check | 15 |
@@ -269,9 +273,9 @@ The owner's check (Task 15) covers what no unit test reaches: the webcam and the
 | 9 | `drill/TestComposeExerciseHostContract` (8), `TestComposeExerciseHostContractOnArena` (8), `TestExerciseRunner` (6) | 540 |
 | 10 | `drill/TestWebColors` (1), `TestDrillPanel` (6) | 547 |
 | 11 | `app/TestAppState` (7), `TestScreens` (4) | 558 |
-| 12 | `app/TestProblems` (5), `TestProblemViews` (3) | 566 |
-| 13 | `app/TestUiPrefs` (3), `TestShortcuts` (4), `TestPolish` (4) | 577 |
-| 14 | `TestNoJavaFxInComposeApp` (2) | 579 |
+| 12 | `app/TestProblems` (5), `TestProblemViews` (3); `core` `plugins/engine/TestPluginEngineSkipLogging` (2) | 568 |
+| 13 | `app/TestUiPrefs` (3), `TestShortcuts` (4), `TestPolish` (4) | 579 |
+| 14 | `TestNoJavaFxInComposeApp` (2) | 581 |
 
 ---
 ### Task 1: The `compose-app` module, the Range theme and the rail
@@ -9632,7 +9636,9 @@ Expected: the message alone, with no trailer. `git status --short` lists only `s
 **Files:**
 - Create: `compose-app/src/main/kotlin/com/shootoff/compose/app/CameraProblems.kt`, `compose-app/src/main/kotlin/com/shootoff/compose/app/NoCameraPanel.kt`, `compose-app/src/main/kotlin/com/shootoff/compose/app/Notices.kt`
 - Modify: `compose-app/src/main/kotlin/com/shootoff/compose/app/AppState.kt`, `compose-app/src/main/kotlin/com/shootoff/compose/app/RangeScreen.kt`, `compose-app/src/main/kotlin/com/shootoff/compose/app/ShootOffApp.kt`, `compose-app/src/main/kotlin/com/shootoff/compose/Main.kt`
-- Test: `compose-app/src/test/kotlin/com/shootoff/compose/app/TestProblems.kt`, `compose-app/src/test/kotlin/com/shootoff/compose/app/TestProblemViews.kt`
+- Create: `core/src/main/java/com/shootoff/plugins/engine/UnsupportedApiVersionException.java`
+- Modify: `core/src/main/java/com/shootoff/plugins/engine/Plugin.java`, `core/src/main/java/com/shootoff/plugins/engine/PluginEngine.java` (the quiet skip)
+- Test: `compose-app/src/test/kotlin/com/shootoff/compose/app/TestProblems.kt`, `compose-app/src/test/kotlin/com/shootoff/compose/app/TestProblemViews.kt`, `core/src/test/java/com/shootoff/plugins/engine/TestPluginEngineSkipLogging.java`
 
 **Interfaces:**
 - Consumes:
@@ -9645,6 +9651,7 @@ Expected: the message alone, with no trailer. `git status --short` lists only `s
   - `data class Notice(id, title, message)`; `class Notices : UserNotifier`, with `notices: StateFlow<List<Notice>>` and `dismiss(Notice)`
   - `@Composable NoticeSnackbars(notices, modifier)`, tags `notice-<id>` and `dismiss-notice-<id>`
   - on `AppState`: `cameraProblem: StateFlow<String?>`, `notices: Notices`, `cameraProblems: CameraProblems`
+  - in `core` (`com.shootoff.plugins.engine`): `public final class UnsupportedApiVersionException extends IllegalArgumentException`, with `UnsupportedApiVersionException(Path jarPath, int apiVersion)`, `getJarPath()` and `getApiVersion()`. `Plugin`'s constructor throws it when no loader is for the jar's API version; `PluginEngine` logs it at INFO.
 
 **The cases (spec §4).**
 - **No camera, or it drops out.**
@@ -9655,7 +9662,7 @@ Expected: the message alone, with no trailer. `git status --short` lists only `s
 - **No projector screen** was Task 11: the Arena segment's hint and "Needs the projector arena".
 - **An auto-calibration timeout** goes straight to the manual box. That is the flow's (Task 8's `whenAutoCalibrationTimesOutTheBoxShowsOnTheFeed`).
 - **An exercise throws.** The runner stops it, and a red banner says "‹name› stopped: ‹Exception›: ‹message›" until dismissed (ruling 11).
-- **A broken or mismatched plugin jar** is skipped and the rest load (ruling 12).
+- **A broken or mismatched plugin jar** is skipped and the rest load (ruling 12). A jar for another API version (the owner's v1 drill here) is only mismatched, so it is one INFO line with no stack trace; a broken jar keeps its ERROR with the cause.
 - **Missing target files and other `UserNotifier` messages** are snackbars, each until dismissed.
 
 - [ ] **Step 1: Write the failing tests**
@@ -10267,9 +10274,177 @@ with:
 
 Run: `./gradlew :compose-app:test --tests 'com.shootoff.compose.app.*' --console=plain`
 
-Expected: `BUILD SUCCESSFUL`, 19 tests passing (8 new). The v1-jar test logs core's "Error creating new plugin … needs plugin API version 1" with a stack trace; that is the skip working.
+Expected: `BUILD SUCCESSFUL`, 19 tests passing (8 new). The v1-jar test still logs core's "Error creating new plugin … needs plugin API version 1" with a stack trace; Steps 6–9 make that skip quiet.
 
-- [ ] **Step 6: Run the gate**
+- [ ] **Step 6: Write the failing test for the quiet skip**
+
+`core/src/test/java/com/shootoff/plugins/engine/TestPluginEngineSkipLogging.java`:
+
+```java
+package com.shootoff.plugins.engine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+
+class TestPluginEngineSkipLogging {
+	@TempDir Path plugins;
+	private String previousPlugins;
+	private final Logger engineLogger = (Logger) LoggerFactory.getLogger(PluginEngine.class);
+	private final ListAppender<ILoggingEvent> logged = new ListAppender<>();
+	private Level previousLevel;
+
+	// Loads nothing: every jar here is either the wrong API version or broken
+	private static final ExerciseLoader V2_ONLY = new ExerciseLoader() {
+		@Override
+		public int apiVersion() {
+			return 2;
+		}
+
+		@Override
+		public ExerciseEntry load(Class<?> exerciseClass) {
+			throw new IllegalArgumentException(exerciseClass + " isn't an exercise");
+		}
+	};
+
+	private static final PluginListener IGNORE = new PluginListener() {
+		@Override
+		public void registerExercise(ExerciseEntry exercise) {}
+
+		@Override
+		public void registerProjectorExercise(ExerciseEntry exercise) {}
+
+		@Override
+		public void unregisterExercise(ExerciseEntry exercise) {}
+	};
+
+	@BeforeEach
+	void setUp() {
+		previousPlugins = System.getProperty("shootoff.plugins");
+		System.setProperty("shootoff.plugins", plugins.toString());
+		previousLevel = engineLogger.getLevel();
+		engineLogger.setLevel(Level.INFO);
+		logged.start();
+		engineLogger.addAppender(logged);
+	}
+
+	@AfterEach
+	void tearDown() {
+		engineLogger.detachAppender(logged);
+		engineLogger.setLevel(previousLevel);
+		if (previousPlugins == null) System.clearProperty("shootoff.plugins");
+		else System.setProperty("shootoff.plugins", previousPlugins);
+	}
+
+	private void jar(String jarName, int apiVersion, String className, Map<String, String> sources) throws IOException {
+		PluginJars.build(plugins, jarName, Optional.of(PluginJars.descriptor(apiVersion, className)), sources,
+				System.getProperty("java.class.path"));
+	}
+
+	@Test
+	void aJarForAnotherApiVersionIsSkippedWithOneInfoLine() throws IOException {
+		jar("Old.jar", 1, "test.Old", Map.of("test.Old", "package test; public class Old {}"));
+
+		new PluginEngine(IGNORE, List.of(V2_ONLY), List.of());
+
+		assertEquals(1, logged.list.size());
+		final ILoggingEvent event = logged.list.get(0);
+		assertEquals(Level.INFO, event.getLevel());
+		assertEquals("Skipping Old.jar: it needs plugin API version 1, which this app doesn't run",
+				event.getFormattedMessage());
+		assertNull(event.getThrowableProxy());
+	}
+
+	@Test
+	void aBrokenJarStillLogsAnErrorWithItsCause() throws IOException {
+		// The descriptor names a class the jar doesn't have
+		jar("Broken.jar", 2, "test.Missing", Map.of("test.Present", "package test; public class Present {}"));
+
+		new PluginEngine(IGNORE, List.of(V2_ONLY), List.of());
+
+		assertEquals(1, logged.list.size());
+		final ILoggingEvent event = logged.list.get(0);
+		assertEquals(Level.ERROR, event.getLevel());
+		assertEquals("Error creating new plugin", event.getFormattedMessage());
+		assertNotNull(event.getThrowableProxy());
+	}
+}
+```
+
+
+- [ ] **Step 7: Run it to verify it fails**
+
+Run: `./gradlew :core:test --tests 'com.shootoff.plugins.engine.TestPluginEngineSkipLogging' --console=plain`
+
+Expected: FAIL: `aJarForAnotherApiVersionIsSkippedWithOneInfoLine()` with `expected: <INFO> but was: <ERROR>`. `aBrokenJarStillLogsAnErrorWithItsCause()` passes already; it pins that broken jars keep their ERROR.
+
+- [ ] **Step 8: Skip another API version quietly**
+
+`core/src/main/java/com/shootoff/plugins/engine/UnsupportedApiVersionException.java` (new; GPL header first):
+
+```java
+package com.shootoff.plugins.engine;
+
+import java.nio.file.Path;
+
+/**
+ * A plugin jar for an API version none of the app's loaders runs, e.g. a v1 exercise in an app that runs
+ * only v2 exercises. The jar isn't broken, so it is skipped quietly.
+ */
+public final class UnsupportedApiVersionException extends IllegalArgumentException {
+	private static final long serialVersionUID = 1L;
+
+	private final Path jarPath;
+	private final int apiVersion;
+
+	public UnsupportedApiVersionException(Path jarPath, int apiVersion) {
+		super(String.format("%s needs plugin API version %d, which this ShootOFF doesn't support", jarPath,
+				apiVersion));
+		this.jarPath = jarPath;
+		this.apiVersion = apiVersion;
+	}
+
+	public Path getJarPath() {
+		return jarPath;
+	}
+
+	public int getApiVersion() {
+		return apiVersion;
+	}
+}
+```
+
+
+`core/src/main/java/com/shootoff/plugins/engine/Plugin.java`:
+
+
+`core/src/main/java/com/shootoff/plugins/engine/PluginEngine.java`:
+
+
+- [ ] **Step 9: Run the plugin tests to verify they pass**
+
+Run: `./gradlew :core:test --tests 'com.shootoff.plugins.engine.*' :compose-app:test --tests 'com.shootoff.compose.app.TestProblems' --console=plain`
+
+Expected: `BUILD SUCCESSFUL`: both `TestPluginEngineSkipLogging` tests, the unchanged `TestPluginEngineRegistration` (its `jarWithUnsupportedApiVersionIsSkipped` still skips), and `TestProblems.aV1PluginIsSkippedAndTheV2BesideItStillLoads`, now without a stack trace in its output.
+
+- [ ] **Step 10: Run the gate**
 
 Run the gate (Global Constraints), then check the owner's files:
 
@@ -10279,15 +10454,16 @@ mkdir -p build; ./gradlew cleanTest test --continue --console=plain > build/gate
 sha256sum -c build/plan5-owner-files.sha256
 ```
 
-Expected: `566/566 passing; 0 regressions; 0 new failures`, then four `OK` lines.
+Expected: `568/568 passing; 0 regressions; 0 new failures`, then four `OK` lines.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 cd /home/bfears/projects/ShootOFF
 git add compose-app/src/main/kotlin/com/shootoff/compose/app/CameraProblems.kt compose-app/src/main/kotlin/com/shootoff/compose/app/NoCameraPanel.kt compose-app/src/main/kotlin/com/shootoff/compose/app/Notices.kt
 git add compose-app/src/main/kotlin/com/shootoff/compose/app/AppState.kt compose-app/src/main/kotlin/com/shootoff/compose/app/RangeScreen.kt compose-app/src/main/kotlin/com/shootoff/compose/app/ShootOffApp.kt compose-app/src/main/kotlin/com/shootoff/compose/Main.kt
 git add compose-app/src/test/kotlin/com/shootoff/compose/app/TestProblems.kt compose-app/src/test/kotlin/com/shootoff/compose/app/TestProblemViews.kt
+git add core/src/main/java/com/shootoff/plugins/engine/UnsupportedApiVersionException.java core/src/main/java/com/shootoff/plugins/engine/Plugin.java core/src/main/java/com/shootoff/plugins/engine/PluginEngine.java core/src/test/java/com/shootoff/plugins/engine/TestPluginEngineSkipLogging.java
 git commit -m "Handle a missing camera, a failing drill, skipped v1 plugins and notices in the Compose app"
 git log -1 --format=%B
 git status --short
@@ -11605,7 +11781,7 @@ mkdir -p build; ./gradlew cleanTest test --continue --console=plain > build/gate
 sha256sum -c build/plan5-owner-files.sha256
 ```
 
-Expected: `577/577 passing; 0 regressions; 0 new failures`, then four `OK` lines.
+Expected: `579/579 passing; 0 regressions; 0 new failures`, then four `OK` lines.
 
 - [ ] **Step 7: Commit**
 
@@ -11693,7 +11869,7 @@ mkdir -p build; ./gradlew cleanTest test --continue --console=plain > build/gate
 sha256sum -c build/plan5-owner-files.sha256
 ```
 
-Expected: `579/579 passing; 0 regressions; 0 new failures`, then four `OK` lines.
+Expected: `581/581 passing; 0 regressions; 0 new failures`, then four `OK` lines.
 
 - [ ] **Step 5: Commit**
 
@@ -11725,7 +11901,7 @@ sha256sum -c build/plan5-owner-files.sha256
 ```
 
 Expected:
-- `579/579 passing; 0 regressions; 0 new failures`
+- `581/581 passing; 0 regressions; 0 new failures`
 - four `OK` lines
 - `0`
 
@@ -11795,10 +11971,10 @@ cd /home/bfears/projects/ShootOFF
 
 ```bash
 cd /home/bfears/projects/ShootOFF
-command grep -nE "Exception|Error" build/plan5-compose-run.log | command grep -v "needs plugin API version 1" | command grep -vE "^[0-9]+:\s+at "
+command grep -nE "Exception|Error" build/plan5-compose-run.log
 ```
 
-Expected: nothing, apart from the v1 jar's expected "Error creating new plugin" line (ruling 12). Its stack trace is filtered out above.
+Expected: nothing. The v1 jar's skip is one INFO line (ruling 12), and the Compose app's logging shows WARN and above, so it isn't in the log.
 
 - [ ] **Step 6: A short JavaFX regression check** (spec §1 success criterion 4)
 
