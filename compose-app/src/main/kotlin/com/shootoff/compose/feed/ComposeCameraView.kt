@@ -61,6 +61,10 @@ class ComposeCameraView(
     var cameraManager: CameraManager? = null
         private set
 
+    /** Also hears every frame, on the camera's thread (the calibration check takes them from here) */
+    @Volatile
+    var frameTap: ((BufferedImage) -> Unit)? = null
+
     override fun setCameraManager(cameraManager: CameraManager) {
         this.cameraManager = cameraManager
     }
@@ -70,6 +74,8 @@ class ComposeCameraView(
             feed.clearFrame()
             return
         }
+
+        frameTap?.invoke(frame)
 
         val display = feed.displaySize
         val bounds = projectionBounds.map { toCanvas(it) }.orElse(Rect(0.0, 0.0, display.width, display.height))

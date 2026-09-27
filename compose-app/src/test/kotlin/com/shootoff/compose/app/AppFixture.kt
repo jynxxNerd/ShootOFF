@@ -1,5 +1,6 @@
 package com.shootoff.compose.app
 
+import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.camera.MockCamera
 import com.shootoff.camera.Shot
 import com.shootoff.camera.cameratypes.CameraEventListener
@@ -14,6 +15,7 @@ import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.targets.model.Hit
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import java.awt.image.BufferedImage
 import java.util.Optional
 
 /** An app with no camera, the owner's three screens, and two drills in its catalog. */
@@ -71,11 +73,23 @@ object AppFixture {
         settings: Settings = Settings(ScratchConfig.emptyFile().path, arrayOf()),
         background: CoroutineDispatcher = Dispatchers.Default,
         screens: List<Rect> = ownerScreens,
+        detector: CalibrationCheck.Detector<BufferedImage> = CalibrationCheck.Detector { Optional.empty() },
+        checkClock: () -> Long = System::currentTimeMillis,
     ): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
         catalog.registerExercise(feedDrill)
-        return AppState(settings, catalog, oneCamera(), { screens }, ManualClock(), { it.run() }, background)
+        return AppState(
+            settings,
+            catalog,
+            oneCamera(),
+            { screens },
+            ManualClock(),
+            { it.run() },
+            background,
+            detector = { detector },
+            checkClock = checkClock,
+        )
     }
 
     fun app(screens: List<Rect> = ownerScreens): AppState {

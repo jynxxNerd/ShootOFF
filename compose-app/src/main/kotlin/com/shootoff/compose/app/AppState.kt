@@ -18,17 +18,23 @@
 
 package com.shootoff.compose.app
 
+import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.camera.CameraManager
 import com.shootoff.camera.CameraView
 import com.shootoff.camera.CamerasSupervisor
 import com.shootoff.camera.DiagnosticMessage
+import com.shootoff.camera.autocalibration.PatternDetector
 import com.shootoff.camera.cameratypes.Camera
 import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.compose.arena.ArenaPlacement
 import com.shootoff.compose.arena.ArenaScreens
+import com.shootoff.compose.calibration.CalibrationCheckRun
 import com.shootoff.compose.calibration.CalibrationController
 import com.shootoff.compose.calibration.CalibrationViews
+import com.shootoff.compose.calibration.CheckState
+import com.shootoff.compose.calibration.LatestFrame
+import com.shootoff.compose.calibration.savedCalibrationMismatch
 import com.shootoff.compose.drill.ArenaHostSurface
 import com.shootoff.compose.drill.ComposeExerciseHost
 import com.shootoff.compose.drill.DrillState
@@ -46,6 +52,7 @@ import com.shootoff.compose.shots.ShotMarkers
 import com.shootoff.compose.shots.ShotTimerModel
 import com.shootoff.compose.targets.AnimationClock
 import com.shootoff.compose.targets.SurfaceTargets
+import com.shootoff.config.SavedCalibration
 import com.shootoff.config.Settings
 import com.shootoff.exercise.Exercise
 import com.shootoff.geom.ArenaGeometry
@@ -67,6 +74,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.EventQueue
@@ -75,6 +83,7 @@ import java.time.LocalTime
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.roundToInt
 
 /** The Range screen's big view */
 enum class BigView { CAMERA, ARENA }
@@ -91,6 +100,8 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param background runs the app's watchers
  * @param io opens and lists cameras, which can take seconds, off the UI thread
  * @param wallClock the time of day, which the calibration status shows
+ * @param detector finds the calibration pattern in a camera's frames, for the remembered calibration's check
+ * @param checkClock the check's time limit runs on it
  */
 class AppState(
     val settings: Settings,
@@ -103,6 +114,8 @@ class AppState(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     val prefs: UiPrefs = UiPrefs(),
     private val wallClock: () -> LocalTime = LocalTime::now,
+    private val detector: (CameraManager) -> CalibrationCheck.Detector<BufferedImage> = { PatternDetector(it.camera) },
+    private val checkClock: () -> Long = System::currentTimeMillis,
 ) : CalibrationViews {
     private val logger = LoggerFactory.getLogger(AppState::class.java)
     private val scope = CoroutineScope(SupervisorJob() + background)
@@ -140,6 +153,15 @@ class AppState(
     private val trayHeightState = MutableStateFlow(prefs.trayHeight)
     private val trayCollapsedState = MutableStateFlow(prefs.trayCollapsed)
     private val calibratedAtState = MutableStateFlow<LocalTime?>(null)
+    private val rememberState = MutableStateFlow(settings.rememberCalibration())
+    private val checkState = MutableStateFlow<CheckState>(CheckState.Idle)
+    private val checkFrames = LatestFrame()
+    private var checkRun: CalibrationCheckRun? = null
+    private var checkWatch: Job? = null
+
+    // The arena's calibration now, as it would be remembered; null while uncalibrated, or when it can't be
+    // remembered (no projector screen)
+    private var currentCalibration: SavedCalibration? = null
     private var viewBeforeCalibration: BigView? = null
     private var fullScreenWatch: Job? = null
 
@@ -153,6 +175,12 @@ class AppState(
 
     /** When the open arena was last calibrated; null while it isn't */
     val calibratedAt: StateFlow<LocalTime?> = calibratedAtState.asStateFlow()
+
+    /** Whether calibrations are kept for the next session ("Remember calibration") */
+    val rememberCalibration: StateFlow<Boolean> = rememberState.asStateFlow()
+
+    /** Where the check of the remembered calibration stands */
+    val check: StateFlow<CheckState> = checkState.asStateFlow()
 
     /** The open camera, or null */
     val camera: StateFlow<CameraManager?> = cameraState.asStateFlow()
@@ -444,6 +472,94 @@ class AppState(
         if (prefs.view == BigView.ARENA) viewState.value = BigView.ARENA
 
         cameraState.value?.let { makeCalibratable(arena, it) }
+        if (settings.rememberCalibration()) checkRemembered(arena)
+    }
+
+    // The remembered calibration, checked (never at launch: only here, as the arena opens) if it was made
+    // with this camera and a projector screen like this one. The check waits for the arena to reach the
+    // projector, since the pattern on a window still on its way there would be measured in the wrong place.
+    private fun checkRemembered(arena: ArenaModel) {
+        val saved = settings.savedCalibration.orElse(null) ?: return
+        val camera = cameraState.value
+        if (camera == null || calibrationState.value == null) {
+            checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.NO_CAMERA)
+            return
+        }
+        val feed = Size(camera.feedWidth.toDouble(), camera.feedHeight.toDouble())
+        savedCalibrationMismatch(saved, camera.name, feed, placementState.value?.screen)?.let {
+            checkState.value = CheckState.DoesntFit(it)
+            return
+        }
+
+        checkState.value = CheckState.Checking
+        checkWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            arena.fullScreen.first { it }
+            uiThread(Runnable { if (arenaState.value === arena && checkState.value == CheckState.Checking && checkRun == null) runCheck(arena, camera, saved) })
+        }
+    }
+
+    private fun runCheck(arena: ArenaModel, camera: CameraManager, saved: SavedCalibration) {
+        val run = CalibrationCheckRun(saved, arena, camera, checkFrames, detector(camera), checkClock, scope, { task, delay ->
+            TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
+        }, uiThread) { run, outcome -> checked(run, saved, outcome) }
+        checkRun = run
+        cameraView.frameTap = checkFrames::offer
+        run.start()
+    }
+
+    // The check's outcome, on the UI thread; ignored if the check was stopped by something that replaced it
+    private fun checked(run: CalibrationCheckRun, saved: SavedCalibration, outcome: CalibrationCheck.Outcome) {
+        if (checkRun !== run) return
+        checkRun = null
+        cameraView.frameTap = null
+        when (outcome) {
+            is CalibrationCheck.Kept -> {
+                calibrationState.value?.applySaved(saved)
+                currentCalibration = saved
+                calibratedAtState.value = wallClock()
+                checkState.value = CheckState.Idle
+            }
+            is CalibrationCheck.Moved -> checkState.value = CheckState.Moved(outcome.distance().roundToInt())
+            is CalibrationCheck.NotVerified -> checkState.value = CheckState.NotVerified(outcome.reason())
+        }
+    }
+
+    // Ends a check without a word (something replaced it); the arena's background comes back
+    private fun stopCheckQuietly() {
+        checkWatch?.cancel()
+        checkWatch = null
+        val run = checkRun
+        checkRun = null
+        cameraView.frameTap = null
+        run?.stop(CalibrationCheck.Reason.CANCELLED)
+        checkState.value = CheckState.Idle
+    }
+
+    /** Cancel on the check: it ends, the arena stays uncalibrated, and Setup says it wasn't verified. */
+    fun cancelCheck() {
+        if (checkState.value != CheckState.Checking) return
+        stopCheckQuietly()
+        checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
+    }
+
+    /**
+     * "Remember calibration". On: the arena's calibration, now and after each calibration, is saved for the
+     * next session. Off: nothing is saved, the saved one is forgotten, and a check under way stops.
+     */
+    fun setRememberCalibration(remember: Boolean) {
+        rememberState.value = remember
+        settings.setRememberCalibration(remember)
+        settings.setSavedCalibration(if (remember) currentCalibration else null)
+        if (!remember && checkState.value == CheckState.Checking) stopCheckQuietly()
+        saveSettings()
+    }
+
+    private fun saveSettings() {
+        try {
+            settings.writeConfigurationFile()
+        } catch (e: Exception) {
+            logger.error("Couldn't save the settings", e)
+        }
     }
 
     // Creates the calibration controller for [camera] on [arena], without calibrating. Also reached when a
@@ -470,6 +586,8 @@ class AppState(
     /** The arena window closed: calibration ends, a projector drill stops, and the view goes back to the camera. */
     fun closeArena() {
         val arena = arenaState.value ?: return
+        stopCheckQuietly()
+        currentCalibration = null
         calibrationState.value?.arenaClosing()
         fullScreenWatch?.cancel()
         calibrationState.value = null
@@ -491,6 +609,8 @@ class AppState(
      */
     fun startCalibration(): Boolean {
         val controller = calibrationState.value ?: return false
+        // A check under way stops first, putting the arena's background back before calibration saves it
+        stopCheckQuietly()
         controller.start()
         return true
     }
@@ -502,6 +622,19 @@ class AppState(
 
     override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
         calibratedAtState.value = wallClock()
+        checkState.value = CheckState.Idle
+        val camera = cameraState.value
+        val screen = placementState.value?.screen
+        // Made without a projector screen, a calibration can't be matched to one next time
+        currentCalibration = if (camera != null && screen != null) {
+            SavedCalibration(camera.name, Size(camera.feedWidth.toDouble(), camera.feedHeight.toDouble()), Size(screen.width, screen.height), cameraBounds, paper)
+        } else {
+            null
+        }
+        if (settings.rememberCalibration()) {
+            settings.setSavedCalibration(currentCalibration)
+            saveSettings()
+        }
     }
 
     fun calibrationStatus(): CalibrationStatus = calibrationStatus(
