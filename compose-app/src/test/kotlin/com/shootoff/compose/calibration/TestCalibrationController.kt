@@ -8,6 +8,11 @@ import com.shootoff.targets.model.RectangleRegion
 import com.shootoff.targets.model.ResourceResolver
 import com.shootoff.targets.model.TargetDefinition
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -94,8 +99,16 @@ class TestCalibrationController {
 
     @Test
     fun aRunningProjectorDrillStopsFirstAndStartsAgainAfter() {
-        val order = mutableListOf<String>()
-        fixture.restartExercise = Optional.of(Runnable { order += "restart" })
+        val drillBackground = ArenaBackground(ImageBitmap(4, 4), "backgrounds/blackBG.png")
+        arena.setBackground(drillBackground)
+        // Watches the arena's background for the moment it comes back, to place it in fixture.events
+        // alongside the view restore and the restart, in the order they really happen
+        val backgroundWatch = CoroutineScope(Dispatchers.Unconfined)
+        backgroundWatch.launch {
+            arena.background.drop(1).collect { background -> if (background === drillBackground) fixture.events += "background restore" }
+        }
+
+        fixture.restartExercise = Optional.of(Runnable { fixture.events += "restart" })
         controller.toggle()
         assertEquals("stop exercise", fixture.events.first())
 
@@ -104,16 +117,92 @@ class TestCalibrationController {
         fixture.fire(CalibrationFlow.FULL_SCREEN_SETTLE_DELAY)
         controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
 
-        assertEquals(listOf("restart"), order)
+        assertEquals(
+            listOf("restore view", "background restore", "restart"),
+            fixture.events.filter { it in setOf("restore view", "background restore", "restart") },
+        )
+
+        backgroundWatch.cancel()
+    }
+
+    @Test
+    fun theSuccessPathCompletesOnTheUiThreadNotTheCallingThread() {
+        val uiTasks = mutableListOf<Runnable>()
+        val fixture = CalibrationFixture(uiThread = { uiTasks += it })
+        val controller = fixture.controller
+        val arena = fixture.arena
+
+        controller.toggle()
+        arena.setFullScreen(true)
+        controller.fullScreenChanged(true)
+        // The settle timer's own completion is itself posted to the UI thread; run what was queued
+        fixture.fire(CalibrationFlow.FULL_SCREEN_SETTLE_DELAY)
+        assertEquals(1, uiTasks.size)
+        uiTasks.removeAt(0).run()
+        assertEquals(Message.AUTO_CALIBRATING, controller.state.value.message)
+
+        controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        // The calling ("camera") thread only queued the completion; nothing has happened yet
+        assertTrue(controller.state.value.calibrating)
+        assertNull(arena.projection.value)
+        assertEquals(1, uiTasks.size)
+
+        uiTasks.removeAt(0).run()
+
+        assertFalse(controller.state.value.calibrating)
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), arena.projection.value)
+    }
+
+    @Test
+    fun theManualBoxIsClampedToTheCanvasAsItMoves() {
+        startOnTheProjector()
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+
+        // Dragged past the top-left corner, then resized far past the bottom-right (the default settings'
+        // display size, 640x480, matches the fake camera's feed here)
+        controller.moveBox(Rect(-500.0, -500.0, 150.0, 150.0))
+        assertEquals(Rect(0.0, 0.0, 150.0, 150.0), controller.state.value.box)
+
+        controller.moveBox(Rect(0.0, 0.0, 5000.0, 5000.0))
+        assertEquals(Rect(0.0, 0.0, 640.0, 480.0), controller.state.value.box)
+
+        controller.flow.stop()
+
+        val bounds = fixture.camera.bounds!!
+        assertTrue(bounds.minX >= 0.0 && bounds.minY >= 0.0)
+        assertTrue(bounds.maxX <= fixture.camera.feedWidth.toDouble())
+        assertTrue(bounds.maxY <= fixture.camera.feedHeight.toDouble())
     }
 
     @Test
     fun closingTheArenaWhileCalibratingEndsCalibrationAndForgetsTheProjection() {
+        val order = mutableListOf<String>()
+        fixture.restartExercise = Optional.of(Runnable { order += "restart" })
         startOnTheProjector()
 
         controller.arenaClosing()
 
         assertFalse(controller.state.value.calibrating)
         assertNull(arena.projection.value)
+        assertNull(fixture.camera.bounds)
+        assertTrue(order.isEmpty())
+    }
+
+    @Test
+    fun closingTheArenaDuringManualCalibrationDropsTheBoxUnsavedAndDoesNotRestart() {
+        val order = mutableListOf<String>()
+        fixture.restartExercise = Optional.of(Runnable { order += "restart" })
+        startOnTheProjector()
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        controller.moveBox(Rect(120.0, 90.0, 380.0, 280.0))
+
+        controller.arenaClosing()
+
+        assertFalse(controller.state.value.calibrating)
+        assertNull(controller.state.value.box)
+        assertNull(arena.projection.value)
+        assertNull(fixture.camera.bounds)
+        assertTrue(order.isEmpty())
     }
 }

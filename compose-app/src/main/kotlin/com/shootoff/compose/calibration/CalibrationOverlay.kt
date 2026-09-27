@@ -57,7 +57,8 @@ import com.shootoff.compose.theme.Range
 import com.shootoff.geom.Rect
 import kotlin.math.roundToInt
 
-private const val MIN_BOX = 20.0
+// Also used by CalibrationController to clamp the box to the canvas as it moves and resizes
+internal const val MIN_BOX = 20.0
 
 /**
  * Calibration over the calibrating camera's feed: what the flow asks of the user, with Stop (or Done

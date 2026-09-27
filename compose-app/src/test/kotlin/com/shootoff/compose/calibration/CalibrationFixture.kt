@@ -14,8 +14,13 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** A controller on a fake camera, with the flow's timers and the UI thread under the test's control. */
-class CalibrationFixture {
+/**
+ * A controller on a fake camera, with the flow's timers and the UI thread under the test's control.
+ *
+ * @param uiThread runs a UI-thread task; defaults to running it immediately, so most tests don't need to
+ *        pump anything. A test proving work hops to the UI thread passes its own, e.g. a queue.
+ */
+class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }) {
     val events = CopyOnWriteArrayList<String>()
     val timers = mutableListOf<Pair<Long, Runnable>>()
     val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
@@ -59,12 +64,12 @@ class CalibrationFixture {
 
     val camera = FakeCamera()
 
-    lateinit var arena: ArenaModel
-
-    init {
-        arena = ArenaModel(settings, { ShotReceiver.None }, { RegionCommandRunner(arena.targets, settings, {}, { null }) }, ManualClock())
-        arena.setSize(Size(1280.0, 720.0))
-    }
+    val arena: ArenaModel = ArenaModel(
+        settings,
+        { ShotReceiver.None },
+        { RegionCommandRunner(arena.targets, settings, {}, { null }) },
+        ManualClock(),
+    ).also { it.setSize(Size(1280.0, 720.0)) }
 
     val views = object : CalibrationViews {
         override fun showCalibratingFeed() {
@@ -89,7 +94,7 @@ class CalibrationFixture {
             timers += delay to task
             CompletableFuture<Void>()
         },
-        { it.run() },
+        uiThread,
     )
 
     /** Runs the pending timer that was set for [delay] */

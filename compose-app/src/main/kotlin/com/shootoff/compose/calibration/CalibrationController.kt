@@ -91,21 +91,42 @@ class CalibrationController(
     /** The Calibrate button: starts calibrating, or ends it (with the box, if it is showing). */
     fun toggle() = if (flow.isCalibrating) flow.stop() else flow.start()
 
-    fun moveBox(box: Rect) = uiState.update { if (it.box != null) it.copy(box = box) else it }
+    /** Moves or resizes the box, keeping it inside the canvas (the settings' display size). */
+    fun moveBox(box: Rect) = uiState.update { if (it.box != null) it.copy(box = clampToCanvas(box)) else it }
+
+    private fun clampToCanvas(box: Rect): Rect {
+        val canvasWidth = settings.displayWidth.toDouble()
+        val canvasHeight = settings.displayHeight.toDouble()
+        val width = box.width.coerceIn(MIN_BOX, canvasWidth.coerceAtLeast(MIN_BOX))
+        val height = box.height.coerceIn(MIN_BOX, canvasHeight.coerceAtLeast(MIN_BOX))
+        val minX = box.minX.coerceIn(0.0, (canvasWidth - width).coerceAtLeast(0.0))
+        val minY = box.minY.coerceIn(0.0, (canvasHeight - height).coerceAtLeast(0.0))
+        return Rect(minX, minY, width, height)
+    }
 
     /** The arena window went full screen or left it. */
     fun fullScreenChanged(fullScreen: Boolean) = flow.setFullScreen(fullScreen)
 
-    /** The arena window is closing: calibration ends, and its projection with it. */
+    /**
+     * The arena window is closing: calibration ends. The box, if any, is dropped unsaved (closing must
+     * not calibrate to it or restart a drill on an arena that is gone, ruling 10); the flow's own
+     * [CalibrationFlow.arenaClosing] always runs, so the camera's projection is cleared too.
+     */
     fun arenaClosing() {
-        if (flow.isCalibrating) flow.stop() else flow.arenaClosing()
+        uiState.update { CalibrationUi() }
+        flow.arenaClosing()
         arena.setProjection(null)
     }
 
     // ---- The camera (CameraCalibrationListener)
 
-    override fun calibrate(arenaBounds: Rect, perspectivePaperDims: Optional<Size>, calibratedFromCanvas: Boolean, frameDelay: Long) =
-        flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
+    /**
+     * The camera reports success on its own thread. Completing calibration touches the view (and can
+     * restart a drill), so the whole of it runs on the UI thread, not the camera's.
+     */
+    override fun calibrate(arenaBounds: Rect, perspectivePaperDims: Optional<Size>, calibratedFromCanvas: Boolean, frameDelay: Long) {
+        uiThread(Runnable { flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas) })
+    }
 
     /** Auto-calibration's exposure step shows a white screen, then none */
     override fun setArenaBackground(resourceFilename: String?) = arena.showResource(resourceFilename)
