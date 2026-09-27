@@ -49,6 +49,7 @@ fun NoCameraPanel(app: AppState, modifier: Modifier = Modifier) {
     val problem by app.cameraProblem.collectAsState()
     val opening by app.openingCamera.collectAsState()
     val cameras by app.cameraList.collectAsState()
+    val waitingFor by app.waitingFor.collectAsState()
     // Looked for again after each problem: an unplugged camera may be back
     LaunchedEffect(problem) { app.refreshCameras() }
     val colors = Range.colors
@@ -67,6 +68,10 @@ fun NoCameraPanel(app: AppState, modifier: Modifier = Modifier) {
                     Text("Opening camera $shownOpening…", color = colors.mutedStrong, modifier = Modifier.testTag("opening-camera"))
                 } else {
                     Text(problem ?: "Pick the camera pointed at your target.", color = colors.mutedStrong)
+                    // The lost camera reopens by itself when it is plugged back in; another can be picked meanwhile
+                    waitingFor?.let {
+                        Text("Waiting for $it to be plugged back in…", color = colors.muted, modifier = Modifier.testTag("waiting-for-camera"))
+                    }
                     val found = cameras
                     when {
                         found == null -> Text("Looking for cameras…", color = colors.muted)

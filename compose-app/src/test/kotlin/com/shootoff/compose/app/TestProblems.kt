@@ -31,6 +31,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.Optional
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -432,6 +433,98 @@ class TestProblems {
             awaitTrue { app.camera.value != null }
             assertSame(replugged, app.camera.value!!.camera)
             assertEquals(0, stale.opens.get())
+        } finally {
+            app.close()
+        }
+    }
+
+    // What is plugged in, for the reconnect: cameras come and go from it
+    private class Pluggable(vararg cameras: Camera) : CameraSource {
+        val plugged = CopyOnWriteArrayList(cameras.toList())
+
+        override fun cameras(): List<Camera> = plugged.toList()
+
+        override fun startCamera(settings: Settings) = plugged.firstOrNull()
+    }
+
+    private fun reconnectingApp(source: CameraSource) =
+        AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), source, { AppFixture.ownerScreens }, ManualClock(), { it.run() }, reconnectMillis = 20)
+
+    @Test
+    fun aLostCameraReopensByItselfWhenItIsPluggedBackIn() {
+        // Sarxos names include the device node, and it can change when a camera re-enumerates
+        val lost = AppFixture.TestCamera("UVC Camera (046d:0825) /dev/video0")
+        val source = Pluggable(lost)
+        val app = reconnectingApp(source)
+        try {
+            app.openStartCamera()
+            app.openArena()
+
+            app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+            source.plugged.clear()
+            assertEquals("UVC Camera (046d:0825) /dev/video0", app.waitingFor.value)
+            Thread.sleep(100)
+            assertNull(app.camera.value)
+
+            val back = AppFixture.TestCamera("UVC Camera (046d:0825) /dev/video2")
+            source.plugged.add(back)
+
+            awaitTrue { app.camera.value != null }
+            assertSame(back, app.camera.value!!.camera)
+            assertNull(app.waitingFor.value)
+            // Back on the arena it left, ready to calibrate
+            assertNotNull(app.calibration.value)
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
+    fun pickingAnotherCameraWhileWaitingEndsTheWatch() {
+        val lost = AppFixture.TestCamera("HD Webcam C270")
+        val source = Pluggable(lost)
+        val app = reconnectingApp(source)
+        try {
+            app.openStartCamera()
+            app.cameraProblems.showMissingCameraError(lost)
+            source.plugged.clear()
+
+            assertTrue(app.openCamera(AppFixture.TestCamera("Other camera")))
+            assertNull(app.waitingFor.value)
+            source.plugged.add(AppFixture.TestCamera("HD Webcam C270"))
+
+            Thread.sleep(200)
+            assertEquals("Other camera", app.camera.value!!.camera.name)
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
+    fun aCameraThatIsListedButWontOpenIsTriedOnceUntilItIsPluggedInAgain() {
+        val source = Pluggable(AppFixture.TestCamera("HD Webcam C270"))
+        val app = reconnectingApp(source)
+        try {
+            app.openStartCamera()
+            app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+            // Still listed, but another program has it now
+            val locked = object : AppFixture.TestCamera("HD Webcam C270") {
+                val opens = AtomicInteger()
+
+                override fun isOpen() = false
+
+                override fun open(): Boolean {
+                    opens.incrementAndGet()
+                    return false
+                }
+            }
+            source.plugged.clear()
+            source.plugged.add(locked)
+
+            awaitTrue { locked.opens.get() == 1 }
+            Thread.sleep(200)
+            assertEquals(1, locked.opens.get())
+            assertEquals("HD Webcam C270", app.waitingFor.value)
         } finally {
             app.close()
         }

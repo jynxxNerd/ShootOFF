@@ -75,7 +75,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.EventQueue
@@ -100,6 +102,7 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param wallClock the time of day, which the calibration status shows
  * @param detector finds the calibration pattern in a camera's frames, for the remembered calibration's check
  * @param checkClock the check's time limit runs on it
+ * @param reconnectMillis how often a lost camera is looked for, to reopen it when it is plugged back in
  */
 class AppState(
     val settings: Settings,
@@ -114,6 +117,7 @@ class AppState(
     private val wallClock: () -> LocalTime = LocalTime::now,
     private val detector: (CameraManager) -> CalibrationCheck.Detector<BufferedImage> = { PatternDetector(it.camera) },
     private val checkClock: () -> Long = System::currentTimeMillis,
+    private val reconnectMillis: Long = 2000,
 ) : CalibrationViews {
     private val logger = LoggerFactory.getLogger(AppState::class.java)
     private val scope = CoroutineScope(SupervisorJob() + background)
@@ -158,6 +162,8 @@ class AppState(
     private val checkFrames = LatestFrame()
     private var checkRun: CalibrationCheckRun? = null
     private var checkWatch: Job? = null
+    private val waitingForState = MutableStateFlow<String?>(null)
+    private var reconnectWatch: Job? = null
 
     // The arena's calibration now, as it would be remembered; null while uncalibrated, or when it can't be
     // remembered (no projector screen)
@@ -198,6 +204,9 @@ class AppState(
 
     /** Why there is no camera, if something went wrong */
     val cameraProblem: StateFlow<String?> = problemState.asStateFlow()
+
+    /** The name of the camera that was lost and is watched for, to be reopened when plugged back in; or null */
+    val waitingFor: StateFlow<String?> = waitingForState.asStateFlow()
 
     /** The name of the camera being opened in the background, or null */
     val openingCamera: StateFlow<String?> = openingState.asStateFlow()
@@ -478,6 +487,8 @@ class AppState(
             }
             return false
         }
+        // A camera is open, whichever: the lost one needn't be watched for any more
+        stopWatchingForReturn()
         cameras.addStartedCameraManager(manager)
         cameraView.setCameraManager(manager)
         openView = opened.view
@@ -513,6 +524,50 @@ class AppState(
         feed.clearFrame()
         problemState.value = cameraProblems.missingMessage(camera)
         closeDeviceLater(camera)
+        watchForReturn(camera.name)
+    }
+
+    // Looks for the lost camera every [reconnectMillis], in the background, and reopens it once it is plugged
+    // back in (spec §8 Revision 2, decision 6). It is tried once each time it appears in the list: a camera
+    // listed but refusing to open isn't retried until it is unplugged and plugged in again. The owner's own
+    // pick, or any camera opening, ends the watch (publish); so does the app closing.
+    //
+    // Matched by name: an exact match first, else once a trailing device path (e.g. " /dev/video0") is
+    // stripped from both sides, since a re-plugged camera can come back under a different device node
+    // (sameCamera; Task 2).
+    private fun watchForReturn(name: String) {
+        reconnectWatch?.cancel()
+        waitingForState.value = name
+        reconnectWatch = scope.launch(io) {
+            var listed = false
+            while (isActive) {
+                delay(reconnectMillis)
+                val back = try {
+                    cameraSource.cameras().let { found ->
+                        found.firstOrNull { it.name == name } ?: found.firstOrNull { sameCamera(it.name, name) }
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Couldn't list the cameras, looking for {}", name, e)
+                    null
+                }
+                if (back != null && !listed) {
+                    uiThread(Runnable {
+                        // Only while nothing else is open or opening: the owner's pick wins
+                        if (waitingForState.value == name && cameraState.value == null && openingState.value == null) {
+                            logger.info("{} is plugged in again: reopening it", name)
+                            openCameraInBackground(back)
+                        }
+                    })
+                }
+                listed = back != null
+            }
+        }
+    }
+
+    private fun stopWatchingForReturn() {
+        reconnectWatch?.cancel()
+        reconnectWatch = null
+        waitingForState.value = null
     }
 
     // The open camera is going (lost, or replaced). The arena stays open (spec §8 Revision 2, decision 7), but
@@ -901,6 +956,7 @@ class AppState(
     fun close() {
         // A camera still opening is closed when it finishes
         openGeneration.incrementAndGet()
+        stopWatchingForReturn()
         runner.stop()
         closeArena()
         cameras.closeAll()

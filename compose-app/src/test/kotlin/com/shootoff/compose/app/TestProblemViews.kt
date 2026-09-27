@@ -93,6 +93,24 @@ class TestProblemViews {
     }
 
     @Test
+    fun whileTheLostCameraIsAwaitedThePanelSaysSoAndStillOffersTheCameras() {
+        // A long poll: this test looks at the panel while the app waits, before any reconnect
+        val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), source, { AppFixture.ownerScreens }, ManualClock(), { it.run() }, reconnectMillis = 60_000)
+        try {
+            app.openCamera(AppFixture.TestCamera())
+            compose.setContent { RangeTheme(dark = true) { ShootOffApp(app) } }
+
+            app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+
+            compose.onNodeWithTag("waiting-for-camera").assertExists()
+            compose.onNodeWithText("Waiting for Test camera to be plugged back in…").assertExists()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("pick-Test camera").fetchSemanticsNodes().isNotEmpty() }
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
     fun whileACameraOpensThePanelSaysSo() {
         show()
         val slow = TestProblems.SlowCamera()
