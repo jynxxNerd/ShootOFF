@@ -46,6 +46,9 @@ class CameraProblems(
     // clears the feed and shows [missingMessage] only if so
     override fun showMissingCameraError(webcam: Camera) = lost(webcam)
 
+    /** [webcam] was picked from a list made before it was unplugged: it isn't opened */
+    fun showNotConnected(webcam: Camera) = problem("${name(webcam)} is not connected. Plug it in, or pick another camera.")
+
     /** What the feed says when [webcam] stops answering */
     fun missingMessage(webcam: Camera): String = String.format(CameraErrorView.MISSING_ERROR, name(webcam))
 

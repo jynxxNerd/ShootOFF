@@ -30,11 +30,19 @@ interface CameraSource {
     /** The camera to open at start: the configured one, else the system default */
     fun startCamera(settings: Settings): Camera?
 
+    /**
+     * [camera] as it is plugged in now, found by its name (it may be back under another device number), or
+     * null if it is no longer plugged in. Called off the UI thread: it may list the cameras.
+     */
+    fun current(camera: Camera): Camera? = camera
+
     object System : CameraSource {
         override fun cameras(): List<Camera> = CameraFactory.getWebcams()
 
         override fun startCamera(settings: Settings): Camera? =
             settings.webcams.values.firstOrNull() ?: CameraFactory.getDefault().orElse(null)
+
+        override fun current(camera: Camera): Camera? = cameras().firstOrNull { it.name == camera.name }
     }
 
     object None : CameraSource {

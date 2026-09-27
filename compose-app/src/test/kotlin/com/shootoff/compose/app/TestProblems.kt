@@ -3,6 +3,7 @@ package com.shootoff.compose.app
 import androidx.compose.ui.graphics.ImageBitmap
 import com.shootoff.calibration.CalibrationFlow.Message
 import com.shootoff.camera.MockCamera
+import com.shootoff.camera.cameratypes.Camera
 import com.shootoff.camera.cameratypes.CameraEventListener
 import com.shootoff.compose.feed.BannerKind
 import com.shootoff.compose.feed.FeedFrame
@@ -361,6 +362,57 @@ class TestProblems {
         assertSame(frame, app.feed.frame.value)
         assertNull(app.cameraProblem.value)
         assertEquals("Newer camera", app.camera.value!!.camera.name)
+    }
+
+    @Test
+    fun pickingACameraThatIsNoLongerPluggedInSaysItIsNotConnected() {
+        // Listed before it was unplugged: the system no longer has a camera by its name
+        val gone = SlowCamera("HD Webcam C270")
+        val unplugged = object : CameraSource {
+            override fun cameras() = emptyList<AppFixture.TestCamera>()
+
+            override fun startCamera(settings: Settings) = null
+
+            override fun current(camera: Camera) = null
+        }
+        val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), unplugged, { AppFixture.ownerScreens }, ManualClock(), { it.run() })
+        try {
+            val opened = AtomicReference<Boolean?>()
+
+            app.openCameraInBackground(gone) { opened.set(it) }
+
+            awaitTrue { opened.get() != null }
+            assertEquals(false, opened.get())
+            assertNull(app.camera.value)
+            assertNull(app.openingCamera.value)
+            assertEquals("HD Webcam C270 is not connected. Plug it in, or pick another camera.", app.cameraProblem.value)
+            assertEquals(0, gone.opens.get())
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
+    fun aCameraPluggedBackInIsFoundByNameAndThatOneOpens() {
+        val stale = SlowCamera("HD Webcam C270")
+        val replugged = AppFixture.TestCamera("HD Webcam C270")
+        val source = object : CameraSource {
+            override fun cameras() = listOf(replugged)
+
+            override fun startCamera(settings: Settings) = null
+
+            override fun current(camera: Camera) = cameras().firstOrNull { it.name == camera.name }
+        }
+        val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), source, { AppFixture.ownerScreens }, ManualClock(), { it.run() })
+        try {
+            app.openCameraInBackground(stale)
+
+            awaitTrue { app.camera.value != null }
+            assertSame(replugged, app.camera.value!!.camera)
+            assertEquals(0, stale.opens.get())
+        } finally {
+            app.close()
+        }
     }
 
     private fun awaitTrue(condition: () -> Boolean) {

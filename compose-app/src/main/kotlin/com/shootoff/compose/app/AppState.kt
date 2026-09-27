@@ -360,7 +360,14 @@ class AppState(
         scope.launch(io) {
             // The old device closes before the new one opens, in case they are the same hardware
             old?.let(::closeDevice)
-            val opened = startCamera(camera)
+            // Picked from a list made before it was unplugged, it may be gone, or back under another device
+            val found = try {
+                cameraSource.current(camera)
+            } catch (e: Exception) {
+                logger.warn("Couldn't look for the webcam {}", camera.name, e)
+                camera
+            }
+            val opened = if (found != null) startCamera(found) else Opened(camera, OpenView(cameraView), null, notConnected = true)
             // Dropped already (a newer open, or the app closing): cleaned up here, off the UI thread
             if (generation != openGeneration.get()) {
                 discard(opened)
@@ -372,7 +379,13 @@ class AppState(
     }
 
     // A camera open's outcome: its manager if it started, else why not
-    private class Opened(val camera: Camera, val view: OpenView, val manager: CameraManager?, val error: Throwable? = null)
+    private class Opened(
+        val camera: Camera,
+        val view: OpenView,
+        val manager: CameraManager?,
+        val error: Throwable? = null,
+        val notConnected: Boolean = false,
+    )
 
     // Starts a manager for [camera], blocking on the hardware. It isn't registered with [cameras] (only
     // [publish] does that, on the UI thread), and a camera that fails to start is closed again.
@@ -445,7 +458,9 @@ class AppState(
         val manager = opened.manager
         if (manager == null) {
             val error = opened.error
-            if (error != null) {
+            if (opened.notConnected) {
+                cameraProblems.showNotConnected(opened.camera)
+            } else if (error != null) {
                 cameraProblems.showOpenError(opened.camera, error)
             } else {
                 logger.error("Cannot open the webcam {}", opened.camera.name)

@@ -18,14 +18,17 @@
 
 package com.shootoff.compose
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.LocalWindowExceptionHandlerFactory
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
@@ -38,6 +41,7 @@ import com.shootoff.compose.app.UiPrefs
 import com.shootoff.compose.app.WindowBounds
 import com.shootoff.compose.app.handleKey
 import com.shootoff.compose.app.ShootOffApp
+import com.shootoff.compose.app.UiErrors
 import com.shootoff.compose.arena.ArenaWindow
 import com.shootoff.compose.drill.ExerciseOverlay
 import com.shootoff.compose.theme.RangeTheme
@@ -55,6 +59,7 @@ import java.io.File
  * The Compose app. It shares the JavaFX app's folder: shootoff.properties, targets/, sounds/,
  * exercises/ and exercise-data/ in the working directory.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     val home = System.getProperty("shootoff.home") ?: System.getProperty("user.dir").also { System.setProperty("shootoff.home", it) }
     System.setProperty("shootoff.sessions", home + File.separator + "sessions")
@@ -76,6 +81,9 @@ fun main() {
     // Only the camera opens, in the background: the window shows at once (spec §8 rules 1 and 6)
     app.launch()
 
+    // An exception in a window's event handling or composition is logged and shown, and never exits the app
+    val uiErrors = UiErrors(app.notices)
+
     application {
         val arena by app.arena.collectAsState()
         val placement by app.arenaPlacement.collectAsState()
@@ -95,29 +103,31 @@ fun main() {
             exitApplication()
         }
 
-        Window(
-            onCloseRequest = ::exit,
-            state = state,
-            title = "ShootOFF",
-            onPreviewKeyEvent = { app.handleKey(it.key, it.type) },
-        ) {
-            // Where the window is tells which screen ShootOFF is on; its place and size are remembered
-            LaunchedEffect(state) {
-                snapshotFlow { state.position to state.size }.collect { (position, size) ->
-                    app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
-                    if (position.isSpecified) {
-                        app.prefs.window = WindowBounds(position.x.value, position.y.value, size.width.value, size.height.value)
+        CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides uiErrors) {
+            Window(
+                onCloseRequest = ::exit,
+                state = state,
+                title = "ShootOFF",
+                onPreviewKeyEvent = { app.handleKey(it.key, it.type) },
+            ) {
+                // Where the window is tells which screen ShootOFF is on; its place and size are remembered
+                LaunchedEffect(state) {
+                    snapshotFlow { state.position to state.size }.collect { (position, size) ->
+                        app.mainWindowCorner = Point(window.x.toDouble(), window.y.toDouble())
+                        if (position.isSpecified) {
+                            app.prefs.window = WindowBounds(position.x.value, position.y.value, size.width.value, size.height.value)
+                        }
                     }
                 }
+                RangeTheme(dark = dark) { ShootOffApp(app) }
             }
-            RangeTheme(dark = dark) { ShootOffApp(app) }
-        }
 
-        val shownArena = arena
-        val shownPlacement = placement
-        if (shownArena != null && shownPlacement != null) {
-            ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
-                if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
+            val shownArena = arena
+            val shownPlacement = placement
+            if (shownArena != null && shownPlacement != null) {
+                ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
+                    if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
+                }
             }
         }
     }
