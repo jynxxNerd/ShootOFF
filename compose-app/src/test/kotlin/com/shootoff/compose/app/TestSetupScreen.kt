@@ -21,8 +21,11 @@ import androidx.compose.ui.unit.dp
 import com.shootoff.compose.calibration.ProjectionOutline
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.surface.SurfaceTransform
+import com.shootoff.compose.targets.ManualClock
 import com.shootoff.compose.theme.RangeDark
 import com.shootoff.compose.theme.RangeTheme
+import com.shootoff.config.ScratchConfig
+import com.shootoff.config.Settings
 import com.shootoff.geom.Rect
 import com.shootoff.geom.Size
 import org.junit.After
@@ -59,6 +62,21 @@ class TestSetupScreen {
         step(Step.CALIBRATE, StepState.WAITING)
         compose.onNodeWithTag("camera-missing").assertExists()
         compose.onNodeWithTag("setup-calibrate").assertExists()
+    }
+
+    @Test
+    fun theProjectorStepNoticesAProjectorPluggedInWhileItShows() {
+        app.close()
+        var screens = listOf(Rect(0.0, 0.0, 1920.0, 1080.0))
+        app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), CameraSource.None, { screens }, ManualClock(), { it.run() })
+        app.navigate(Destination.SETUP)
+        showApp()
+        compose.onNodeWithTag("no-projector").assertExists()
+
+        screens = AppFixture.ownerScreens
+        compose.mainClock.advanceTimeBy(PROJECTOR_LOOK_MILLIS + 100)
+
+        compose.onNodeWithTag("no-projector").assertDoesNotExist()
     }
 
     @Test

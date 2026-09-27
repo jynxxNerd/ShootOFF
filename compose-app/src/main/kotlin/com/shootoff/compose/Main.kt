@@ -80,7 +80,8 @@ fun main() {
 
     val app = AppState(settings, catalog, CameraSource.System, prefs = UiPrefs(PrefsStore.User()))
     Settings.setUserNotifier(app.notices)
-    // Only the camera opens, in the background: the window shows at once (spec §8 rules 1 and 6)
+    // The camera opens in the background, and the arena on the projector if there is one; the window shows at
+    // once and nothing calibrates (spec §8 rules 1 and 6, and Revision 2, decision 4)
     app.launch()
 
     // An exception in a window's event handling or composition is logged and shown, and never exits the

@@ -166,13 +166,23 @@ private fun CameraStep(app: AppState) {
     }
 }
 
+/** How often the Projector step looks for a projector screen while the arena is closed */
+const val PROJECTOR_LOOK_MILLIS = 2000L
+
 /** The projector: open or close the arena, with a small live preview of it */
 @Composable
 private fun ProjectorStep(app: AppState) {
     val arena by app.arena.collectAsState()
     val colors = Range.colors
-    // Looking for the projector asks AWT about every screen: once per arena change, not on every recomposition
-    val projectorFound = remember(arena) { arena == null && app.projectorScreenFound() }
+    // Looking for the projector asks AWT about every screen: every couple of seconds while the arena is
+    // closed, so a projector plugged in meanwhile is noticed, and never on a recomposition
+    var projectorFound by remember { mutableStateOf(true) }
+    LaunchedEffect(arena) {
+        while (arena == null) {
+            projectorFound = app.projectorScreenFound()
+            delay(PROJECTOR_LOOK_MILLIS)
+        }
+    }
 
     val open = arena
     if (open == null) {

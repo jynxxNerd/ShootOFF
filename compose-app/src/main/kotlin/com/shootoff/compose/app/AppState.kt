@@ -319,10 +319,13 @@ class AppState(
     // ---- The camera
 
     /**
-     * What the app does as it starts (spec §8 rule 1): the camera it starts with is found and opened in the
-     * background, and nothing else happens. The arena, calibration and the check wait for the user.
+     * What the app does as it starts (spec §8 rule 1, as revised): the camera it starts with is found and
+     * opened in the background, and the arena opens on the projector if a projector screen is found, where
+     * the remembered calibration, if any, is checked (spec §8 Revision 2, decision 4). Nothing calibrates.
      */
     fun launch() {
+        // Looking for screens asks AWT: on the UI thread, where the arena opens
+        uiThread(Runnable { if (arenaState.value == null && projectorScreenFound()) openArena() })
         scope.launch(io) {
             val camera = try {
                 cameraSource.startCamera(settings)

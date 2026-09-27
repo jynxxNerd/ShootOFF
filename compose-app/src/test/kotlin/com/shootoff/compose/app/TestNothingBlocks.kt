@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference
 /** Spec §8 "Nothing blocks": one test per rule. */
 class TestNothingBlocks {
     @Test
-    fun rule1AtLaunchOnlyTheCameraOpensAndNothingElseStarts() {
+    fun rule1AtLaunchTheCameraAndTheArenaOpenAndNothingCalibrates() {
         val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
         settings.setRememberCalibration(true)
         settings.setSavedCalibration(SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty()))
@@ -43,10 +43,28 @@ class TestNothingBlocks {
             awaitTrue { app.camera.value != null }
 
             assertEquals(Destination.RANGE, app.destination.value)
-            assertNull(app.arena.value)
-            assertNull(app.calibration.value)
-            assertEquals(CheckState.Idle, app.check.value)
+            // The owner's projector was found: the arena opens on it (spec §8 Revision 2, decision 4)
+            assertEquals(Rect(4480.0, 0.0, 1280.0, 720.0), app.arenaPlacement.value!!.screen)
+            assertFalse(app.calibration.value!!.state.value.calibrating)
+            // The saved calibration is checked once the window fills the projector, which it hasn't yet
+            assertEquals(CheckState.Checking, app.check.value)
             assertEquals(0, looked.get())
+            assertNull(app.arena.value!!.background.value)
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
+    fun rule1WithNoProjectorScreenOnlyTheCameraOpensAtLaunch() {
+        val catalog = ExerciseCatalog()
+        val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), catalog, AppFixture.oneCamera(), { listOf(Rect(0.0, 0.0, 1920.0, 1080.0)) }, ManualClock(), { it.run() })
+        try {
+            app.launch()
+            awaitTrue { app.camera.value != null }
+
+            assertNull(app.arena.value)
+            assertFalse(app.projectorScreenFound())
         } finally {
             app.close()
         }
