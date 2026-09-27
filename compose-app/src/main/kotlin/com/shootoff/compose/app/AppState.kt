@@ -352,9 +352,10 @@ class AppState(
     }
 
     /**
-     * Opens [camera] in place of the open one without blocking the calling (UI) thread: the open one, and
-     * the arena it calibrated, close at once; [openingCamera] names [camera] while it opens on the I/O
-     * dispatcher; then [then] hears on the UI thread whether it opened. One camera opens at a time.
+     * Opens [camera] in place of the open one without blocking the calling (UI) thread: the open one closes
+     * at once, and the arena it calibrated stays open, uncalibrated (spec §8 Revision 2, decision 7);
+     * [openingCamera] names [camera] while it opens on the I/O dispatcher; then [then] hears on the UI thread
+     * whether it opened. One camera opens at a time.
      *
      * @return false if the pick was ignored, because another camera is still opening
      */
@@ -516,9 +517,10 @@ class AppState(
 
     // The open camera is going (lost, or replaced). The arena stays open (spec §8 Revision 2, decision 7), but
     // its calibration was made with that camera, so it goes: calibration or a check under way ends, the arena
-    // says "Needs Calibration" again, and the running drill pauses, as it does for calibration.
+    // says "Needs Calibration" again, and the running drill pauses if it has a Pause button, camera drills
+    // included; a projector drill with none is stopped instead, as calibration stops one too.
     private fun detachCamera() {
-        pauseDrill()
+        pauseOrStopProjectorDrill()
         val arena = arenaState.value ?: return
         stopCheckQuietly()
         currentCalibration = null
@@ -839,17 +841,23 @@ class AppState(
         return true
     }
 
-    // What calibration does to the running drill (spec §8 Revision 2, decision 2): a projector drill is paused,
-    // and stays paused afterwards, never restarted; one with no Pause button is stopped and started afresh
-    // after a success, as before. A camera drill doesn't use the arena and is left alone.
-    private val drillForCalibration = CalibrationFlow.Exercises {
+    // Pauses the running drill if it has a Pause button (camera drills included); a projector drill with
+    // none is stopped instead, since nothing else can hold it off the arena while the arena isn't
+    // available to it (calibrating, or, per spec §8 Revision 2 decision 7, the camera gone). Returns what
+    // starts it again, for calibration to use afterwards; empty when nothing was stopped.
+    private fun pauseOrStopProjectorDrill(): Optional<Runnable> {
         val running = runner.running.value
-        when {
+        return when {
             running == null || !running.host.isProjector -> Optional.empty()
             pauseDrill() -> Optional.empty()
             else -> runner.stopProjectorExercise()
         }
     }
+
+    // What calibration does to the running drill (spec §8 Revision 2, decision 2): a projector drill is paused,
+    // and stays paused afterwards, never restarted; one with no Pause button is stopped and started afresh
+    // after a success, as before. A camera drill doesn't use the arena and is left alone.
+    private val drillForCalibration = CalibrationFlow.Exercises { pauseOrStopProjectorDrill() }
 
     // The camera as calibration and the check see it: when they turn shot detection back on as they end,
     // it stays off while the running drill has it paused (a paused drill turned it off itself)

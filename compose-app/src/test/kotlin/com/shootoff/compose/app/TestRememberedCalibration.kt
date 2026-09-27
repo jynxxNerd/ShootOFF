@@ -252,6 +252,31 @@ class TestRememberedCalibration {
         assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
     }
 
+    // Review fix (Task 5 round 1): an unpausable projector drill must not keep running with the camera
+    // gone, since the reconnect's check would show the pattern under it and could change the arena
+    // underneath it.
+    @Test
+    fun losingTheCameraStopsAnUnpausableProjectorDrillAndTheReconnectChecksWithNothingRunning() {
+        remembered()
+        seen.set(Optional.of(Rect(102.0, 79.0, 399.0, 302.0)))
+        openArenaOnTheProjector()
+        sendFramesUntil { app.arena.value!!.projection.value != null }
+        assertTrue(app.startDrill(AppFixture.unpausableDrill))
+        assertNotNull(app.runner.running.value)
+
+        app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+
+        assertNull(app.runner.running.value)
+
+        // Plugged back in: the saved calibration is checked again, with nothing running under it
+        assertTrue(app.openCamera(AppFixture.TestCamera()))
+
+        assertEquals(CheckState.Checking, app.check.value)
+        assertNull(app.runner.running.value)
+        sendFramesUntil { app.check.value == CheckState.Idle }
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+    }
+
     @Test
     fun turningRememberOffMidCheckStopsItQuietly() {
         remembered()
