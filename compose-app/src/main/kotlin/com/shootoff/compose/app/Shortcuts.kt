@@ -20,6 +20,7 @@ package com.shootoff.compose.app
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import com.shootoff.compose.calibration.showsPattern
 import com.shootoff.compose.shell.Destination
 
 /**
@@ -53,6 +54,9 @@ private val PAUSE_LABELS = setOf(PAUSE_LABEL, RESUME_LABEL)
 fun AppState.perform(shortcut: Shortcut): Boolean {
     when (shortcut) {
         Shortcut.PAUSE_DRILL -> {
+            // Does nothing while calibrating or a pattern shows (Task 8 review fix round 1): a paused drill's
+            // Resume must not turn detection back on, or resume its rounds, under the cover
+            if (calibration.value?.state?.value?.calibrating == true || check.value.showsPattern) return false
             val pause = drill.buttons.value.firstOrNull { it.label in PAUSE_LABELS } ?: return false
             pause.onClick()
         }

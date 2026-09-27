@@ -44,6 +44,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shootoff.compose.app.PAUSE_LABEL
+import com.shootoff.compose.app.RESUME_LABEL
 import com.shootoff.compose.theme.NumberStyle
 import com.shootoff.compose.theme.Range
 
@@ -51,10 +53,13 @@ import com.shootoff.compose.theme.Range
  * The running drill's card, floating over the big view: its name, its texts' first lines (the first
  * one big, as the score is in the mockup), its buttons, then [actions] (Range's Stop). Nothing shows
  * while no drill runs.
+ *
+ * @param pauseEnabled false disables only the Pause/Resume button (calibrating, or a pattern showing,
+ *   Task 8 review fix round 1): other buttons, and [actions] (Stop), are unaffected.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DrillCard(drill: DrillState, modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}) {
+fun DrillCard(drill: DrillState, pauseEnabled: Boolean = true, modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}) {
     val name by drill.name.collectAsState()
     val texts by drill.texts.collectAsState()
     val buttons by drill.buttons.collectAsState()
@@ -89,14 +94,16 @@ fun DrillCard(drill: DrillState, modifier: Modifier = Modifier, actions: @Compos
             if (buttons.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     buttons.forEachIndexed { index, button ->
+                        val enabled = pauseEnabled || (button.label != PAUSE_LABEL && button.label != RESUME_LABEL)
                         if (index == 0) {
                             Button(
                                 onClick = button.onClick,
+                                enabled = enabled,
                                 colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                                 modifier = Modifier.testTag("drill-button-${button.label}"),
                             ) { Text(button.label) }
                         } else {
-                            FilledTonalButton(onClick = button.onClick, modifier = Modifier.testTag("drill-button-${button.label}")) {
+                            FilledTonalButton(onClick = button.onClick, enabled = enabled, modifier = Modifier.testTag("drill-button-${button.label}")) {
                                 Text(button.label)
                             }
                         }

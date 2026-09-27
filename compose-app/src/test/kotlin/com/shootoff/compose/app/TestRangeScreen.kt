@@ -10,8 +10,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.camera.shot.ShotColor
+import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.theme.RangeTheme
+import com.shootoff.geom.Rect
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -19,6 +21,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.util.Optional
 
 class TestRangeScreen {
     @get:Rule
@@ -102,6 +105,26 @@ class TestRangeScreen {
 
         compose.onNodeWithTag("drill-start").assertIsEnabled().performClick()
         assertEquals(AppFixture.projectorDrill, app.runner.running.value!!.entry)
+    }
+
+    // Review fix (Task 8 round 1): Resume must not be pressable while a pattern shows, since pressing it
+    // resumes shot detection and the drill's rounds under the cover, not through CalibratingCamera.
+    @Test
+    fun theResumeButtonIsDisabledWhileAPatternShows() {
+        AppFixture.setUpForProjectorDrills(app)
+        assertTrue(app.startDrill(AppFixture.pausingDrill))
+        assertTrue(app.perform(Shortcut.PAUSE_DRILL))
+        app.setRememberCalibration(true)
+        showApp()
+        compose.onNodeWithTag("drill-button-Resume").assertIsEnabled()
+
+        // Not F6/perform: that also navigates to Setup, and this drill's card only shows on Range
+        assertTrue(app.startCalibration())
+        app.calibration.value!!.calibrate(Rect(102.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+        compose.waitForIdle()
+
+        assertEquals(CheckState.Measuring, app.check.value)
+        compose.onNodeWithTag("drill-button-Resume").assertIsNotEnabled()
     }
 
     @Test

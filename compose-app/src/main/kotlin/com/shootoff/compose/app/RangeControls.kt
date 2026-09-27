@@ -109,7 +109,8 @@ fun DrillControls(app: AppState, modifier: Modifier = Modifier) {
             entries.firstOrNull { it.metadata().name == name }?.let(app::pickDrill)
         }
         if (running != null) {
-            DrillCard(app.drill) {
+            // Pause/Resume does nothing while calibrating or a pattern shows (Task 8 review fix round 1)
+            DrillCard(app.drill, pauseEnabled = !calibrating && !check.showsPattern) {
                 OutlinedButton(onClick = app::stopDrill, modifier = Modifier.testTag("drill-stop")) { Text("Stop") }
             }
         } else if (picked != null) {

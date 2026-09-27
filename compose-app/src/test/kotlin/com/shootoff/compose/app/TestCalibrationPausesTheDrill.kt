@@ -3,6 +3,7 @@ package com.shootoff.compose.app
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import com.shootoff.calibration.CalibrationFlow
+import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.shell.Destination
 import com.shootoff.geom.Rect
 import org.junit.jupiter.api.AfterEach
@@ -101,6 +102,60 @@ class TestCalibrationPausesTheDrill {
         calibrateWithTheCamera()
         assertNotSame(first, app.runner.running.value!!.host)
         assertEquals("Unpausable drill", app.runner.running.value!!.host.name)
+    }
+
+    // Review fix (Task 8 round 1): with Remember on, the pattern is measured again after this calibration;
+    // restarting an unpausable drill before that measurement ends would run it, deaf, under the cover.
+    @Test
+    fun anUnpausableProjectorDrillRestartsOnlyAfterTheMeasurementEnds() {
+        AppFixture.setUpForProjectorDrills(app)
+        assertTrue(app.startDrill(AppFixture.unpausableDrill))
+        val first = app.runner.running.value!!.host
+        app.setRememberCalibration(true)
+
+        app.startCalibration()
+        assertNull(app.runner.running.value)
+
+        calibrateWithTheCamera()
+
+        // Measuring the fresh calibration for next time: the drill must not run, deaf, under its cover
+        assertEquals(CheckState.Measuring, app.check.value)
+        assertNull(app.runner.running.value)
+
+        app.cancelCheck()
+
+        assertEquals(CheckState.Idle, app.check.value)
+        assertNotSame(first, app.runner.running.value!!.host)
+        assertEquals("Unpausable drill", app.runner.running.value!!.host.name)
+    }
+
+    // Review fix (Task 8 round 1): F3 must not resume shot detection, or the drill's rounds, under the
+    // pattern a measurement shows for the remembered calibration.
+    @Test
+    fun f3DuringMeasuringDoesNothingAndTheDrillStaysPaused() {
+        startThePausingDrill()
+        app.setRememberCalibration(true)
+
+        app.handleKey(Key.F6, KeyEventType.KeyDown)
+        awaitTrue { pauseLabel() == "Resume" }
+        calibrateWithTheCamera()
+
+        assertEquals(CheckState.Measuring, app.check.value)
+        assertFalse(app.perform(Shortcut.PAUSE_DRILL))
+        assertEquals("Resume", pauseLabel())
+    }
+
+    // Review fix (Task 8 round 1): F3 must not resume shot detection, or the drill's rounds, while
+    // calibration itself is under way (before any pattern the check or measurement shows).
+    @Test
+    fun f3DuringCalibrationDoesNothing() {
+        startThePausingDrill()
+
+        app.handleKey(Key.F6, KeyEventType.KeyDown)
+        awaitTrue { pauseLabel() == "Resume" }
+
+        assertFalse(app.perform(Shortcut.PAUSE_DRILL))
+        assertEquals("Resume", pauseLabel())
     }
 
     private fun awaitTrue(condition: () -> Boolean) {

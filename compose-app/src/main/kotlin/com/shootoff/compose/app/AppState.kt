@@ -765,11 +765,16 @@ class AppState(
                     settings.setSavedCalibration(measured)
                     saveSettings()
                 }
+                // Measured or not, the measurement is over: a drill it held back from restarting runs now
+                // (Task 8 review fix)
+                runDeferredDrillRestart()
             }
         }
     }
 
-    // Ends a check or a measurement without a word (something replaced it); the arena's look comes back
+    // Ends a check or a measurement without a word (something replaced it); the arena's look comes back.
+    // deferredDrillRestart is only ever set while measuring, so releasing it here too (harmless otherwise)
+    // covers the measurement being cancelled, or ended by the arena closing, the camera going, or the like.
     private fun stopCheckQuietly() {
         patternWatch?.cancel()
         patternWatch = null
@@ -778,6 +783,7 @@ class AppState(
         cameraView.frameTap = null
         run?.stop()
         checkState.value = CheckState.Idle
+        runDeferredDrillRestart()
     }
 
     /**
@@ -981,7 +987,45 @@ class AppState(
     // What calibration does to the running drill (spec §8 Revision 2, decision 2): a projector drill is paused,
     // and stays paused afterwards, never restarted; one with no Pause button is stopped and started afresh
     // after a success, as before. A camera drill doesn't use the arena and is left alone.
-    private val drillForCalibration = CalibrationFlow.Exercises { pauseOrStopProjectorDrill() }
+    //
+    // Review fix (Task 8 round 1): the flow runs this restart itself, synchronously, as a camera-found
+    // calibration ends — before calibrationFinishedByCamera decides whether a measurement follows. While
+    // aroundCameraCalibration is holding restarts (a measurement may follow, and the drill mustn't run,
+    // deaf, under its cover), the restart is stashed in deferredDrillRestart instead of running at once.
+    private val drillForCalibration = CalibrationFlow.Exercises {
+        pauseOrStopProjectorDrill().map { restart -> Runnable { if (holdingDrillRestart) deferredDrillRestart = restart else restart.run() } }
+    }
+
+    // Set only around a camera-found calibration's own end (CalibrationController.calibrate), so
+    // drillForCalibration's wrapper above knows to hold a restart back instead of running it there
+    @Volatile
+    private var holdingDrillRestart = false
+
+    // A drill's restart, held back because a measurement might follow the calibration that stopped it; run
+    // once that's decided either way (aroundCameraCalibration, calibrationFinishedByCamera's measurement
+    // ending, or stopCheckQuietly if the measurement is cancelled or something else stops it first)
+    private var deferredDrillRestart: Runnable? = null
+
+    private fun runDeferredDrillRestart() {
+        val restart = deferredDrillRestart ?: return
+        deferredDrillRestart = null
+        restart.run()
+    }
+
+    /**
+     * Runs [action] — a camera-found calibration ending — holding back any drill restart it triggers until
+     * [action] decides whether a measurement follows: if it does (checkState is Measuring once [action]
+     * returns), the measurement's own end releases it later; otherwise it releases at once, here.
+     */
+    override fun aroundCameraCalibration(action: () -> Unit) {
+        holdingDrillRestart = true
+        try {
+            action()
+        } finally {
+            holdingDrillRestart = false
+            if (checkState.value != CheckState.Measuring) runDeferredDrillRestart()
+        }
+    }
 
     // The camera as calibration, the check and the measurement see it: when they turn shot detection back on
     // as they end, it stays off while a pattern still shows (a check or measurement started meanwhile: Plan 6's
