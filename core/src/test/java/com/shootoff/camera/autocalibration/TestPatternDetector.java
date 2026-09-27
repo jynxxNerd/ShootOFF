@@ -54,8 +54,9 @@ class TestPatternDetector {
 		final Optional<Rect> found = detector().detect(frame(projected));
 
 		assertTrue(found.isPresent());
-		assertTrue(CalibrationCheck.distance(projected, found.get()) <= CalibrationCheck.DEFAULT_TOLERANCE,
-				() -> "found " + found.get());
+		// On a clean, synthetic frame one detection lands within 5 px; a real camera's jitter is why the check
+		// takes a median and allows more (CalibrationCheck.tolerance)
+		assertTrue(CalibrationCheck.distance(projected, found.get()) <= 5.0, () -> "found " + found.get());
 	}
 
 	@Test

@@ -149,12 +149,13 @@ class TestRememberedCalibration {
     @Test
     fun aMovedProjectionIsReportedAndTheArenaStaysUncalibrated() {
         remembered()
-        seen.set(Optional.of(Rect(114.0, 80.0, 400.0, 300.0)))
+        // 20 px: more than twice the 8 px tolerance for this 400 px pattern
+        seen.set(Optional.of(Rect(120.0, 80.0, 400.0, 300.0)))
 
         openArenaOnTheProjector()
         sendFramesUntil { app.check.value is CheckState.Moved }
 
-        assertEquals(CheckState.Moved(14), app.check.value)
+        assertEquals(CheckState.Moved(20), app.check.value)
         assertNull(app.arena.value!!.projection.value)
         assertNull(app.calibratedAt.value)
         assertNull(app.arena.value!!.background.value)
