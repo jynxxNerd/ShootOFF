@@ -73,7 +73,8 @@ fun main() {
 
     val app = AppState(settings, catalog, CameraSource.System, prefs = UiPrefs(PrefsStore.User()))
     Settings.setUserNotifier(app.notices)
-    app.openStartCamera()
+    // Only the camera opens, in the background: the window shows at once (spec §8 rules 1 and 6)
+    app.launch()
 
     application {
         val arena by app.arena.collectAsState()

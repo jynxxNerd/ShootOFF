@@ -280,7 +280,23 @@ class AppState(
 
     // ---- The camera
 
-    /** Opens the camera the app starts with, if there is one */
+    /**
+     * What the app does as it starts (spec §8 rule 1): the camera it starts with is found and opened in the
+     * background, and nothing else happens. The arena, calibration and the check wait for the user.
+     */
+    fun launch() {
+        scope.launch(io) {
+            val camera = try {
+                cameraSource.startCamera(settings)
+            } catch (e: Exception) {
+                logger.error("Couldn't find the camera to start with", e)
+                null
+            }
+            if (camera != null) uiThread(Runnable { openCameraInBackground(camera) })
+        }
+    }
+
+    /** Opens the camera the app starts with, if there is one, on the calling thread (for tests: the app uses [launch]) */
     fun openStartCamera() {
         cameraSource.startCamera(settings)?.let(::openCamera)
     }
