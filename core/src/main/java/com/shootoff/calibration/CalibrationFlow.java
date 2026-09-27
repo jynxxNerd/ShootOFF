@@ -336,6 +336,23 @@ public final class CalibrationFlow {
 	}
 
 	/**
+	 * Applies a calibration found in an earlier session (the Compose app's remembered one) without
+	 * calibrating: the projection, the calibrated feed behavior and the perspective, as the end of a
+	 * calibration would. Nothing is stopped or restarted and the arena's background is left alone.
+	 *
+	 * @param cameraBounds
+	 *            the projection on the camera's feed
+	 * @throws IllegalStateException
+	 *             while calibrating
+	 */
+	public void applySaved(Rect cameraBounds, Optional<Size> perspectivePaperDims) {
+		if (isCalibrating()) throw new IllegalStateException("A saved calibration can't be applied while calibrating");
+
+		calibrated(cameraBounds, perspectivePaperDims, false);
+		view.calibrated(Optional.ofNullable(perspectiveManager()));
+	}
+
+	/**
 	 * Applies how the calibrating feed treats the projection.
 	 */
 	public void configureArenaCamera(CalibrationOption option) {

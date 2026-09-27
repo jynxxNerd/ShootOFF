@@ -12,6 +12,8 @@ import com.shootoff.geom.Rect
 import com.shootoff.plugins.ExerciseMetadata
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.targets.model.Hit
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import java.util.Optional
 
 /** An app with no camera, the owner's three screens, and two drills in its catalog. */
@@ -56,6 +58,25 @@ object AppFixture {
 
     val projectorDrill = V2ExerciseEntry(ProjectorDrill::class.java, ProjectorDrill().metadata())
     val feedDrill = V2ExerciseEntry(FeedDrill::class.java, FeedDrill().metadata())
+
+    /** A camera source with one [TestCamera], which the app opens at start */
+    fun oneCamera(camera: TestCamera = TestCamera()) = object : CameraSource {
+        override fun cameras() = listOf(camera)
+
+        override fun startCamera(settings: Settings) = camera
+    }
+
+    /** The same app with [oneCamera], its settings on [settings] and its watchers on [background] */
+    fun appWithCamera(
+        settings: Settings = Settings(ScratchConfig.emptyFile().path, arrayOf()),
+        background: CoroutineDispatcher = Dispatchers.Default,
+        screens: List<Rect> = ownerScreens,
+    ): AppState {
+        val catalog = ExerciseCatalog()
+        catalog.registerProjectorExercise(projectorDrill)
+        catalog.registerExercise(feedDrill)
+        return AppState(settings, catalog, oneCamera(), { screens }, ManualClock(), { it.run() }, background)
+    }
 
     fun app(screens: List<Rect> = ownerScreens): AppState {
         val catalog = ExerciseCatalog()

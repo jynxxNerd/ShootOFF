@@ -99,12 +99,13 @@ class TestAppState {
         try {
             calibratingApp.openStartCamera()
             calibratingApp.openArena()
+            assertTrue(calibratingApp.startCalibration())
             assertTrue(calibratingApp.calibration.value!!.state.value.calibrating)
 
             assertFalse(calibratingApp.runner.start(AppFixture.projectorDrill))
             assertNull(calibratingApp.runner.running.value)
 
-            calibratingApp.toggleCalibration()
+            calibratingApp.cancelCalibration()
             assertFalse(calibratingApp.calibration.value!!.state.value.calibrating)
 
             assertTrue(calibratingApp.runner.start(AppFixture.projectorDrill))

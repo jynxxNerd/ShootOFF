@@ -137,10 +137,11 @@ class TestProblemViews {
         show()
         app.openCamera(AppFixture.TestCamera())
         app.openArena()
+        app.startCalibration()
         compose.onNodeWithTag("status-strip").assert(hasText("· calibrating", substring = true))
 
         // Only the calibration controller's own state changes
-        app.toggleCalibration()
+        app.cancelCalibration()
 
         compose.waitUntil(5000) { !statusStrip().contains("· calibrating") }
 

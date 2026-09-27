@@ -61,8 +61,8 @@ import kotlin.math.roundToInt
 internal const val MIN_BOX = 20.0
 
 /**
- * Calibration over the calibrating camera's feed: what the flow asks of the user, with Stop (or Done
- * for the manual box), and the box itself, which the user drags and resizes by its corners.
+ * Calibration over the calibrating camera's feed: what the flow asks of the user, always with Cancel
+ * (and Done for the manual box), and the box itself, which the user drags and resizes by its corners.
  */
 @Composable
 fun CalibrationOverlay(controller: CalibrationController, transform: SurfaceTransform, modifier: Modifier = Modifier) {
@@ -90,9 +90,8 @@ fun CalibrationOverlay(controller: CalibrationController, transform: SurfaceTran
                     Text(message.text(), color = colors.text)
                     if (message == Message.MANUAL_REQUEST) {
                         Button(onClick = { controller.flow.stop() }, modifier = Modifier.testTag("calibration-done")) { Text("Done") }
-                    } else {
-                        FilledTonalButton(onClick = { controller.flow.stop() }, modifier = Modifier.testTag("calibration-stop")) { Text("Stop") }
                     }
+                    FilledTonalButton(onClick = controller::cancel, modifier = Modifier.testTag("calibration-cancel")) { Text("Cancel") }
                 }
             }
         }

@@ -51,14 +51,28 @@ class TestCalibrationOverlay {
     }
 
     @Test
-    fun whileLookingForThePatternTheUserCanStop() {
+    fun whileLookingForThePatternTheUserCanCancel() {
         startOnTheProjector()
         show()
 
         compose.onNodeWithText("Looking for the calibration pattern…").assertExists()
-        compose.onNodeWithTag("calibration-stop").performClick()
+        compose.onNodeWithTag("calibration-cancel").performClick()
 
         assertFalse(controller.state.value.calibrating)
+    }
+
+    @Test
+    fun theManualBoxCanBeCancelledTooLeavingNoProjection() {
+        startOnTheProjector()
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        show()
+
+        compose.onNodeWithTag("calibration-done").assertExists()
+        compose.onNodeWithTag("calibration-cancel").performClick()
+
+        assertFalse(controller.state.value.calibrating)
+        assertEquals(null, fixture.arena.projection.value)
+        compose.onNodeWithTag("calibration-box").assertDoesNotExist()
     }
 
     @Test

@@ -28,7 +28,7 @@ enum class Shortcut(val key: Key, val label: String) {
     SWITCH_VIEW(Key.F2, "Switch between the camera and the arena"),
     PAUSE_DRILL(Key.F3, "Pause or resume the drill"),
     CLEAR_SHOTS(Key.F4, "Clear the shots"),
-    CALIBRATE(Key.F6, "Start or stop calibrating"),
+    CALIBRATE(Key.F6, "Start calibrating"),
     ;
 
     companion object {
@@ -55,10 +55,7 @@ fun AppState.perform(shortcut: Shortcut): Boolean {
             pause.onClick()
         }
         Shortcut.CLEAR_SHOTS -> clearShots()
-        Shortcut.CALIBRATE -> {
-            if (calibration.value == null) return false
-            toggleCalibration()
-        }
+        Shortcut.CALIBRATE -> return startCalibration()
     }
     return true
 }

@@ -79,6 +79,10 @@ class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }
         override fun restoreSelectedView() {
             events += "restore view"
         }
+
+        override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
+            events += "succeeded $cameraBounds"
+        }
     }
 
     val controller = CalibrationController(

@@ -222,7 +222,7 @@ class TestCalibrationController {
     }
 
     @Test
-    fun closingThenReopeningStartsFreshWithNoStaleState() {
+    fun closingThenReopeningStartsFreshOnlyWhenAskedWithNoStaleState() {
         val restarts = mutableListOf<String>()
         fixture.restartExercise = Optional.of(Runnable { restarts += "restart" })
         startOnTheProjector()
@@ -230,9 +230,14 @@ class TestCalibrationController {
 
         controller.arenaClosing()
 
-        // Reopening straight onto the (still full screen) projector must go through a fresh start(), not
-        // a stale "already calibrating" branch left over from the cancelled session
+        // Reopening straight onto the (still full screen) projector doesn't calibrate by itself
         controller.fullScreenChanged(true)
+        assertEquals(1, fixture.events.count { it == "stop exercise" })
+        assertFalse(controller.state.value.calibrating)
+
+        // Asked to, it goes through a fresh start(), not a stale "already calibrating" branch left over
+        // from the cancelled session
+        controller.start()
 
         assertEquals(2, fixture.events.count { it == "stop exercise" })
         assertTrue(controller.state.value.calibrating)

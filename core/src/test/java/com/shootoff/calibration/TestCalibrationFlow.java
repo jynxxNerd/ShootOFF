@@ -2,6 +2,7 @@ package com.shootoff.calibration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -405,5 +406,29 @@ class TestCalibrationFlow {
 		events.clear();
 		flow.arenaClosing();
 		assertEquals(List.of("camera bounds null"), events);
+	}
+
+	@Test
+	void aSavedCalibrationIsAppliedWithoutCalibrating() {
+		final CalibrationFlow flow = flow();
+		projectorExerciseRunning = true;
+
+		// The feed's 640 x 480 is shown at 1280 x 960
+		flow.applySaved(new Rect(100, 80, 400, 300), Optional.empty());
+
+		assertEquals(List.of("projection on the canvas Rect[minX=200.0, minY=160.0, width=800.0, height=600.0]",
+				"camera crops false", "camera limits detection true",
+				"camera bounds Rect[minX=100.0, minY=80.0, width=400.0, height=300.0]", "calibrated"), events);
+		assertFalse(flow.isCalibrating());
+		assertTrue(projectorExerciseRunning);
+	}
+
+	@Test
+	void aSavedCalibrationCantBeAppliedWhileCalibrating() {
+		final CalibrationFlow flow = flow();
+		flow.start();
+
+		assertThrows(IllegalStateException.class, () -> flow.applySaved(new Rect(100, 80, 400, 300), Optional.empty()));
+		assertTrue(flow.isCalibrating());
 	}
 }

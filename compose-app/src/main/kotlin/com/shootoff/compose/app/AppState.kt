@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.EventQueue
 import java.awt.image.BufferedImage
+import java.time.LocalTime
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
@@ -89,6 +90,7 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param uiThread runs calibration's timers, and the results of camera work, on the UI thread
  * @param background runs the app's watchers
  * @param io opens and lists cameras, which can take seconds, off the UI thread
+ * @param wallClock the time of day, which the calibration status shows
  */
 class AppState(
     val settings: Settings,
@@ -100,6 +102,7 @@ class AppState(
     background: CoroutineDispatcher = Dispatchers.Default,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     val prefs: UiPrefs = UiPrefs(),
+    private val wallClock: () -> LocalTime = LocalTime::now,
 ) : CalibrationViews {
     private val logger = LoggerFactory.getLogger(AppState::class.java)
     private val scope = CoroutineScope(SupervisorJob() + background)
@@ -136,6 +139,7 @@ class AppState(
     private val darkState = MutableStateFlow(prefs.dark)
     private val trayHeightState = MutableStateFlow(prefs.trayHeight)
     private val trayCollapsedState = MutableStateFlow(prefs.trayCollapsed)
+    private val calibratedAtState = MutableStateFlow<LocalTime?>(null)
     private var viewBeforeCalibration: BigView? = null
     private var fullScreenWatch: Job? = null
 
@@ -146,6 +150,9 @@ class AppState(
     val arenaPlacement: StateFlow<ArenaPlacement?> = placementState.asStateFlow()
 
     val calibration: StateFlow<CalibrationController?> = calibrationState.asStateFlow()
+
+    /** When the open arena was last calibrated; null while it isn't */
+    val calibratedAt: StateFlow<LocalTime?> = calibratedAtState.asStateFlow()
 
     /** The open camera, or null */
     val camera: StateFlow<CameraManager?> = cameraState.asStateFlow()
@@ -381,9 +388,9 @@ class AppState(
         openView = opened.view
         problemState.value = null
         cameraState.value = manager
-        // The arena was already open with no camera to calibrate with (openArena found none); now one
-        // is here, so calibration starts the way it would have if the camera had come first
-        arenaState.value?.let { arena -> if (calibrationState.value == null) startCalibrating(arena, manager) }
+        // The arena was already open with no camera to calibrate with (openArena found none); now one is
+        // here, so the arena can be calibrated, as it could have been if the camera had come first
+        arenaState.value?.let { arena -> if (calibrationState.value == null) makeCalibratable(arena, manager) }
         return true
     }
 
@@ -420,9 +427,10 @@ class AppState(
     fun projectorScreenFound(): Boolean = arenaPlacementNow().screen != null
 
     /**
-     * Opens the arena window, on the projector if one is found, and starts calibrating it with the open
-     * camera, as the JavaFX app does. Without an open camera there is nothing to calibrate with yet;
-     * [startCalibrating] runs later instead, once a camera opens (see [publish]).
+     * Opens the arena window, on the projector if one is found, ready to be calibrated with the open camera.
+     * Unlike the JavaFX app, it never starts calibrating: only [startCalibration] does. Without an open
+     * camera there is nothing to calibrate with yet; [makeCalibratable] runs later instead, once a camera
+     * opens (see [publish]).
      */
     fun openArena() {
         if (arenaState.value != null) return
@@ -435,23 +443,21 @@ class AppState(
         // Back to the view the user last left the app on
         if (prefs.view == BigView.ARENA) viewState.value = BigView.ARENA
 
-        cameraState.value?.let { startCalibrating(arena, it) }
+        cameraState.value?.let { makeCalibratable(arena, it) }
     }
 
-    // Creates the calibration controller for [camera] on [arena] and starts calibrating, the way
-    // openArena does when a camera is already open. Also reached when a camera opens (or becomes
-    // available) after the arena, which otherwise would leave Calibrate and F6 disabled until the
-    // arena is closed and reopened.
-    private fun startCalibrating(arena: ArenaModel, camera: CameraManager) {
+    // Creates the calibration controller for [camera] on [arena], without calibrating. Also reached when a
+    // camera opens (or becomes available) after the arena, which otherwise would leave Calibrate and F6
+    // disabled until the arena is closed and reopened.
+    private fun makeCalibratable(arena: ArenaModel, camera: CameraManager) {
         val controller = CalibrationController(camera, arena, settings, runner, this, { task, delay ->
             TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
         }, uiThread)
         camera.setCalibrationManager(controller)
         calibrationState.value = controller
 
-        // Calibration hears the arena going full screen, as the JavaFX arena tells it
-        // on the UI thread, as calibration's other inputs are, and only while this arena is still the open one:
-        // the flow starts calibrating on a full-screen change, which must never happen after the arena closed
+        // Calibration hears the arena going full screen or leaving it, as the JavaFX arena tells it: on the
+        // UI thread, as calibration's other inputs are, and only while this arena is still the open one.
         // Started undispatched, so it is watching before this returns: a flip right after the arena opens is
         // not taken for the value drop(1) skips
         fullScreenWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -459,8 +465,6 @@ class AppState(
                 uiThread(Runnable { if (calibrationState.value === controller) controller.fullScreenChanged(fullScreen) })
             }
         }
-
-        controller.flow.start()
     }
 
     /** The arena window closed: calibration ends, a projector drill stops, and the view goes back to the camera. */
@@ -472,14 +476,32 @@ class AppState(
         // The arena goes first, so no projector drill can start on it from here on (newHost finds none);
         // then the one running, if any, stops under the runner's lock, so one started just before can't slip by
         arenaState.value = null
+        calibratedAtState.value = null
         runner.stopProjectorExercise()
         placementState.value = null
         viewState.value = BigView.CAMERA
         arena.targets.set.targets.forEach { arena.targets.remove(it.id) }
     }
 
-    fun toggleCalibration() {
-        calibrationState.value?.toggle()
+    /**
+     * Starts calibrating the open arena with the open camera: the only way calibration ever starts
+     * (Calibrate on Setup, or F6).
+     *
+     * @return false if there is no arena, or no camera, to calibrate
+     */
+    fun startCalibration(): Boolean {
+        val controller = calibrationState.value ?: return false
+        controller.start()
+        return true
+    }
+
+    /** Cancel: calibration ends, leaving the arena and the camera as they were before it started. */
+    fun cancelCalibration() {
+        calibrationState.value?.cancel()
+    }
+
+    override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
+        calibratedAtState.value = wallClock()
     }
 
     fun calibrationStatus(): CalibrationStatus = calibrationStatus(

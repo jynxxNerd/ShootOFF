@@ -185,13 +185,15 @@ class TestProblems {
     }
 
     @Test
-    fun openingACameraAfterTheArenaGetsCalibrationToo() {
+    fun openingACameraAfterTheArenaMakesItCalibratableWithoutCalibrating() {
         app.openArena()
         assertNull(app.calibration.value)
 
         app.openStartCamera()
 
         assertNotNull(app.calibration.value)
+        assertFalse(app.calibration.value!!.state.value.calibrating)
+        assertTrue(app.startCalibration())
         assertEquals(Message.FULL_SCREEN_REQUEST, app.calibration.value!!.state.value.message)
     }
 
@@ -259,6 +261,7 @@ class TestProblems {
         try {
             app.openStartCamera()
             app.openArena()
+            app.startCalibration()
             val controller = app.calibration.value!!
             assertEquals(Message.FULL_SCREEN_REQUEST, controller.state.value.message)
 

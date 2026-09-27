@@ -244,8 +244,12 @@ private fun RangeActions(app: AppState) {
             FilledTonalButton(onClick = { app.openArena() }, modifier = Modifier.testTag("open-arena")) { Text("Open arena") }
         } else {
             FilledTonalButton(onClick = { app.closeArena() }, modifier = Modifier.testTag("close-arena")) { Text("Close arena") }
-            FilledTonalButton(onClick = app::toggleCalibration, enabled = calibration != null, modifier = Modifier.testTag("calibrate")) {
-                Text(if (calibrating) "Stop calibrating" else "Calibrate")
+            FilledTonalButton(
+                onClick = { if (calibrating) app.cancelCalibration() else app.startCalibration() },
+                enabled = calibration != null,
+                modifier = Modifier.testTag("calibrate"),
+            ) {
+                Text(if (calibrating) "Cancel calibrating" else "Calibrate")
             }
         }
         FilledTonalButton(onClick = app::reset, modifier = Modifier.testTag("reset")) { Text("Reset") }

@@ -78,12 +78,13 @@ class TestScreens {
 
         app.openStartCamera()
         app.openArena()
+        app.startCalibration()
         compose.waitForIdle()
 
         compose.onNodeWithTag("start-drill").assertIsNotEnabled()
         compose.onNodeWithText("Calibrating… finish calibration first").assertExists()
 
-        app.toggleCalibration()
+        app.cancelCalibration()
         compose.waitForIdle()
 
         compose.onNodeWithTag("start-drill").assertIsEnabled()
@@ -98,6 +99,7 @@ class TestScreens {
 
         app.openStartCamera()
         app.openArena()
+        app.startCalibration()
         compose.waitForIdle()
 
         compose.onNodeWithTag("start-drill").assertIsNotEnabled()

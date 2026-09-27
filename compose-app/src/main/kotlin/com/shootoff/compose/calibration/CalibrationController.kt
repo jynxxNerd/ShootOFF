@@ -26,6 +26,7 @@ import com.shootoff.camera.perspective.PerspectiveManager
 import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.config.CalibrationOption
+import com.shootoff.config.SavedCalibration
 import com.shootoff.config.Settings
 import com.shootoff.geom.Rect
 import com.shootoff.geom.Size
@@ -50,12 +51,20 @@ fun Message.text(): String = when (this) {
     Message.MANUAL_REQUEST -> "Drag the box over the projection, then press Done"
 }
 
-/** The Range screen's big view, as calibration switches it. */
+/** What calibration asks of the rest of the app. */
 interface CalibrationViews {
-    /** Remembers the view the user is on and shows the calibrating camera's feed. */
+    /** The manual box is showing: the user must see the calibrating camera's feed (Setup). */
     fun showCalibratingFeed()
 
     fun restoreSelectedView()
+
+    /**
+     * A calibration the user asked for ended with a projection (found by the camera, or the box's).
+     *
+     * @param cameraBounds the projection on the camera's feed
+     * @param paper the perspective paper's size, if auto-calibration found one
+     */
+    fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>)
 }
 
 /**
@@ -96,10 +105,52 @@ class CalibrationController(
     @Volatile
     private var generation = 0
 
+    // The camera's projection when calibration started, which Cancel puts back
+    @Volatile
+    private var boundsBefore: Rect? = null
+
+    // Whether a calibration the user started is under way, so only its end is reported as a success
+    @Volatile
+    private var session = false
+
+    // The paper size auto-calibration found this session, if any
+    @Volatile
+    private var foundPaper: Optional<Size> = Optional.empty()
+
     // ---- The user
 
-    /** The Calibrate button: starts calibrating, or ends it (with the box, if it is showing). */
-    fun toggle() = if (flow.isCalibrating) flow.stop() else flow.start()
+    /**
+     * Starts calibrating; only ever because the user asked (Calibrate on Setup, or F6). The flow is told
+     * whether the arena is full screen as it starts, so a start on an arena that is already full screen
+     * looks for the pattern at once and its timeout reaches the manual box.
+     */
+    fun start() {
+        if (flow.isCalibrating) return
+        boundsBefore = camera.projectionBounds.orElse(null)
+        foundPaper = Optional.empty()
+        session = true
+        flow.setFullScreen(arena.fullScreen.value)
+    }
+
+    /**
+     * Cancel: calibration ends and the arena and the camera are left as they were before it started (the
+     * background, targets, shots and the projection). A drill it stopped stays stopped.
+     */
+    fun cancel() {
+        if (!flow.isCalibrating) return
+        generation++
+        session = false
+        flow.cancel()
+        putArenaBack()
+        camera.setProjectionBounds(boundsBefore)
+        uiState.update { CalibrationUi() }
+    }
+
+    /** Starts calibrating, or ends it (with the box, if it is showing). */
+    fun toggle() = if (flow.isCalibrating) flow.stop() else start()
+
+    /** Applies a calibration remembered from an earlier session, without calibrating. */
+    fun applySaved(saved: SavedCalibration) = flow.applySaved(saved.bounds, saved.paper)
 
     /** Moves or resizes the box, keeping it inside the canvas (the settings' display size). */
     fun moveBox(box: Rect) = uiState.update { if (it.box != null) it.copy(box = clampToCanvas(box)) else it }
@@ -114,8 +165,13 @@ class CalibrationController(
         return Rect(minX, minY, width, height)
     }
 
-    /** The arena window went full screen or left it. */
-    fun fullScreenChanged(fullScreen: Boolean) = flow.setFullScreen(fullScreen)
+    /**
+     * The arena window went full screen or left it. It matters only while calibrating: unlike the JavaFX
+     * app, the arena going full screen never starts calibration.
+     */
+    fun fullScreenChanged(fullScreen: Boolean) {
+        if (flow.isCalibrating) flow.setFullScreen(fullScreen)
+    }
 
     /**
      * The arena window is closing: calibration ends abruptly, through [CalibrationFlow.cancel] if it was
@@ -127,15 +183,22 @@ class CalibrationController(
      */
     fun arenaClosing() {
         generation++
+        session = false
         if (flow.isCalibrating) {
             flow.cancel()
-            restoreArenaBackground()
-            arena.setTargetsVisible(true)
-            arena.showShots(settings.showArenaShotMarkers())
+            putArenaBack()
         }
         uiState.update { CalibrationUi() }
         flow.arenaClosing()
         arena.setProjection(null)
+    }
+
+    // The arena's look before calibration: its background, targets, shots, and the label if uncalibrated
+    private fun putArenaBack() {
+        restoreArenaBackground()
+        arena.setTargetsVisible(true)
+        arena.showShots(settings.showArenaShotMarkers())
+        arena.setCalibrationLabelVisible(arena.projection.value == null)
     }
 
     // ---- The camera (CameraCalibrationListener)
@@ -149,6 +212,7 @@ class CalibrationController(
      */
     override fun calibrate(arenaBounds: Rect, perspectivePaperDims: Optional<Size>, calibratedFromCanvas: Boolean, frameDelay: Long) {
         val expectedGeneration = generation
+        foundPaper = perspectivePaperDims
         uiThread(
             Runnable {
                 if (generation == expectedGeneration && flow.isCalibrating) {
@@ -214,6 +278,11 @@ class CalibrationController(
         // Targets take their real-world sizes once the perspective is known
         if (perspectiveManager.isPresent) {
             for (target in arena.targets.set.targets) arena.placeNewTarget(target)
+        }
+        // A calibration the user started, not a remembered one being applied, and one that found the projection
+        if (session) {
+            session = false
+            camera.projectionBounds.ifPresent { views.calibrationSucceeded(it, foundPaper) }
         }
     }
 
