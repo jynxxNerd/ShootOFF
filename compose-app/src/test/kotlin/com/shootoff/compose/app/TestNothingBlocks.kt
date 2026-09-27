@@ -1,6 +1,7 @@
 package com.shootoff.compose.app
 
 import com.shootoff.calibration.CalibrationCheck
+import com.shootoff.camera.cameratypes.Camera
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.targets.ManualClock
@@ -19,6 +20,9 @@ import org.junit.jupiter.api.Test
 import java.awt.image.BufferedImage
 import java.time.Duration
 import java.util.Optional
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
@@ -43,6 +47,40 @@ class TestNothingBlocks {
             assertNull(app.calibration.value)
             assertEquals(CheckState.Idle, app.check.value)
             assertEquals(0, looked.get())
+        } finally {
+            app.close()
+        }
+    }
+
+    @Test
+    fun rule1ALateLaunchOpenNeverOverridesTheOwnersPick() {
+        val cameraA = AppFixture.TestCamera("Camera A")
+        val cameraB = AppFixture.TestCamera("Camera B")
+        // launch()'s enumeration is stuck here while the owner picks and opens Camera B themselves
+        val latch = CountDownLatch(1)
+        val source = object : CameraSource {
+            override fun cameras() = listOf(cameraA, cameraB)
+
+            override fun startCamera(settings: Settings): Camera {
+                assertTrue(latch.await(5, TimeUnit.SECONDS))
+                return cameraA
+            }
+        }
+        // What launch() posts to the UI thread is queued here instead of running at once, so it can be
+        // driven by hand once the owner's pick has already landed
+        val ui = ConcurrentLinkedQueue<Runnable>()
+        val app = AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), source, { AppFixture.ownerScreens }, ManualClock(), { ui.add(it) })
+        try {
+            app.launch()
+
+            assertTrue(app.openCamera(cameraB))
+            assertEquals("Camera B", app.camera.value!!.camera.name)
+
+            latch.countDown()
+            awaitTrue { ui.isNotEmpty() }
+            ui.poll().run()
+
+            assertEquals("Camera B", app.camera.value!!.camera.name)
         } finally {
             app.close()
         }

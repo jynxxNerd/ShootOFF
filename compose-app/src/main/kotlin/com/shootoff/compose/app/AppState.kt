@@ -292,7 +292,11 @@ class AppState(
                 logger.error("Couldn't find the camera to start with", e)
                 null
             }
-            if (camera != null) uiThread(Runnable { openCameraInBackground(camera) })
+            if (camera != null) uiThread(Runnable {
+                // Enumerating (above) can take long enough for the owner to have opened, or started
+                // opening, a camera of their own by the time it resolves: that pick, not this stale one, wins
+                if (cameraState.value == null && openingState.value == null) openCameraInBackground(camera)
+            })
         }
     }
 
