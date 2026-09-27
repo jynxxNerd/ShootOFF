@@ -81,7 +81,7 @@ class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }
         }
 
         override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
-            events += "succeeded $cameraBounds"
+            events += "succeeded $cameraBounds $paper"
         }
     }
 

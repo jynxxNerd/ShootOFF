@@ -88,7 +88,40 @@ class TestCalibrationOnRequest {
 
         controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.of(Size(11.0, 8.5)), false, 0)
 
-        assertTrue(fixture.events.contains("succeeded ${Rect(100.0, 80.0, 400.0, 300.0)}"))
+        assertTrue(fixture.events.contains("succeeded ${Rect(100.0, 80.0, 400.0, 300.0)} ${Optional.of(Size(11.0, 8.5))}"))
+    }
+
+    @Test
+    fun aStaleAutoDetectionNeverLeaksItsPaperIntoTheManualBoxsSuccess() {
+        // The camera's completion hops to the UI thread; queue it instead of running it, so a detection
+        // can be "in flight" while the manual box independently finishes calibration first
+        val uiTasks = mutableListOf<Runnable>()
+        val fixture = CalibrationFixture(uiThread = { uiTasks += it })
+        val controller = fixture.controller
+        val arena = fixture.arena
+
+        arena.setFullScreen(true)
+        controller.start()
+
+        // A pattern is found, with a paper size, but its completion just sits queued
+        controller.calibrate(Rect(10.0, 10.0, 50.0, 50.0), Optional.of(Size(11.0, 8.5)), false, 0)
+        assertEquals(1, uiTasks.size)
+
+        // Auto-calibration times out to the manual box before that queued completion ever runs
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        uiTasks.removeAt(uiTasks.size - 1).run()
+        assertNotNull(controller.state.value.box)
+
+        // The user finishes with the box, which found no paper of its own
+        controller.flow.stop()
+
+        assertTrue(fixture.events.contains("succeeded ${CalibrationController.DEFAULT_BOX} ${Optional.empty<Size>()}"))
+
+        // The stale detection's queued completion, run late, changes nothing (the flow is no longer calibrating)
+        val before = fixture.events.toList()
+        uiTasks.single().run()
+        assertEquals(before, fixture.events)
+        assertEquals(CalibrationController.DEFAULT_BOX, fixture.camera.bounds)
     }
 
     @Test

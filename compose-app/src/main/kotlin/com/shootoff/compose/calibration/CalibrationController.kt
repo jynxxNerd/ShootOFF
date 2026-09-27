@@ -212,10 +212,10 @@ class CalibrationController(
      */
     override fun calibrate(arenaBounds: Rect, perspectivePaperDims: Optional<Size>, calibratedFromCanvas: Boolean, frameDelay: Long) {
         val expectedGeneration = generation
-        foundPaper = perspectivePaperDims
         uiThread(
             Runnable {
                 if (generation == expectedGeneration && flow.isCalibrating) {
+                    foundPaper = perspectivePaperDims
                     flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
                 }
             },
