@@ -190,3 +190,84 @@ Adds to §1's criteria:
 ### Delivery
 
 **Plan 6** implements this revision on `compose-ui`, then the owner repeats the hardware check.
+
+### Revision 2 (2026-09-27): after the hardware check
+
+The owner ran Plan 6's hardware check on the Logitech C270 (640×480) and a 1280×720 projector at x=4480 on a three-monitor Linux machine. Setup, the training-only Range and "Nothing blocks" held up; what didn't was how calibration ends, what happens to a drill around it, the remembered calibration's check, and losing the camera. The decisions below are the owner's. This revision supersedes the conflicting parts of Revision 1 above and of §4 ("No camera, or it drops out": automatic reconnect is now in scope).
+
+#### Calibration
+
+1. **Stay on Setup after calibrating.** A successful calibration no longer returns to Range: the app stays on Setup, and the Calibrate step shows a clear confirmation, "Calibration complete ✓ HH:mm". The owner goes back to Range when they choose.
+   - *This reverses* Revision 1's "When calibration succeeds from Setup, the app returns to Range". The owner calibrates, then usually wants to look at the result (the outline, Show grid) before training; being moved away hid that and read as if something had gone wrong.
+   - The manual box still brings the owner to Setup, where the feed is; F6 still opens Setup and starts calibrating, and now stays there too.
+2. **Calibration pauses the drill instead of resetting it.**
+   - Starting calibration during a drill (Calibrate on Setup, or F6) pauses the drill if it isn't already paused.
+   - After calibration succeeds or is cancelled, the drill stays paused, with its targets, texts and state back as they were, ready to resume from where it was. It is never reset and never restarted.
+   - *This reverses* Revision 1's F6 behavior ("the drill stops before the pattern shows … a fresh drill starts"), and the flow's restart of a stopped projector exercise, in the Compose app. A recalibration mid-session is a correction, not a new session: the owner lost their rounds, score and personal-best progress every time.
+   - **How, without changing the exercise API.** The v2 API has no host-level pause: Pause is the drill's own button, and F3 presses it. Calibration presses the same button (the drill's "Pause"; a drill already showing "Resume" is already paused). The owner's RandomTargetParDrill v2 jar works unchanged; no `plugin-api` change is needed.
+   - While the pattern shows, the arena covers everything but its background (targets, shot markers, the drill's texts, the "Needs Calibration" label) without changing any target's own visibility, so a target the paused drill had hidden stays hidden afterwards.
+   - Shot detection comes back after calibration only if the paused drill hadn't turned it off, so the paused drill sees no shots until it is resumed.
+   - A drill with no Pause button can't be paused: a projector drill of that kind is still stopped for calibration and started afresh after a success, as before. A camera (feed) drill doesn't use the arena and is left alone, as before.
+3. **Remembered calibration: no false "moved".**
+   - *Cause.* The saved bounds and the check used the same estimator (auto-calibration's `calibrateFrame` on one early frame, extrapolated from the inner chessboard corners and rounded to whole pixels), so each measurement jitters by 5–10 px from run to run; the owner's two calibrations of an unmoved setup were 95,59,450,262 and 93,56,442,262. The 5 px tolerance was inside that noise. Separately, the arena reported full screen as soon as full screen was requested, before the window manager had resized it, so the check (and auto-calibration) could measure a pattern still drawn in the 640×480 window.
+   - **Both sides measure the same way: the median of five detections.** The check takes the per-edge median of five detections. After an auto-calibration, the pattern shows once more (about three seconds, on Setup, with Cancel) and the same median is measured; that median is what is saved. If it can't be measured, the calibration's own bounds are saved, as before. A manual-box calibration is saved as the box.
+   - **The tolerance scales with the pattern:** the larger of 8 camera pixels and 2% of the saved pattern's larger side (9 px for the owner's 450 px pattern).
+   - **Three outcomes.** Within the tolerance: kept, as saved. More than twice the tolerance: moved ("The projection moved about N px — recalibrate"). In between, which is measurement noise or a nudge too small to matter: the calibration is kept at the fresh median, which is saved in place of the old one.
+   - **The pattern is measured only on the projector.** The arena reports full screen only once its window fills the screen it is on, and the check (and the measurement) starts only once the arena's size equals the projector screen's size and a short settle delay (half a second) has passed.
+   - **Time limit.** Detection costs about 400–500 ms a frame, so five detections take two to three seconds. The time limit becomes 8 seconds from when the pattern shows; the check still gives up quietly as "not verified" when it runs out.
+   - **Logged.** Each detection (its rectangle, its distance from the saved bounds, how long it took) and each outcome (the median, the distance, the tolerance) is logged at INFO.
+   - Shot detection stays off while any pattern shows and comes back only after the last one has gone, so a pattern that comes and goes quickly (the arena leaving and returning to full screen) can't turn detection back on under the next one.
+
+#### The arena at launch
+
+4. **The arena opens at launch whenever a projector screen is found.**
+   - At launch the camera opens in the background, as before, and, if a projector screen is found, the arena opens on it; with Remember calibration on, the saved calibration is checked then. With no projector screen, nothing opens and Setup's Projector step says so; the step looks for a projector again every couple of seconds while the arena is closed, so plugging one in is noticed.
+   - It still never blocks or waits, and it still never calibrates by itself.
+   - *This reverses* rule 1 of "Nothing blocks" ("It never opens the arena"). A session always starts with the arena on the projector, and with a remembered calibration the check needs it there; opening it by hand every launch was a step with nothing to decide.
+
+#### The camera
+
+5. **Only real cameras are listed.** On Linux a UVC webcam also has a metadata node (the C270 is `/dev/video0` for capture and `/dev/video1` for metadata, both under the same name); picking the metadata node failed with "Cannot open the webcam". The camera list keeps only devices that can capture video, so each camera appears once. A device whose capabilities can't be read is still listed.
+6. **A lost camera reconnects by itself.**
+   - When the camera the app was using is unplugged, the app watches in the background for a camera of the same name to come back, and reopens it when it does. The watch never blocks, and ends once any camera is open.
+   - The picker stays available meanwhile, to choose another camera; it says the app is waiting for the lost one.
+   - *This reverses* §4's "Automatic reconnect stays out of scope".
+7. **Losing the camera keeps the arena open.**
+   - The arena stays open, and a running drill pauses (as for calibration). The arena's calibration goes (it belonged to the camera that went), so the arena shows "Needs Calibration". Setup and the status chip say "No camera".
+   - When a camera comes back, through the reconnect or a pick, the saved calibration is checked if Remember calibration is on; otherwise the arena stays uncalibrated and Setup's Calibrate step is highlighted.
+   - Switching cameras while the arena is open works the same way: the arena stays open, uncalibrated, and the new camera is checked against the saved calibration if Remember is on.
+   - *This reverses* Plan 5's rule that closing (or losing) the camera closes the arena it calibrated. With the arena opening at launch and the drill pausing instead of resetting, closing the arena threw away exactly what the owner wanted kept.
+8. **A stale camera pick must never crash the app.**
+   - *The crash.* After an unplug, picking the camera on the no-camera panel threw `IndexOutOfBoundsException` from `SarxosCaptureCamera.getName`, which looked the name up in the live webcam list by index; the exception escaped a click handler and Compose Desktop closed the window, and with it the app.
+   - *The cause is fixed:* a camera keeps its own name from when it was found. Picking a camera that is no longer plugged in says it is not connected (the panel, and Setup's Camera step, show "… is not connected. Plug it in, or pick another camera.") instead of trying to open it; a camera that is plugged in again under a different device number is found by name.
+   - *A safety net:* an exception that escapes the Compose app's event handling or composition is logged and shown as a notice ("Something went wrong …; ShootOFF kept running"), and never closes a window or exits the app.
+   - The JavaFX app keeps working with the `core` changes (the cached name and the camera list); it gains the capture-only list too.
+
+#### Nothing blocks (revised)
+
+Rules 2, 4, 5 and 6 stand. Rules 1 and 3 now read:
+
+1. **Nothing calibrates on its own at launch.** The app opens on Range; the camera opens in the background, and the arena opens on the projector if one is found. No calibration starts by itself.
+3. **The remembered-calibration check runs only as the arena reaches the projector** (at launch, or when the owner opens it) **or when a camera comes back to an open arena**, in the background, time-limited to 8 seconds. If it can't confirm the calibration, it gives up quietly and marks the arena "not verified — recalibrate on Setup". No dialog, no waiting.
+
+#### Deferred minors from Plan 6
+
+Folded into this revision, because the changes above make them matter:
+- Setup's "No projector screen found" hint went stale if a projector was plugged in while Setup was showing: it is looked for again every couple of seconds while the arena is closed (decision 4).
+- The check showed its pattern under the "Needs Calibration" label: the arena's cover hides the label while any pattern shows (decisions 2 and 3).
+- A fast full-screen flap (under 600 ms) could let a stopped check's delayed detection restart fire while the next check's pattern showed (N1): detection comes back only once no pattern shows (decision 3).
+- `calibrationSucceeded` set the destination directly instead of through `navigate()`: calibration no longer changes the destination at all (decision 1).
+
+Left, still deferred: the Drills screen's subtitle wording; `saveSettings()` on the UI thread; the dead `CalibrationController.toggle()`; "Checking…" having no time limit while the arena is windowed (Cancel is offered); `stopCheckQuietly` clearing a "not verified" or "doesn't fit" message; a windowed (no projector) calibration with Remember on replacing a saved projector calibration; and the untested cases listed in the Plan 6 ledger.
+
+#### Success criteria (revision 2)
+
+Criterion 6 now reads "… → Setup: camera, projector, calibrate (✓ Calibration complete) → back to Range by the owner's choice → …", and criterion 7 now includes "and with nothing moved, relaunching never reports it as moved". Adds:
+
+9. Recalibrating mid-drill (Calibrate on Setup, or F6) leaves the drill paused where it was; Resume carries on with its rounds and score.
+10. Unplugging the camera mid-session keeps the arena open and pauses the drill; plugging it back in reopens it without a click, and with Remember on the saved calibration is checked again.
+11. No camera pick, stale or otherwise, closes the app.
+
+#### Delivery
+
+**Plan 7** implements this revision on `compose-ui`, then the owner repeats the hardware check, including the parts of Plan 6's check that were not reached (the rest of item 9, item 10 and the JavaFX regression check).
