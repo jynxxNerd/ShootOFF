@@ -34,6 +34,7 @@ import com.github.sarxos.webcam.ds.ipcam.IpCamDriver;
 import com.shootoff.camera.cameratypes.Camera;
 import com.shootoff.camera.cameratypes.IpCamera;
 import com.shootoff.camera.cameratypes.SarxosCaptureCamera;
+import com.shootoff.camera.cameratypes.V4l2Controls;
 import com.shootoff.util.SystemInfo;
 
 public final class CameraFactory {
@@ -120,8 +121,18 @@ public final class CameraFactory {
 
 		int cameraIndex = 0;
 		for (final Webcam w : Webcam.getWebcams()) {
+			final boolean ipCamera = w.getDevice() instanceof IpCamDevice;
+
+			// OpenCV opens camera index N as /dev/videoN. A node that can't capture video (a UVC webcam's
+			// metadata node, listed under the same name as its camera) is left out; its index still counts.
+			if (!ipCamera && SystemInfo.isLinux() && !V4l2Controls.isCaptureNode("/dev/video" + cameraIndex)) {
+				logger.debug("{} at /dev/video{} doesn't capture video: not listed", w.getName(), cameraIndex);
+				cameraIndex++;
+				continue;
+			}
+
 			final Camera c;
-			if (w.getDevice() instanceof IpCamDevice)
+			if (ipCamera)
 				c = new IpCamera(w);
 			else
 				c = new SarxosCaptureCamera(w.getName(), cameraIndex);

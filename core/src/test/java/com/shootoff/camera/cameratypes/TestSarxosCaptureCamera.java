@@ -87,6 +87,15 @@ public class TestSarxosCaptureCamera {
 	}
 
 	@Test
+	public void testTheNameIsKeptFromWhenTheCameraWasFound() {
+		// Index 7 is past every webcam on the test machine, as a camera unplugged after it was listed is:
+		// its name must not be looked up by index again
+		final SarxosCaptureCamera camera = new SarxosCaptureCamera("Test Camera", 7);
+
+		assertEquals("Test Camera", camera.getName());
+	}
+
+	@Test
 	public void testDisablingDynamicFramerateOnMissingDeviceReportsNoChange() {
 		assertFalse(SarxosCaptureCamera.disableDynamicFramerate("/nonexistent/video99"));
 	}

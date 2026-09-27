@@ -18,6 +18,7 @@
 
 package com.shootoff.camera.cameratypes;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import org.slf4j.Logger;
@@ -49,10 +50,24 @@ public final class V4l2Controls {
 	private static final long VIDIOC_G_CTRL = 0xC008561BL;
 	private static final long VIDIOC_S_CTRL = 0xC008561CL;
 
+	// _IOR('V', 0, struct v4l2_capability)
+	private static final long VIDIOC_QUERYCAP = 0x80685600L;
+
 	private static final int O_RDWR = 2;
 
 	// struct v4l2_control { __u32 id; __s32 value; }
 	private static final int CONTROL_SIZE = 8;
+
+	// struct v4l2_capability { __u8 driver[16]; __u8 card[32]; __u8 bus_info[32]; __u32 version;
+	// __u32 capabilities; __u32 device_caps; __u32 reserved[3]; }
+	private static final int CAPABILITY_SIZE = 104;
+	private static final int CAPABILITIES_OFFSET = 84;
+	private static final int DEVICE_CAPS_OFFSET = 88;
+
+	private static final int CAP_VIDEO_CAPTURE = 0x00000001;
+	private static final int CAP_VIDEO_CAPTURE_MPLANE = 0x00001000;
+	// The device_caps field is filled in (every driver since Linux 3.3)
+	private static final int CAP_DEVICE_CAPS = 0x80000000;
 
 	private interface CLibrary extends Library {
 		int open(String path, int flags);
@@ -81,6 +96,41 @@ public final class V4l2Controls {
 		return ioctl(device, VIDIOC_S_CTRL, newControl(controlId, value));
 	}
 
+	/**
+	 * Whether <tt>device</tt> is a node that captures video. A UVC webcam also has a metadata node (the
+	 * Logitech C270 is /dev/video0 for capture and /dev/video1 for metadata, under the same name), which
+	 * can't be opened as a camera.
+	 *
+	 * @return empty if the device's capabilities can't be read (missing, not a V4L2 device, no libc)
+	 */
+	public static Optional<Boolean> capturesVideo(String device) {
+		final Memory capability = new Memory(CAPABILITY_SIZE);
+		capability.clear();
+
+		if (!ioctl(device, VIDIOC_QUERYCAP, capability)) return Optional.empty();
+
+		return Optional.of(capturesVideo(capability.getInt(CAPABILITIES_OFFSET), capability.getInt(DEVICE_CAPS_OFFSET)));
+	}
+
+	/**
+	 * @return true unless <tt>device</tt> says it can't capture video: a node whose capabilities can't be
+	 *         read is still listed, as it was before this check
+	 */
+	public static boolean isCaptureNode(String device) {
+		return capturesVideo(device).orElse(true);
+	}
+
+	/**
+	 * @param capabilities
+	 *            the whole physical device's capabilities
+	 * @param deviceCaps
+	 *            this node's own, when <tt>capabilities</tt> has V4L2_CAP_DEVICE_CAPS
+	 */
+	static boolean capturesVideo(int capabilities, int deviceCaps) {
+		final int node = (capabilities & CAP_DEVICE_CAPS) != 0 ? deviceCaps : capabilities;
+		return (node & (CAP_VIDEO_CAPTURE | CAP_VIDEO_CAPTURE_MPLANE)) != 0;
+	}
+
 	private static Memory newControl(int controlId, int value) {
 		final Memory control = new Memory(CONTROL_SIZE);
 		control.setInt(0, controlId);
@@ -88,7 +138,7 @@ public final class V4l2Controls {
 		return control;
 	}
 
-	private static boolean ioctl(String device, long request, Memory control) {
+	private static boolean ioctl(String device, long request, Memory argument) {
 		try {
 			final CLibrary libc = LibC.INSTANCE;
 			final int fd = libc.open(device, O_RDWR);
@@ -99,7 +149,7 @@ public final class V4l2Controls {
 			}
 
 			try {
-				final int result = libc.ioctl(fd, new NativeLong(request), control);
+				final int result = libc.ioctl(fd, new NativeLong(request), argument);
 
 				if (result < 0) logger.debug("V4L2 ioctl {} on {} failed", Long.toHexString(request), device);
 

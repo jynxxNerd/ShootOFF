@@ -51,6 +51,9 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	private int cameraIndex = -1;
 	private final VideoCapture camera;
+	// Kept from when the camera was found: looking it up in the live webcam list by index again fails
+	// once the camera is unplugged (the list shrinks under the index)
+	private final String name;
 
 	private final AtomicBoolean closing = new AtomicBoolean(false);
 
@@ -62,6 +65,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	// For testing
 	protected SarxosCaptureCamera() {
 		camera = null;
+		name = null;
 	}
 
 	public SarxosCaptureCamera(final String cameraName) {
@@ -79,7 +83,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		camera = new VideoCapture();
 		this.cameraIndex = cameraIndex;
-
+		name = cameraName;
 	}
 
 	public SarxosCaptureCamera(final String cameraName, int cameraIndex) {
@@ -87,7 +91,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		camera = new VideoCapture();
 		this.cameraIndex = cameraIndex;
-
+		name = cameraName;
 	}
 
 	@Override
@@ -260,7 +264,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	@Override
 	public String getName() {
-		return Webcam.getWebcams().get(cameraIndex).getName();
+		return name;
 	}
 
 	@Override
