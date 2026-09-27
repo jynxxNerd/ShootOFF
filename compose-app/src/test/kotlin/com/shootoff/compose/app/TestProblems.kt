@@ -144,15 +144,32 @@ class TestProblems {
     }
 
     @Test
-    fun losingTheCameraClosesTheArenaItCalibrated() {
-        app.openStartCamera()
-        app.openArena()
-        assertNotNull(app.calibration.value)
+    fun losingTheCameraKeepsTheArenaOpenUncalibratedAndPausesTheDrill() {
+        val app = AppFixture.appWithCamera()
+        try {
+            AppFixture.setUpForProjectorDrills(app)
+            assertTrue(app.startDrill(AppFixture.pausingDrill))
+            awaitTrue { app.drill.buttons.value.any { it.label == "Pause" } }
+            val host = app.runner.running.value!!.host
 
-        app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+            app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
 
-        assertNull(app.arena.value)
-        assertNull(app.calibration.value)
+            val arena = app.arena.value!!
+            assertNull(arena.projection.value)
+            assertTrue(arena.needsCalibrationLabel.value)
+            assertNull(app.calibration.value)
+            assertNull(app.calibratedAt.value)
+            awaitTrue { app.drill.buttons.value.any { it.label == "Resume" } }
+            assertSame(host, app.runner.running.value!!.host)
+            assertEquals("No camera", calibrationSummary(app.camera.value != null, true, false, false, null, app.check.value))
+
+            // Without Remember calibration, the camera coming back leaves Calibrate as the next step
+            assertTrue(app.openCamera(AppFixture.TestCamera()))
+            assertNotNull(app.calibration.value)
+            assertEquals(StepState.NEXT, setupSteps(true, true, arena.projection.value != null).calibrate)
+        } finally {
+            app.close()
+        }
     }
 
     @Test
@@ -199,15 +216,18 @@ class TestProblems {
     }
 
     @Test
-    fun switchingCamerasClosesTheArenaTheOldOneCalibrated() {
+    fun switchingCamerasKeepsTheArenaOpenUncalibratedAndCalibratableWithTheNewOne() {
         app.openStartCamera()
         app.openArena()
-        assertNotNull(app.calibration.value)
+        val old = app.calibration.value
+        assertNotNull(old)
 
         assertTrue(app.openCamera(AppFixture.TestCamera("Other camera")))
 
-        assertNull(app.arena.value)
-        assertNull(app.calibration.value)
+        assertNotNull(app.arena.value)
+        assertNull(app.arena.value!!.projection.value)
+        assertNotNull(app.calibration.value)
+        assertNotSame(old, app.calibration.value)
         assertEquals("Other camera", app.camera.value!!.camera.name)
     }
 
@@ -221,7 +241,8 @@ class TestProblems {
         // Returns while the camera's open() is still blocked
         app.openCameraInBackground(slow) { opened.set(it) }
 
-        assertNull(app.arena.value)
+        assertNotNull(app.arena.value)
+        assertNull(app.calibration.value)
         assertNull(app.camera.value)
         assertEquals("Slow camera", app.openingCamera.value)
 

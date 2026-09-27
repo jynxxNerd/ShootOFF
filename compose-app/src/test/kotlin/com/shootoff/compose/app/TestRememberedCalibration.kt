@@ -219,16 +219,37 @@ class TestRememberedCalibration {
     }
 
     @Test
-    fun unpluggingTheCameraMidCheckStopsItAndClosesTheArena() {
+    fun unpluggingTheCameraMidCheckStopsItAndKeepsTheArenaOpen() {
         remembered()
         openArenaOnTheProjector()
         awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
 
         app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
 
-        assertNull(app.arena.value)
+        assertNotNull(app.arena.value)
         assertEquals(CheckState.Idle, app.check.value)
         assertNull(app.cameraView.frameTap)
+        assertNull(app.arena.value!!.background.value)
+        assertFalse(app.arena.value!!.covered.value)
+    }
+
+    @Test
+    fun whenTheCameraComesBackTheSavedCalibrationIsCheckedAgain() {
+        remembered()
+        seen.set(Optional.of(Rect(102.0, 79.0, 399.0, 302.0)))
+        openArenaOnTheProjector()
+        sendFramesUntil { app.arena.value!!.projection.value != null }
+
+        app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+        assertNull(app.arena.value!!.projection.value)
+        assertTrue(app.arena.value!!.needsCalibrationLabel.value)
+
+        // Plugged back in (the reconnect, or the owner's pick): the same camera, as a new device
+        assertTrue(app.openCamera(AppFixture.TestCamera()))
+
+        assertEquals(CheckState.Checking, app.check.value)
+        sendFramesUntil { app.check.value == CheckState.Idle }
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
     }
 
     @Test

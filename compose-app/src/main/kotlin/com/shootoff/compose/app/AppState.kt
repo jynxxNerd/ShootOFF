@@ -438,13 +438,13 @@ class AppState(
 
     private fun closeDeviceLater(camera: Camera) = io.asExecutor().execute { closeDevice(camera) }
 
-    // Closes the open camera's manager, and the arena it calibrated, as the JavaFX app's arena closes with its
-    // camera (ruling 13). Returns the new open's generation and the camera whose device is still to close.
+    // Closes the open camera's manager; the arena stays open, without the calibration that camera made (spec §8
+    // Revision 2, decision 7). Returns the new open's generation and the camera whose device is still to close.
     private fun releaseCamera(): Pair<Int, Camera?> {
         val generation = openGeneration.incrementAndGet()
         openingState.value = null
         val old = cameraState.value
-        if (old != null) closeArena()
+        if (old != null) detachCamera()
         old?.let(cameras::clearManager)
         openView?.live = false
         openView = null
@@ -482,15 +482,14 @@ class AppState(
         openView = opened.view
         problemState.value = null
         cameraState.value = manager
-        // The arena was already open with no camera to calibrate with (openArena found none); now one is
-        // here, so the arena can be calibrated, as it could have been if the camera had come first
+        // The arena was already open with no camera to calibrate with (opened before the camera, or kept open
+        // when the last camera went); now one is here, so the arena can be calibrated
         arenaState.value?.let { arena ->
             if (calibrationState.value == null) makeCalibratable(arena, manager)
-            // The remembered check was waiting on a camera too (spec §8): with one open now, and
-            // makeCalibratable just above having made the arena calibratable, retry it rather than leaving
-            // Setup stuck saying there was no camera to check with
+            // An uncalibrated arena is checked against the remembered calibration now that there is a camera
+            // to check with (spec §8 Revision 2, decision 7); without Remember, Setup's Calibrate step is next
             if (settings.rememberCalibration() && settings.savedCalibration.isPresent &&
-                checkState.value == CheckState.NotVerified(CalibrationCheck.Reason.NO_CAMERA)
+                arena.projection.value == null && checkState.value != CheckState.Checking
             ) {
                 checkRemembered(arena)
             }
@@ -499,11 +498,12 @@ class AppState(
     }
 
     // The camera stopped answering (reported on its thread, run here on the UI thread): if it is still the
-    // open one, close it and the arena it calibrated, and show the picker, not its last frame
+    // open one, close it, and show the picker, not its last frame. The arena stays open (spec §8 Revision 2,
+    // decision 7)
     private fun cameraLost(camera: Camera) {
         val manager = cameraState.value ?: return
         if (manager.camera !== camera) return
-        closeArena()
+        detachCamera()
         promptSkippedState.value = false
         cameraState.value = null
         cameras.clearManager(manager)
@@ -512,6 +512,23 @@ class AppState(
         feed.clearFrame()
         problemState.value = cameraProblems.missingMessage(camera)
         closeDeviceLater(camera)
+    }
+
+    // The open camera is going (lost, or replaced). The arena stays open (spec §8 Revision 2, decision 7), but
+    // its calibration was made with that camera, so it goes: calibration or a check under way ends, the arena
+    // says "Needs Calibration" again, and the running drill pauses, as it does for calibration.
+    private fun detachCamera() {
+        pauseDrill()
+        val arena = arenaState.value ?: return
+        stopCheckQuietly()
+        currentCalibration = null
+        // For calibration the camera going is the arena going: calibration ends, and both projections go
+        calibrationState.value?.arenaClosing()
+        fullScreenWatch?.cancel()
+        calibrationState.value = null
+        calibratedAtState.value = null
+        calibrationCompleteState.value = null
+        arena.setCalibrationLabelVisible(true)
     }
 
     // ---- The arena
