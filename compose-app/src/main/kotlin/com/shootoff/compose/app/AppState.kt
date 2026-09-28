@@ -28,6 +28,7 @@ import com.shootoff.camera.DiagnosticMessage
 import com.shootoff.camera.autocalibration.PatternDetector
 import com.shootoff.camera.cameratypes.Camera
 import com.shootoff.camera.shot.ScaledShot
+import com.shootoff.compose.arena.ArenaLayout
 import com.shootoff.compose.arena.ArenaModel
 import com.shootoff.compose.arena.ArenaPlacement
 import com.shootoff.compose.arena.ArenaScreens
@@ -59,6 +60,7 @@ import com.shootoff.compose.shots.ShotMarkers
 import com.shootoff.compose.shots.ShotTimerModel
 import com.shootoff.compose.targets.AnimationClock
 import com.shootoff.compose.targets.SurfaceTargets
+import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.config.SavedCalibration
 import com.shootoff.config.Settings
 import com.shootoff.exercise.Exercise
@@ -171,6 +173,9 @@ class AppState(
         isCalibrating = { calibrationState.value?.state?.value?.calibrating == true },
         newHost = ::newHost,
     )
+
+    /** The shooter's arena targets and background, which every arena window this session draws */
+    val arenaLayout = ArenaLayout(clock)
 
     private val arenaState = MutableStateFlow<ArenaModel?>(null)
     private val placementState = MutableStateFlow<ArenaPlacement?>(null)
@@ -736,7 +741,7 @@ class AppState(
         placementState.value = arenaPlacementNow()
 
         lateinit var arena: ArenaModel
-        arena = ArenaModel(settings, { runner }, { arenaCommands(arena) }, clock)
+        arena = ArenaModel(settings, { runner }, { arenaCommands(arena) }, clock, arenaLayout)
         arenaState.value = arena
 
         cameraState.value?.let { makeCalibratable(arena, it) }
@@ -946,7 +951,10 @@ class AppState(
         }
     }
 
-    /** The arena window closed: calibration or a check ends, a projector drill stops, and Range asks for setup again. */
+    /**
+     * The arena window closed: calibration or a check ends, a projector drill stops, and Range asks for setup
+     * again. The shooter's targets and background stay in [arenaLayout] for the next window.
+     */
     fun closeArena() {
         val arena = arenaState.value ?: return
         stopCheckQuietly()
@@ -963,7 +971,8 @@ class AppState(
         runner.stopProjectorExercise()
         placementState.value = null
         promptSkippedState.value = false
-        arena.targets.set.targets.forEach { arena.targets.remove(it.id) }
+        // The shooter's targets stay for the next arena window; anything an exercise left goes
+        arena.targets.targetsOf(TargetOwner.EXERCISE).forEach { arena.targets.remove(it.id) }
     }
 
     // A calibration that ended abruptly (the arena closing, the camera lost) leaves no times behind for the next one

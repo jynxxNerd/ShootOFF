@@ -49,8 +49,8 @@ private val ARENA_GRAY = Color(0xFF333333)
 private val CALIBRATION_ORANGE = Color(0xFFF5A807)
 
 /**
- * The arena as both of its views draw it, fitted to the space it is given: the background stretched over
- * the arena, its targets and shot markers, the "Needs calibration" label, then [overlay] (the exercise's
+ * The arena as both of its views draw it, fitted to the space it is given: the background (calibration's or
+ * an exercise's, else the shooter's) stretched over the arena, its targets and shot markers, the "Needs calibration" label, then [overlay] (the exercise's
  * texts and markers) in arena coordinates. While the arena is covered (a calibration pattern showing), only
  * the background is drawn.
  */
@@ -58,6 +58,7 @@ private val CALIBRATION_ORANGE = Color(0xFFF5A807)
 fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Composable (SurfaceTransform) -> Unit = {}) {
     val size by arena.size.collectAsState()
     val background by arena.background.collectAsState()
+    val shooters by arena.layout.background.collectAsState()
     val label by arena.needsCalibrationLabel.collectAsState()
     val grid by arena.grid.collectAsState()
     val covered by arena.covered.collectAsState()
@@ -70,7 +71,8 @@ fun ArenaCanvas(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Comp
             val topLeft = transform.toView(0.0, 0.0)
             val areaSize = Size((size.width * transform.scale).toFloat(), (size.height * transform.scale).toFloat())
             drawRect(ARENA_GRAY, topLeft, areaSize)
-            val image = background?.image ?: return@Canvas
+            // Calibration's or an exercise's own background, else the shooter's, which a calibration pattern covers
+            val image = (background ?: shooters.takeUnless { covered })?.image ?: return@Canvas
             drawImage(
                 image,
                 dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),

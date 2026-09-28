@@ -28,6 +28,7 @@ import com.shootoff.compose.shots.ShotReceiver
 import com.shootoff.compose.targets.AnimationClock
 import com.shootoff.compose.targets.SurfaceTargets
 import com.shootoff.config.Settings
+import com.shootoff.courses.CourseBackground
 import com.shootoff.geom.Rect
 import com.shootoff.geom.Size
 import com.shootoff.targets.model.PlacedTarget
@@ -42,30 +43,33 @@ import javax.imageio.ImageIO
  * An arena background.
  *
  * @param name where it came from (a resource name), for logs
+ * @param source where a course finds it again: set on the backgrounds the shooter picks, which are saved
  */
-class ArenaBackground(val image: ImageBitmap, val name: String) {
+class ArenaBackground(val image: ImageBitmap, val name: String, val source: CourseBackground? = null) {
     companion object {
-        fun read(stream: InputStream, name: String): ArenaBackground? =
-            stream.use { ImageIO.read(it) }?.let { ArenaBackground(it.toComposeImageBitmap(), name) }
+        fun read(stream: InputStream, name: String, source: CourseBackground? = null): ArenaBackground? =
+            stream.use { ImageIO.read(it) }?.let { ArenaBackground(it.toComposeImageBitmap(), name, source) }
     }
 }
 
 /**
- * The projector arena: one model that both the projector window and Setup's preview draw, so
- * whatever an exercise does to it (a target hidden, a background set) shows on both.
+ * The projector arena, while its window is open: one model that both the projector window and Setup's
+ * preview draw, so whatever an exercise does to it (a target hidden, a background set) shows on both.
+ *
+ * @param layout the shooter's targets and background, and the arena's size, which outlive the window
  */
 class ArenaModel(
     private val settings: Settings,
     receiver: () -> ShotReceiver,
     commands: () -> RegionCommandRunner,
     clock: AnimationClock = AnimationClock.background,
+    val layout: ArenaLayout = ArenaLayout(clock),
 ) {
     private val logger = LoggerFactory.getLogger(ArenaModel::class.java)
 
-    val targets = SurfaceTargets(clock = clock)
+    val targets: SurfaceTargets = layout.targets
     val markers = ShotMarkers().also { it.setVisible(settings.showArenaShotMarkers()) }
 
-    private val sizeState = MutableStateFlow(Size(640.0, 480.0))
     private val backgroundState = MutableStateFlow<ArenaBackground?>(null)
     private val projectionState = MutableStateFlow<Rect?>(null)
     private val fullScreenState = MutableStateFlow(false)
@@ -74,8 +78,12 @@ class ArenaModel(
     private val coveredState = MutableStateFlow(false)
 
     /** The arena window's size, in dp: the arena's coordinates */
-    val size: StateFlow<Size> = sizeState.asStateFlow()
+    val size: StateFlow<Size> = layout.size
 
+    /**
+     * The background calibration (its pattern, its white screen) or a running exercise has put up, over the
+     * shooter's ([ArenaLayout.background]); null when neither has one up
+     */
     val background: StateFlow<ArenaBackground?> = backgroundState.asStateFlow()
 
     /** The arena's projection on the calibrating camera feed's canvas; null until calibrated */
@@ -99,11 +107,9 @@ class ArenaModel(
     @Volatile
     var perspective: PerspectiveManager? = null
 
-    val surface = ArenaSurface(settings, targets, markers, { sizeState.value }, receiver, commands)
+    val surface = ArenaSurface(settings, targets, markers, { layout.size.value }, receiver, commands)
 
-    fun setSize(size: Size) {
-        sizeState.value = size
-    }
+    fun setSize(size: Size) = layout.setSize(size)
 
     fun setFullScreen(fullScreen: Boolean) {
         fullScreenState.value = fullScreen
@@ -177,7 +183,7 @@ class ArenaModel(
         }
 
         if (target.definition.fillsCanvas()) {
-            val arena = sizeState.value
+            val arena = layout.size.value
             targets.set.resize(target.id, arena.width, arena.height)
             val origin = targets.set.get(target.id).map { it.localToParent(0.0, 0.0) }.orElse(null) ?: return
             targets.set.move(target.id, -origin.x, -origin.y)

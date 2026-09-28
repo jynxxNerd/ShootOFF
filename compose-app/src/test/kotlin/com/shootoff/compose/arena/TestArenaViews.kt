@@ -98,6 +98,37 @@ class TestArenaViews {
         assertEquals(Color.Blue, pixels[637, 357])
     }
 
+    // The shooter's background sits under calibration's and an exercise's, and the pattern's cover hides it
+    @Test
+    fun theShootersBackgroundShowsUnlessCalibrationOrAnExerciseHasPutUpItsOwn() {
+        arena.layout.setBackground(ArenaBackground(solid(0x0000FF).toComposeImageBitmap(), "blue"))
+        arena.setCalibrationLabelVisible(false)
+        showBothViews()
+        assertEquals(Color.Blue, pixels("projector")[2, 2])
+        assertEquals(Color.Blue, pixels("in-app")[2, 2])
+
+        arena.setBackground(ArenaBackground(solid(0x00FF00).toComposeImageBitmap(), "exercise's"))
+        compose.waitForIdle()
+        assertEquals(Color.Green, pixels("projector")[2, 2])
+
+        arena.setBackground(null)
+        compose.waitForIdle()
+        assertEquals(Color.Blue, pixels("projector")[2, 2])
+
+        // Calibrating, between its white screen and its pattern
+        arena.cover(true)
+        compose.waitForIdle()
+        assertEquals(Color(0xFF333333), pixels("projector")[2, 2])
+
+        arena.cover(false)
+        compose.waitForIdle()
+        assertEquals(Color.Blue, pixels("projector")[2, 2])
+    }
+
+    private fun solid(rgb: Int) = BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB).apply {
+        for (x in 0 until 10) for (y in 0 until 10) setRGB(x, y, rgb)
+    }
+
     @Test
     fun theArenaSaysItNeedsCalibrationUntilItIsCalibrated() {
         showBothViews()

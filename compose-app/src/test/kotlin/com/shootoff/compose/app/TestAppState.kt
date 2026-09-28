@@ -1,9 +1,12 @@
 package com.shootoff.compose.app
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.shootoff.camera.Shot
+import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.feed.CalibrationStatus
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.targets.ManualClock
+import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
 import com.shootoff.geom.Point
@@ -13,11 +16,15 @@ import com.shootoff.exercise.ExerciseHost
 import com.shootoff.plugins.ExerciseMetadata
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.targets.model.Hit
+import com.shootoff.targets.model.RectangleRegion
+import com.shootoff.targets.model.ResourceResolver
+import com.shootoff.targets.model.TargetDefinition
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.Optional
@@ -27,6 +34,28 @@ class TestAppState {
 
     @AfterEach
     fun close() = app.close()
+
+    // Spec §6: editing works with the arena closed, and the next window shows the layout
+    @Test
+    fun theShootersTargetsAndBackgroundOutliveTheArenaWindowButAnExercisesTargetsDont() {
+        app.openArena()
+        val targets = app.arena.value!!.targets
+        val box = TargetDefinition(Optional.empty(), mapOf(), listOf(RectangleRegion(0, 0.0, 0.0, 10.0, 10.0, "red", mapOf())))
+        val shooters = targets.add(box, ResourceResolver.files())
+        targets.add(box, ResourceResolver.files(), owner = TargetOwner.EXERCISE)
+        val background = ArenaBackground(ImageBitmap(2, 2), "indoor_range.gif")
+        app.arenaLayout.setBackground(background)
+
+        app.closeArena()
+
+        assertEquals(listOf(shooters.id), app.arenaLayout.targets.set.targets.map { it.id })
+        assertSame(background, app.arenaLayout.background.value)
+
+        app.openArena()
+
+        assertSame(app.arenaLayout.targets, app.arena.value!!.targets)
+        assertEquals(listOf(shooters.id), app.arena.value!!.targets.set.targets.map { it.id })
+    }
 
     @Test
     fun theCatalogListsTheV2DrillsByName() {
