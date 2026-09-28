@@ -59,6 +59,30 @@ class TestNothingBlocks {
         }
     }
 
+    // Spec §8 Revision 3: with the option on, the launch arena calibrates itself, but only once it is on the
+    // projector, and without taking the owner off Range
+    @Test
+    fun rule1WithTheOptionOnTheLaunchArenaCalibratesOnlyOnceItIsOnTheProjector() {
+        val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
+        settings.setRememberCalibration(true)
+        val app = AppFixture.appWithCamera(settings)
+        try {
+            app.launch()
+            awaitTrue { app.camera.value != null }
+            app.mainWindowPlaced(Point(50.0, 50.0))
+
+            assertEquals(CheckState.WaitingToCalibrate, app.check.value)
+            assertFalse(app.calibration.value!!.state.value.calibrating)
+            assertNull(app.arena.value!!.background.value)
+
+            AppFixture.putOnTheProjector(app)
+            awaitTrue { app.calibration.value!!.state.value.calibrating }
+            assertEquals(Destination.RANGE, app.destination.value)
+        } finally {
+            app.close()
+        }
+    }
+
     @Test
     fun rule1WithNoProjectorScreenOnlyTheCameraOpensAtLaunch() {
         val catalog = ExerciseCatalog()

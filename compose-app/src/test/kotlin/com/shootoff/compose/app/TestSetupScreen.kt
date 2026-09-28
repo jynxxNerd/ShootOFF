@@ -129,11 +129,29 @@ class TestSetupScreen {
     }
 
     @Test
+    fun anAutomaticCalibrationWaitingForTheProjectorSaysSoWithCancel() {
+        app.close()
+        app = AppFixture.appWithCamera()
+        app.setRememberCalibration(true)
+        app.openStartCamera()
+        app.openArena()
+        app.navigate(Destination.SETUP)
+        showApp()
+
+        compose.onNodeWithTag("calibration-summary").assertTextEquals("Calibrating once the arena is on the projector…")
+        compose.onNodeWithTag("setup-cancel").performClick()
+
+        compose.onNodeWithTag("setup-calibrate").assertExists()
+        compose.onNodeWithTag("calibration-summary").assertTextEquals("Not calibrated")
+    }
+
+    @Test
     fun rememberAndShowGridAreOnTheCalibrateStep() {
         app.openArena()
         app.navigate(Destination.SETUP)
         showApp()
 
+        compose.onNodeWithText("Calibrate automatically when the arena opens").assertExists()
         compose.onNodeWithTag("remember-calibration").performClick()
         compose.onNodeWithTag("show-grid").performClick()
 

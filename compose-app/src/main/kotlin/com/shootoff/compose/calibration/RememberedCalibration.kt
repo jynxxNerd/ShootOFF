@@ -38,10 +38,19 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.roundToInt
 
-/** Where the check of a remembered calibration stands */
+/**
+ * Where the arena's own calibration stands as it opens (spec §8 Revision 3): an automatic calibration waiting
+ * for the projector, or one that didn't find the pattern; or the check of a remembered manual box
+ */
 sealed interface CheckState {
-    /** No check, or the last one kept the calibration */
+    /** Nothing under way, or the last check kept the calibration */
     data object Idle : CheckState
+
+    /** An automatic calibration, waiting for the arena to reach the projector */
+    data object WaitingToCalibrate : CheckState
+
+    /** An automatic calibration didn't find the pattern in time, and ended without calibrating */
+    data object NotFound : CheckState
 
     /** Waiting for the arena to reach the projector, or looking for the pattern */
     data object Checking : CheckState
@@ -54,12 +63,14 @@ sealed interface CheckState {
     data class DoesntFit(val why: String) : CheckState
 }
 
-/** Whether the pattern is on the arena for a check, or waiting to go on */
-val CheckState.showsPattern: Boolean get() = this == CheckState.Checking
+/** Whether the pattern is on the arena for a check, or waiting to go on for a check or a calibration */
+val CheckState.showsPattern: Boolean get() = this == CheckState.Checking || this == CheckState.WaitingToCalibrate
 
 /** What Setup and Range say about a check, or null when there is nothing to say */
 fun CheckState.text(): String? = when (this) {
     CheckState.Idle -> null
+    CheckState.WaitingToCalibrate -> "Calibrating once the arena is on the projector…"
+    CheckState.NotFound -> "The pattern wasn't found: not calibrated — calibrate on Setup"
     CheckState.Checking -> "Checking the saved calibration…"
     is CheckState.Moved -> "The projection moved about $pixels px — recalibrate"
     is CheckState.NotVerified -> when (reason) {

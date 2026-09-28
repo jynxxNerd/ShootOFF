@@ -45,6 +45,28 @@ class TestCalibrationOnRequest {
     }
 
     @Test
+    fun anUnattendedCalibrationThatDoesntFindThePatternPutsTheArenaBackWithoutTheBox() {
+        var notFound = 0
+        arena.setFullScreen(true)
+
+        controller.startUnattended { notFound++ }
+        assertEquals("pattern.png", arena.background.value!!.name)
+        assertTrue(arena.covered.value)
+
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED)
+
+        assertEquals(1, notFound)
+        assertFalse(controller.state.value.calibrating)
+        assertEquals(null, controller.state.value.box)
+        assertEquals(null, controller.state.value.message)
+        assertFalse(fixture.events.contains("show feed"))
+        assertEquals(null, arena.background.value)
+        assertFalse(arena.covered.value)
+        assertTrue(arena.needsCalibrationLabel.value)
+        assertFalse(fixture.events.any { it.startsWith("succeeded") })
+    }
+
+    @Test
     fun cancelLeavesTheArenaAndTheCameraAsTheyWereAndRestartsNothing() {
         val restarts = mutableListOf<String>()
         fixture.restartExercise = Optional.of(Runnable { restarts += "restart" })

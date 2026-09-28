@@ -1,6 +1,7 @@
 package com.shootoff.compose.app
 
 import com.shootoff.calibration.CalibrationCheck
+import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.camera.MockCamera
 import com.shootoff.camera.Shot
 import com.shootoff.camera.cameratypes.CameraEventListener
@@ -144,6 +145,7 @@ object AppFixture {
         checkClock: () -> Long = System::currentTimeMillis,
         wallClock: () -> LocalTime = LocalTime::now,
         patternSettleMillis: Long = 0,
+        calibrationTimers: CalibrationFlow.Scheduler = AppState.TIMER_POOL,
     ): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
@@ -161,6 +163,7 @@ object AppFixture {
             detector = { detector },
             checkClock = checkClock,
             patternSettleMillis = patternSettleMillis,
+            calibrationTimers = calibrationTimers,
         )
     }
 
@@ -178,7 +181,7 @@ object AppFixture {
 
     /**
      * The arena window on the owner's projector, as the window manager leaves it: full screen, and filling
-     * the 1280x720 screen (the remembered calibration's check and measurement wait for both)
+     * the 1280x720 screen (a remembered box's check, or an automatic calibration, wait for both)
      */
     fun putOnTheProjector(app: AppState) {
         val arena = app.arena.value!!

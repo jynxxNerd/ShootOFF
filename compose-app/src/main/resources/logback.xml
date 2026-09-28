@@ -8,8 +8,10 @@
   </appender>
 
   <logger name="com.shootoff.camera.cameratypes.SarxosCaptureCamera" level="INFO"/>
-  <!-- The remembered calibration's measurements and outcomes, and the camera's reconnect -->
+  <!-- The remembered box's check, its measurements and outcomes, and the camera's reconnect -->
   <logger name="com.shootoff.calibration" level="INFO"/>
+  <!-- Auto-calibration's exposure step: whether it lowered the exposure or put it back -->
+  <logger name="com.shootoff.camera.autocalibration" level="INFO"/>
   <logger name="com.shootoff.compose.app.AppState" level="INFO"/>
 
   <root level="warn">

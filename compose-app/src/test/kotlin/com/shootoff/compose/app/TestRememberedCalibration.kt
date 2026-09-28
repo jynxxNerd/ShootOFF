@@ -3,6 +3,8 @@ package com.shootoff.compose.app
 import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.calibration.CalibrationFlow
+import com.shootoff.calibration.CalibrationFlow.Message
+import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.savedCalibrationMismatch
 import com.shootoff.config.SavedCalibration
@@ -21,6 +23,8 @@ import java.awt.image.BufferedImage
 import java.io.File
 import java.util.Optional
 import java.util.Properties
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -70,6 +74,7 @@ class TestRememberedCalibration {
             shootoff.arena.calibration.feed=640.0x480.0
             shootoff.arena.calibration.screen=$screen
             shootoff.arena.calibration.bounds=100.0,80.0,400.0,300.0
+            shootoff.arena.calibration.manual=true
             """.trimIndent(),
         )
         app = if (detector == null) appOn(Settings(file.path, arrayOf())) else appOn(Settings(file.path, arrayOf()), detector)
@@ -97,6 +102,18 @@ class TestRememberedCalibration {
         app.calibration.value!!.calibrate(bounds, Optional.empty(), false, 0)
     }
 
+    // Calibrate, then Done on the manual box where the owner left it (the canvas is the feed's size here)
+    private fun calibrateWithTheBox(bounds: Rect) {
+        app.startCalibration()
+        app.calibration.value!!.flow.calibrated(bounds, Optional.empty(), true)
+    }
+
+    private fun calibrating() = app.calibration.value?.state?.value?.calibrating == true
+
+    // An automatic calibration has shown the pattern and is looking for it (in the app the flow starts on the UI
+    // thread; here it runs on the watcher's, so the test waits for it to get there)
+    private fun awaitAutomaticCalibrationLooking() = awaitTrue { app.calibration.value?.state?.value?.message == Message.AUTO_CALIBRATING }
+
     @Test
     fun withRememberOffNothingIsSaved() {
         openArenaOnTheProjector()
@@ -107,25 +124,119 @@ class TestRememberedCalibration {
     }
 
     @Test
-    fun withRememberOnACalibrationIsSavedWithItsCameraAndProjector() {
+    fun withTheOptionOnACalibrationTheCameraFoundSavesOnlyThatTheOptionIsOn() {
         app.setRememberCalibration(true)
         openArenaOnTheProjector()
 
         calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
 
-        assertEquals(SAVED_KEYS, savedKeys())
+        assertEquals(mapOf("shootoff.arena.calibration.remember" to "true"), savedKeys())
     }
 
     @Test
-    fun turningRememberOnSavesTheCalibrationThereIsAndOffForgetsIt() {
+    fun turningTheOptionOnSavesTheManualBoxThereIsAndOffForgetsIt() {
         openArenaOnTheProjector()
-        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
+        calibrateWithTheBox(Rect(100.0, 80.0, 400.0, 300.0))
 
         app.setRememberCalibration(true)
         assertEquals(SAVED_KEYS, savedKeys())
 
         app.setRememberCalibration(false)
         assertEquals(emptyMap<String, String>(), savedKeys())
+    }
+
+    @Test
+    fun withTheOptionOnOpeningTheArenaCalibratesItOnceItIsOnTheProjector() {
+        app.setRememberCalibration(true)
+        app.openStartCamera()
+        app.openArena()
+
+        // Not yet on the projector: waiting, not calibrating, and nothing shows
+        assertEquals(CheckState.WaitingToCalibrate, app.check.value)
+        assertFalse(calibrating())
+        assertNull(app.arena.value!!.background.value)
+
+        AppFixture.putOnTheProjector(app)
+        awaitAutomaticCalibrationLooking()
+        // A full auto-calibration, as Calibrate does: the pattern, alone, and the owner left where they are
+        assertEquals(CheckState.Idle, app.check.value)
+        assertEquals("pattern.png", app.arena.value!!.background.value?.name)
+        assertTrue(app.arena.value!!.covered.value)
+        assertEquals(Destination.RANGE, app.destination.value)
+
+        app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+        assertNotNull(app.calibratedAt.value)
+        assertEquals(Destination.RANGE, app.destination.value)
+        assertEquals(mapOf("shootoff.arena.calibration.remember" to "true"), savedKeys())
+    }
+
+    // Plan 7 saved the camera's calibrations as bounds, without the manual mark: they're not reapplied (that
+    // lost the perspective, spec §8 Revision 3) but calibrated afresh, and forgotten once that succeeds
+    @Test
+    fun aCalibrationSavedWithoutTheManualMarkIsCalibratedAfreshAndForgotten() {
+        remembered()
+        file.writeText(file.readText().replace("shootoff.arena.calibration.manual=true", ""))
+        app.close()
+        app = appOn(Settings(file.path, arrayOf()))
+
+        openArenaOnTheProjector()
+        awaitAutomaticCalibrationLooking()
+        assertEquals(0, looks.get())
+
+        app.calibration.value!!.calibrate(Rect(102.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        assertEquals(Rect(102.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
+        assertEquals(mapOf("shootoff.arena.calibration.remember" to "true"), savedKeys())
+    }
+
+    @Test
+    fun anAutomaticCalibrationThatDoesntFindThePatternEndsQuietlyWithoutTheBox() {
+        val timers = CopyOnWriteArrayList<Pair<Long, Runnable>>()
+        app.close()
+        app = AppFixture.appWithCamera(Settings(file.path, arrayOf()), calibrationTimers = { task, delay ->
+            timers += delay to task
+            CompletableFuture<Void>()
+        })
+        app.setRememberCalibration(true)
+        openArenaOnTheProjector()
+        awaitTrue { timers.any { it.first == CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED } }
+
+        // The projector is covered: the pattern is never found
+        timers.filter { it.first == CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED }.forEach { it.second.run() }
+
+        assertFalse(calibrating())
+        assertEquals(CheckState.NotFound, app.check.value)
+        assertNull(app.calibration.value!!.state.value.box)
+        assertEquals(Destination.RANGE, app.destination.value)
+        assertNull(app.arena.value!!.projection.value)
+        assertNull(app.arena.value!!.background.value)
+        assertTrue(app.arena.value!!.needsCalibrationLabel.value)
+
+        // Calibrate on Setup works as ever afterwards
+        assertTrue(app.startCalibration())
+        assertEquals(CheckState.Idle, app.check.value)
+        assertTrue(calibrating())
+    }
+
+    @Test
+    fun withTheOptionOnTheCameraComingBackCalibratesTheArenaAgain() {
+        app.setRememberCalibration(true)
+        openArenaOnTheProjector()
+        awaitAutomaticCalibrationLooking()
+        app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+        assertNotNull(app.arena.value!!.projection.value)
+
+        app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+        assertNull(app.arena.value!!.projection.value)
+
+        // Plugged back in: the arena is still on the projector, so calibration starts once it has settled
+        assertTrue(app.openCamera(AppFixture.TestCamera()))
+        awaitAutomaticCalibrationLooking()
+        app.calibration.value!!.calibrate(Rect(104.0, 82.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        assertEquals(Rect(104.0, 82.0, 400.0, 300.0), app.arena.value!!.projection.value)
     }
 
     @Test
@@ -420,7 +531,7 @@ class TestRememberedCalibration {
     }
 
     @Test
-    fun aManualBoxCalibrationIsRememberedAsTheBoxWithoutMeasuring() {
+    fun aManualBoxCalibrationIsRememberedAsTheBoxAndMarkedAsOne() {
         app.setRememberCalibration(true)
         openArenaOnTheProjector()
 
@@ -430,6 +541,7 @@ class TestRememberedCalibration {
 
         assertEquals(CheckState.Idle, app.check.value)
         assertEquals("90.0,70.0,420.0,310.0", savedKeys()["shootoff.arena.calibration.bounds"])
+        assertEquals("true", savedKeys()["shootoff.arena.calibration.manual"])
     }
 
     @Test
@@ -500,6 +612,7 @@ class TestRememberedCalibration {
             "shootoff.arena.calibration.feed" to "640.0x480.0",
             "shootoff.arena.calibration.screen" to "1280.0x720.0",
             "shootoff.arena.calibration.bounds" to "100.0,80.0,400.0,300.0",
+            "shootoff.arena.calibration.manual" to "true",
         )
     }
 

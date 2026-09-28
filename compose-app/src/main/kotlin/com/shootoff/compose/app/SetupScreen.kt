@@ -196,7 +196,7 @@ private fun ProjectorStep(app: AppState) {
     }
 }
 
-/** Calibration: where it stands, Calibrate or Cancel, Remember calibration and Show grid */
+/** Calibration: where it stands, Calibrate or Cancel, calibrating when the arena opens, and Show grid */
 @Composable
 private fun CalibrateStep(app: AppState) {
     val camera by app.camera.collectAsState()
@@ -233,7 +233,10 @@ private fun CalibrateStep(app: AppState) {
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = remember, onCheckedChange = app::setRememberCalibration, modifier = Modifier.testTag("remember-calibration"))
-        Text("Remember calibration", color = colors.text)
+        Column {
+            Text("Calibrate automatically when the arena opens", color = colors.text)
+            Text("A box placed by hand is reused and checked instead", color = colors.muted, fontSize = 12.sp)
+        }
     }
     val projectorDrill = running?.host?.isProjector == true
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

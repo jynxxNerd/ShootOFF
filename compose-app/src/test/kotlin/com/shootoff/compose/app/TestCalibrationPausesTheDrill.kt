@@ -124,13 +124,34 @@ class TestCalibrationPausesTheDrill {
     }
 
     // Review fix (Task 8 round 1): F3 must not resume shot detection, or the drill's rounds, while
-    // calibration itself is under way (before any pattern the check or measurement shows).
+    // calibration itself is under way (before any pattern the check or an automatic calibration shows).
     @Test
     fun f3DuringCalibrationDoesNothing() {
         startThePausingDrill()
 
         app.handleKey(Key.F6, KeyEventType.KeyDown)
         awaitTrue { pauseLabel() == "Resume" }
+
+        assertFalse(app.perform(Shortcut.PAUSE_DRILL))
+        assertEquals("Resume", pauseLabel())
+    }
+
+    // Task 3 review ruling: showsPattern guards F3 (Shortcuts.kt) and the drill card's Resume (RangeControls.kt)
+    // while an automatic calibration waits for the projector too, not just while a check's pattern shows; this
+    // branch lost its only tests when Measuring was removed. A camera (feed) drill needs no projector or
+    // calibration of its own, so it can already be paused before the arena's automatic calibration starts.
+    @Test
+    fun f3DoesNothingWhileAnAutomaticCalibrationWaitsForTheProjector() {
+        app.openStartCamera()
+        assertTrue(app.startDrill(AppFixture.pausingFeedDrill))
+        awaitTrue { pauseLabel() == "Pause" }
+
+        assertTrue(app.perform(Shortcut.PAUSE_DRILL))
+        awaitTrue { pauseLabel() == "Resume" }
+
+        app.setRememberCalibration(true)
+        app.openArena()
+        assertEquals(CheckState.WaitingToCalibrate, app.check.value)
 
         assertFalse(app.perform(Shortcut.PAUSE_DRILL))
         assertEquals("Resume", pauseLabel())

@@ -59,12 +59,13 @@ interface CalibrationViews {
     fun restoreSelectedView()
 
     /**
-     * A calibration the user asked for ended with a projection (found by the camera, or the box's).
+     * A calibration (asked for, or started by itself as the arena opened) ended with a projection.
      *
      * @param cameraBounds the projection on the camera's feed
      * @param paper the perspective paper's size, if auto-calibration found one
+     * @param byCamera true if the camera found the pattern; false for the manual box
      */
-    fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>)
+    fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>, byCamera: Boolean)
 }
 
 /**
@@ -117,19 +118,42 @@ class CalibrationController(
     @Volatile
     private var foundPaper: Optional<Size> = Optional.empty()
 
+    // Whether the camera found this session's projection, rather than the manual box
+    @Volatile
+    private var foundByCamera = false
+
     // ---- The user
 
     /**
-     * Starts calibrating; only ever because the user asked (Calibrate on Setup, or F6). The flow is told
-     * whether the arena is full screen as it starts, so a start on an arena that is already full screen
-     * looks for the pattern at once and its timeout reaches the manual box.
+     * Starts calibrating because the user asked (Calibrate on Setup, or F6). The flow is told whether the
+     * arena is full screen as it starts, so a start on an arena that is already full screen looks for the
+     * pattern at once and its timeout reaches the manual box.
      */
     fun start() {
         if (flow.isCalibrating) return
+        beginSession()
+        flow.setFullScreen(arena.fullScreen.value)
+    }
+
+    /**
+     * Starts calibrating by itself, with no one there to drag the manual box (spec §8 Revision 3): as [start],
+     * except that if the pattern isn't found in time, calibration ends as [cancel] ends it and [onNotFound]
+     * hears it, on the UI thread, instead of the box showing.
+     */
+    fun startUnattended(onNotFound: () -> Unit) {
+        if (flow.isCalibrating) return
+        beginSession()
+        flow.startUnattended {
+            putBack()
+            onNotFound()
+        }
+    }
+
+    private fun beginSession() {
         boundsBefore = camera.projectionBounds.orElse(null)
         foundPaper = Optional.empty()
+        foundByCamera = false
         session = true
-        flow.setFullScreen(arena.fullScreen.value)
     }
 
     /**
@@ -138,9 +162,15 @@ class CalibrationController(
      */
     fun cancel() {
         if (!flow.isCalibrating) return
+        flow.cancel()
+        putBack()
+    }
+
+    // Calibration ended without calibrating (Cancel, or an unattended one that didn't find the pattern): the
+    // arena and the camera as they were before it started
+    private fun putBack() {
         generation++
         session = false
-        flow.cancel()
         putArenaBack()
         camera.setProjectionBounds(boundsBefore)
         uiState.update { CalibrationUi() }
@@ -216,6 +246,7 @@ class CalibrationController(
             Runnable {
                 if (generation == expectedGeneration && flow.isCalibrating) {
                     foundPaper = perspectivePaperDims
+                    foundByCamera = true
                     flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
                 }
             },
@@ -280,10 +311,10 @@ class CalibrationController(
         if (perspectiveManager.isPresent) {
             for (target in arena.targets.set.targets) arena.placeNewTarget(target)
         }
-        // A calibration the user started, not a remembered one being applied, and one that found the projection
+        // A calibration that was started, not a remembered one being applied, and one that found the projection
         if (session) {
             session = false
-            camera.projectionBounds.ifPresent { views.calibrationSucceeded(it, foundPaper) }
+            camera.projectionBounds.ifPresent { views.calibrationSucceeded(it, foundPaper, foundByCamera) }
         }
     }
 

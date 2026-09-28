@@ -26,6 +26,14 @@ class TestSetupSteps {
         assertEquals("No arena", calibrationSummary(true, false, false, false, null, idle))
         assertEquals("Calibrating…", calibrationSummary(true, true, true, true, null, idle))
         assertEquals("Checking the saved calibration…", calibrationSummary(true, true, false, false, null, CheckState.Checking))
+        assertEquals(
+            "Calibrating once the arena is on the projector…",
+            calibrationSummary(true, true, false, false, null, CheckState.WaitingToCalibrate),
+        )
+        assertEquals(
+            "The pattern wasn't found: not calibrated — calibrate on Setup",
+            calibrationSummary(true, true, false, false, null, CheckState.NotFound),
+        )
         assertEquals("The projection moved about 14 px — recalibrate", calibrationSummary(true, true, false, false, null, CheckState.Moved(14)))
         assertEquals(
             "The pattern wasn't seen: not verified — recalibrate on Setup",

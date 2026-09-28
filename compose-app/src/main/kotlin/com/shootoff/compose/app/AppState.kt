@@ -113,7 +113,8 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param checkClock the check's time limit runs on it
  * @param reconnectMillis how often a lost camera is looked for, to reopen it when it is plugged back in
  * @param patternSettleMillis how long the arena must have filled the projector's screen before a check shows
- *   the pattern
+ *   the pattern, or an automatic calibration starts
+ * @param calibrationTimers runs calibration's and the check's timers (auto-calibration's timeout among them)
  */
 class AppState(
     val settings: Settings,
@@ -130,10 +131,14 @@ class AppState(
     private val checkClock: () -> Long = System::currentTimeMillis,
     private val reconnectMillis: Long = 2000,
     private val patternSettleMillis: Long = PATTERN_SETTLE_MILLIS,
+    private val calibrationTimers: CalibrationFlow.Scheduler = TIMER_POOL,
 ) : CalibrationViews {
     companion object {
-        /** How long the arena settles on the projector before a pattern shows for a check */
+        /** How long the arena settles on the projector before a pattern shows for a check, or calibration starts */
         const val PATTERN_SETTLE_MILLIS = 500L
+
+        /** Calibration's timers on the app's shared timer pool */
+        val TIMER_POOL = CalibrationFlow.Scheduler { task, delay -> TimerPool.schedule(task, delay) ?: CompletableFuture<Void>() }
     }
 
     private val logger = LoggerFactory.getLogger(AppState::class.java)
@@ -521,12 +526,10 @@ class AppState(
         // when the last camera went); now one is here, so the arena can be calibrated
         arenaState.value?.let { arena ->
             if (calibrationState.value == null) makeCalibratable(arena, manager)
-            // An uncalibrated arena is checked against the remembered calibration now that there is a camera
-            // to check with (spec §8 Revision 2, decision 7); without Remember, Setup's Calibrate step is next
-            if (settings.rememberCalibration() && settings.savedCalibration.isPresent &&
-                arena.projection.value == null && !checkState.value.showsPattern
-            ) {
-                checkRemembered(arena)
+            // An uncalibrated arena is calibrated (or its remembered box checked) now that there is a camera
+            // (spec §8 Revision 3); without the option, Setup's Calibrate step is next
+            if (settings.rememberCalibration() && arena.projection.value == null && !checkState.value.showsPattern) {
+                calibrateOrCheck(arena)
             }
         }
         return true
@@ -657,9 +660,10 @@ class AppState(
 
     /**
      * Opens the arena window, on the projector if one is found, ready to be calibrated with the open camera.
-     * Unlike the JavaFX app, it never starts calibrating: only [startCalibration] does. Without an open
-     * camera there is nothing to calibrate with yet; [makeCalibratable] runs later instead, once a camera
-     * opens (see [publish]).
+     * With "Calibrate automatically when the arena opens" on, it calibrates once it is on the projector (or a
+     * remembered box is checked); otherwise only [startCalibration] calibrates. Without an open camera there
+     * is nothing to calibrate with yet; [makeCalibratable] runs later instead, once a camera opens (see
+     * [publish]).
      */
     fun openArena() {
         if (arenaState.value != null) return
@@ -671,10 +675,33 @@ class AppState(
         arenaState.value = arena
 
         cameraState.value?.let { makeCalibratable(arena, it) }
-        if (settings.rememberCalibration()) checkRemembered(arena)
+        if (settings.rememberCalibration()) calibrateOrCheck(arena)
     }
 
-    // The remembered calibration, checked as the arena opens, or once a camera becomes available for an arena
+    // With the option on, what an uncalibrated arena does (spec §8 Revision 3): a remembered manual box is
+    // checked, since only the owner can place one; otherwise the arena is calibrated afresh, as Calibrate does
+    private fun calibrateOrCheck(arena: ArenaModel) {
+        if (settings.savedCalibration.map { it.manual }.orElse(false)) checkRemembered(arena) else calibrateOnTheProjector(arena)
+    }
+
+    // Starts an unattended calibration once the arena is on the projector (watchArenaForPattern). Without a
+    // camera, publish() comes back here once one opens; without a projector screen the arena is a window,
+    // which auto-calibration can't use, so nothing starts. If the pattern isn't found, it ends quietly: no
+    // manual box, and Setup and the chip say so.
+    private fun calibrateOnTheProjector(arena: ArenaModel) {
+        if (calibrationState.value == null || placementState.value?.screen == null) return
+        checkState.value = CheckState.WaitingToCalibrate
+        watchArenaForPattern(arena) {
+            patternWatch?.cancel()
+            patternWatch = null
+            checkState.value = CheckState.Idle
+            arena.showGrid(false)
+            calibrationCompleteState.value = null
+            calibrationState.value?.startUnattended { checkState.value = CheckState.NotFound }
+        }
+    }
+
+    // The remembered manual box, checked as the arena opens, or once a camera becomes available for an arena
     // already open (see publish), if it was made with this camera and a projector screen like this one. The
     // pattern shows only while the arena is on the projector (watchArenaForPattern).
     private fun checkRemembered(arena: ArenaModel) {
@@ -701,7 +728,8 @@ class AppState(
     // Starts [start] once the arena is on the projector (spec §8 Revision 2, decision 3): full screen, as big
     // as the projector's screen, and settled there for [patternSettleMillis], so the pattern is never measured
     // in a window on its way (or, after F11, off) the projector. Leaving the projector stops the run quietly
-    // (the state stays, so its return starts a fresh run). Runs until the check ends.
+    // (the state stays, so its return starts a fresh run). Runs until the check ends, or the automatic
+    // calibration starts.
     private fun watchArenaForPattern(arena: ArenaModel, start: () -> Unit) {
         patternWatch?.cancel()
         val screen = placementState.value?.screen
@@ -738,9 +766,7 @@ class AppState(
     // Shows the pattern and hands the camera's frames to [work]; [done] hears its result, unless the run was
     // stopped or replaced first
     private fun <T : Any> startPatternRun(arena: ArenaModel, camera: CameraManager, work: () -> PatternWork<T>, done: (T) -> Unit) {
-        val run = PatternRun(arena, CalibratingCamera(camera), checkFrames, work, scope, { task, delay ->
-            TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
-        }, uiThread) { run, result ->
+        val run = PatternRun(arena, CalibratingCamera(camera), checkFrames, work, scope, calibrationTimers, uiThread) { run, result ->
             if (patternRun === run && result != null) {
                 patternRun = null
                 cameraView.frameTap = null
@@ -788,16 +814,25 @@ class AppState(
         checkState.value = CheckState.Idle
     }
 
-    /** Cancel on Setup while the check's pattern shows: the arena stays uncalibrated, "not verified". */
+    /**
+     * Cancel on Setup while a check's pattern shows (the arena stays uncalibrated, "not verified"), or while
+     * an automatic calibration waits for the projector (it doesn't start).
+     */
     fun cancelCheck() {
-        if (checkState.value != CheckState.Checking) return
-        stopCheckQuietly()
-        checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
+        when (checkState.value) {
+            CheckState.Checking -> {
+                stopCheckQuietly()
+                checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
+            }
+            CheckState.WaitingToCalibrate -> stopCheckQuietly()
+            else -> {}
+        }
     }
 
     /**
-     * "Remember calibration". On: the arena's calibration, now and after each calibration, is saved for the
-     * next session. Off: nothing is saved, the saved one is forgotten, and a check under way stops.
+     * "Calibrate automatically when the arena opens" (spec §8 Revision 3). On: the arena calibrates itself as it
+     * opens, and a manual box, now and after each calibration, is saved for the next session to check. Off:
+     * nothing is saved, the saved box is forgotten, and a check (or a wait to calibrate) under way stops.
      */
     fun setRememberCalibration(remember: Boolean) {
         // A no-op when nothing changed: turning it on again with nothing calibrated this session (so
@@ -822,9 +857,7 @@ class AppState(
     // camera opens (or becomes available) after the arena, which otherwise would leave Calibrate and F6
     // disabled until the arena is closed and reopened.
     private fun makeCalibratable(arena: ArenaModel, camera: CameraManager) {
-        val controller = CalibrationController(CalibratingCamera(camera), arena, settings, drillForCalibration, this, { task, delay ->
-            TimerPool.schedule(task, delay) ?: CompletableFuture<Void>()
-        }, uiThread)
+        val controller = CalibrationController(CalibratingCamera(camera), arena, settings, drillForCalibration, this, calibrationTimers, uiThread)
         camera.setCalibrationManager(controller)
         calibrationState.value = controller
 
@@ -879,7 +912,7 @@ class AppState(
         calibrationState.value?.cancel()
     }
 
-    override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>) {
+    override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>, byCamera: Boolean) {
         val now = wallClock()
         calibratedAtState.value = now
         // The user stays where they are (Setup, usually) and is told it worked; they go back to Range when
@@ -888,9 +921,10 @@ class AppState(
         checkState.value = CheckState.Idle
         val camera = cameraState.value
         val screen = placementState.value?.screen
-        // Made without a projector screen, a calibration can't be matched to one next time
-        currentCalibration = if (camera != null && screen != null) {
-            SavedCalibration(camera.name, Size(camera.feedWidth.toDouble(), camera.feedHeight.toDouble()), Size(screen.width, screen.height), cameraBounds, paper, false)
+        // Only a manual box is remembered as bounds: the camera's calibration is redone next time (spec §8
+        // Revision 3). Made without a projector screen, a box can't be matched to one next time
+        currentCalibration = if (!byCamera && camera != null && screen != null) {
+            SavedCalibration(camera.name, Size(camera.feedWidth.toDouble(), camera.feedHeight.toDouble()), Size(screen.width, screen.height), cameraBounds, paper, true)
         } else {
             null
         }
