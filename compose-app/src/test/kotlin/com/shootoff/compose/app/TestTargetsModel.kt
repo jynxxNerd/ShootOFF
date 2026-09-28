@@ -1,6 +1,8 @@
 package com.shootoff.compose.app
 
+import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.compose.arena.ArenaLayout
+import com.shootoff.compose.courses.LayoutMemory
 import com.shootoff.compose.feed.BannerKind
 import com.shootoff.compose.targets.ManualClock
 import com.shootoff.compose.targets.SurfaceTargets
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import kotlin.coroutines.CoroutineContext
 import javax.imageio.ImageIO
 
@@ -338,6 +341,36 @@ class TestTargetsModel {
         queue.runAll()
         assertEquals(1, shooters().size)
         assertEquals(10.0, shooters().single().bounds.width, 0.001)
+    }
+
+    // Tests the newest waiting job first, the order a thread that got going late would have
+    private fun Queue.runNewestFirst() {
+        while (waiting.isNotEmpty()) waiting.removeLast().run()
+    }
+
+    @Test
+    fun aTargetAddedJustBeforeTheLayoutComesBackIsKeptAndRemembered() {
+        val remembered = course("remembered", "Reset")
+        val saves = ArrayList<Runnable>()
+        val timers = CalibrationFlow.Scheduler { task, _ ->
+            saves += task
+            CompletableFuture<Void>()
+        }
+        val queue = Queue()
+        val queued = queuedModel(queue)
+        val memory = LayoutMemory(layout, queued.loader, remembered.file, timers).also { it.start() }
+
+        queued.addTarget(targetFile("Mine"))
+        queued.restoreRemembered(memory)
+        queue.runNewestFirst()
+
+        // Their target stands and the remembered course, which they have replaced, is left out
+        assertEquals(listOf(100.0), shooters().map { it.bounds.width })
+        assertTrue(memory.changedThisSession)
+        saves.last().run()
+        val saved = CourseIO.loadCourse(remembered.file).get()
+        assertEquals(1, saved.targets.size)
+        assertTrue(saved.targets.single().file().name == "Mine.target")
     }
 
     @Test

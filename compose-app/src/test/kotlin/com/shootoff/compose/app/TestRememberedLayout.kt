@@ -101,6 +101,27 @@ class TestRememberedLayout {
     }
 
     @Test
+    fun anArenaClosedBeforeItFillsTheProjectorDoesntRestoreLaterAndTheNextOneDoes() {
+        remember()
+        val app = app()
+        app.openArena()
+        val first = app.arena.value!!
+
+        app.closeArena()
+        first.setSize(Size(1280.0, 720.0))
+        first.setFullScreen(true)
+        Thread.sleep(100)
+        assertTrue(shooters(app).isEmpty())
+
+        app.openArena()
+        AppFixture.putOnTheProjector(app)
+
+        awaitTrue("the layout is back") { shooters(app).size == 1 }
+        Thread.sleep(100)
+        assertEquals(1, shooters(app).size)
+    }
+
+    @Test
     fun withoutAProjectorScreenTheLayoutComesBackAsTheArenaOpens() {
         remember()
         val app = app(listOf(Rect(0.0, 0.0, 1920.0, 1080.0)))

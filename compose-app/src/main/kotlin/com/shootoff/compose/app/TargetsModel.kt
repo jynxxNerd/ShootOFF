@@ -22,6 +22,7 @@ import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.arena.ArenaLayout
 import com.shootoff.compose.courses.CourseLoader
 import com.shootoff.compose.feed.Banner
+import com.shootoff.compose.courses.LayoutMemory
 import com.shootoff.compose.feed.BannerKind
 import com.shootoff.compose.targets.SurfaceTargets
 import com.shootoff.compose.targets.TargetEditor
@@ -251,6 +252,15 @@ class TargetsModel(
 
     private fun endUndoOffer() {
         undoState.value = null
+    }
+
+    /**
+     * Brings back the remembered layout in [memory] as one of the screen's actions: after every action asked
+     * for before it (which, changing the layout, leave the remembered one alone), and before any asked for
+     * after. [done] is told, on io, whether the layout came back.
+     */
+    internal fun restoreRemembered(memory: LayoutMemory, done: (Boolean) -> Unit = {}) {
+        inOrder { done(memory.restore()) }
     }
 
     // Runs [work] on io once every action asked for before it has finished. The turn is taken on the calling

@@ -189,7 +189,8 @@ class AppState(
     // Remembers the arena's layout between sessions (spec §5), if there is a file to keep it in
     private val layoutMemory = arenaFiles.layout?.let { LayoutMemory(arenaLayout, targetsModel.loader, it, TIMER_POOL).also(LayoutMemory::start) }
 
-    // Whether the remembered layout has been restored, or tried, this session: it comes back once
+    // Whether the remembered layout has been restored, or tried, this session: it comes back once.
+    // Both are for the UI thread only.
     private var layoutRestored = false
     private var layoutWatch: Job? = null
 
@@ -774,7 +775,7 @@ class AppState(
         val screen = placementState.value?.screen
         if (screen == null) {
             layoutRestored = true
-            scope.launch(io) { memory.restore() }
+            targetsModel.restoreRemembered(memory)
             return
         }
         layoutWatch?.cancel()
@@ -784,7 +785,7 @@ class AppState(
                 Runnable {
                     if (arenaState.value !== arena || layoutRestored) return@Runnable
                     layoutRestored = true
-                    scope.launch(io) { memory.restore() }
+                    targetsModel.restoreRemembered(memory)
                 },
             )
         }

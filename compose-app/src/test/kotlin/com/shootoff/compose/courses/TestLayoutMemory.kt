@@ -86,6 +86,16 @@ class TestLayoutMemory {
     }
 
     @Test
+    fun flushWithNothingWaitingWritesNothing() {
+        val layout = layout()
+        val memory = memory(layout)
+
+        memory.flush()
+
+        assertFalse(file().exists())
+    }
+
+    @Test
     fun aNewBackgroundIsSaved() {
         val layout = layout()
         memory(layout)
