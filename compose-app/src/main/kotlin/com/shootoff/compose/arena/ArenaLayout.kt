@@ -24,6 +24,7 @@ import com.shootoff.geom.Size
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * What the arena holds whether or not its window is open: its targets, the background the shooter picked,
@@ -36,6 +37,7 @@ class ArenaLayout(clock: AnimationClock = AnimationClock.background) {
 
     private val backgroundState = MutableStateFlow<ArenaBackground?>(null)
     private val sizeState = MutableStateFlow(Size(640.0, 480.0))
+    private val backgroundListeners = CopyOnWriteArrayList<Runnable>()
 
     /**
      * The shooter's background: what the arena shows unless calibration or an exercise has put up one of its
@@ -48,6 +50,12 @@ class ArenaLayout(clock: AnimationClock = AnimationClock.background) {
 
     fun setBackground(background: ArenaBackground?) {
         backgroundState.value = background
+        backgroundListeners.forEach(Runnable::run)
+    }
+
+    /** [listener] runs, on the caller's thread, whenever the shooter's background is set */
+    fun addBackgroundListener(listener: Runnable) {
+        backgroundListeners += listener
     }
 
     fun setSize(size: Size) {
