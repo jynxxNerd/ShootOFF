@@ -81,6 +81,9 @@ import javax.imageio.ImageIO
 /** How long Clear's Undo is offered */
 const val UNDO_MILLIS = 8000L
 
+/** What the camera surface says when it has nothing to show */
+private const val NO_CAMERA_HINT = "No camera — choose one in Setup."
+
 /** The toolbar's panels, beside the surface */
 private enum class Panel { ADD_TARGET, BACKGROUND, LOAD_COURSE, SAVE_COURSE }
 
@@ -97,6 +100,7 @@ fun TargetsScreen(app: AppState, modifier: Modifier = Modifier) {
     val covered = arena?.covered?.collectAsState()?.value == true
     val message by model.message.collectAsState()
     val undo by model.undo.collectAsState()
+    val frame by app.feed.frame.collectAsState()
     var panel by remember { mutableStateOf<Panel?>(null) }
     val colors = Range.colors
 
@@ -126,19 +130,40 @@ fun TargetsScreen(app: AppState, modifier: Modifier = Modifier) {
             }
             OutlinedButton(onClick = model::clear, modifier = Modifier.testTag("clear")) { Text("Clear") }
         }
-        if (covered && surface == EditedSurface.ARENA) {
-            Text(CALIBRATING_NOTE, color = colors.warning, modifier = Modifier.testTag("calibrating-note"))
-        }
-        message?.let { BannerView(it, onDismiss = model::dismissMessage) }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Surface(shape = RoundedCornerShape(16.dp), color = colors.feedEdge, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                when (surface) {
-                    EditedSurface.ARENA -> ArenaLayoutView(model.layout, arena, Modifier.fillMaxSize().testTag("targets-arena")) { transform ->
-                        EditingOverlay(model.layout.targets, model.arenaEditor, transform)
+                Box(Modifier.fillMaxSize()) {
+                    when (surface) {
+                        EditedSurface.ARENA -> ArenaLayoutView(model.layout, arena, Modifier.fillMaxSize().testTag("targets-arena")) { transform ->
+                            EditingOverlay(model.layout.targets, model.arenaEditor, transform)
+                        }
+                        EditedSurface.CAMERA -> {
+                            CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
+                                TargetLayer(model.feedTargets, transform)
+                                EditingOverlay(model.feedTargets, model.cameraEditor, transform)
+                            }
+                            if (frame == null) {
+                                Text(NO_CAMERA_HINT, color = colors.muted, modifier = Modifier.align(Alignment.Center).testTag("no-camera"))
+                            }
+                        }
                     }
-                    EditedSurface.CAMERA -> CameraFeedView(app.feed, Modifier.fillMaxSize()) { transform ->
-                        TargetLayer(model.feedTargets, transform)
-                        EditingOverlay(model.feedTargets, model.cameraEditor, transform)
+                    // Over the surface, so that they don't change its size while they show
+                    Column(Modifier.align(Alignment.TopCenter).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (covered && surface == EditedSurface.ARENA) {
+                            Text(CALIBRATING_NOTE, color = colors.warning, modifier = Modifier.testTag("calibrating-note"))
+                        }
+                        message?.let { BannerView(it, onDismiss = model::dismissMessage) }
+                    }
+                    undo?.let { cleared ->
+                        // Offered for a while, then gone
+                        LaunchedEffect(cleared) {
+                            delay(UNDO_MILLIS)
+                            model.dropUndo(cleared)
+                        }
+                        Snackbar(
+                            action = { TextButton(onClick = model::undoClear, modifier = Modifier.testTag("undo")) { Text("Undo") } },
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp).testTag("cleared"),
+                        ) { Text("Cleared the ${cleared.surface.label.lowercase()}") }
                     }
                 }
             }
@@ -164,17 +189,6 @@ fun TargetsScreen(app: AppState, modifier: Modifier = Modifier) {
                     }
                 }
             }
-        }
-        undo?.let { cleared ->
-            // Offered for a while, then gone
-            LaunchedEffect(cleared) {
-                delay(UNDO_MILLIS)
-                model.dropUndo()
-            }
-            Snackbar(
-                action = { TextButton(onClick = model::undoClear, modifier = Modifier.testTag("undo")) { Text("Undo") } },
-                modifier = Modifier.testTag("cleared"),
-            ) { Text("Cleared the ${cleared.surface.label.lowercase()}") }
         }
     }
 }

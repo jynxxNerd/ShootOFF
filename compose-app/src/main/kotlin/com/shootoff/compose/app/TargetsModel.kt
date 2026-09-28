@@ -244,9 +244,9 @@ class TargetsModel(
         }
     }
 
-    /** The Undo offer ran out */
-    fun dropUndo() {
-        inOrder { endUndoOffer() }
+    /** The Undo offer [offer] ran out; a newer offer is left alone */
+    fun dropUndo(offer: Cleared) {
+        inOrder { if (undoState.value === offer) endUndoOffer() }
     }
 
     private fun endUndoOffer() {

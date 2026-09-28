@@ -2,6 +2,7 @@ package com.shootoff.compose.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -130,7 +131,7 @@ class TestTargetsToolbar {
         compose.waitUntilExactlyOneExists(hasTestTag("cleared"), 5000)
         compose.mainClock.advanceTimeBy(UNDO_MILLIS + 100)
         compose.waitForIdle()
-        assertNull(model.undo.value)
+        waitUntil("the offer is dropped") { model.undo.value == null }
         compose.onAllNodesWithTag("cleared").assertCountEquals(0)
     }
 
@@ -167,5 +168,20 @@ class TestTargetsToolbar {
         val bounds = model.feedTargets.targetsOf(TargetOwner.USER).single().bounds
         val hit = app.feedSurface.hitTest(bounds.minX + bounds.width / 2, bounds.minY + bounds.height / 2)
         assertEquals(model.feedTargets.targetsOf(TargetOwner.USER).single().id, hit.get().targetId())
+    }
+
+    @Test
+    fun theCameraTabWithNoCameraSaysSo() {
+        compose.onNodeWithTag("surface-CAMERA").performClick()
+        compose.onNodeWithTag("no-camera").assertExists()
+    }
+
+    @Test
+    fun theUndoOfferDoesntResizeThePreview() {
+        reset()
+        val before = compose.onNodeWithTag("targets-arena").getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("clear").performClick()
+        compose.waitUntilExactlyOneExists(hasTestTag("cleared"), 5000)
+        assertEquals(before, compose.onNodeWithTag("targets-arena").getUnclippedBoundsInRoot())
     }
 }

@@ -201,6 +201,21 @@ class TestTargetsModel {
     }
 
     @Test
+    fun anOldOffersTimerLeavesANewerOfferAlone() {
+        reset()
+        model.clear()
+        val a = model.undo.value!!
+        reset()
+        model.clear()
+        val b = model.undo.value!!
+
+        model.dropUndo(a)
+        assertTrue(model.undo.value === b)
+        model.dropUndo(b)
+        assertNull(model.undo.value)
+    }
+
+    @Test
     fun aCourseIsSavedUnderItsNameAndAnExistingOneOnlyOnceTheShooterSaysSo() {
         reset()
         val file = File(temp.toFile(), "courses/Mine.course")
