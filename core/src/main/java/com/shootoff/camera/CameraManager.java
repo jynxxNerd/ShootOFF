@@ -629,6 +629,9 @@ public class CameraManager
 			// isAutoCalibrating check above and this read (restoreCalibration, which sets acm before the flag)
 			final AutoCalibrationManager acm = this.acm;
 			if (acm != null) acm.processFrame(currentFrame);
+			// disableAutoCalibration (another thread) can land between the isAutoCalibrating check above and
+			// the limit being taken just now: its release found nothing held, so release again
+			if (!isAutoCalibrating.get()) camera.releaseExposureLimit();
 			return currentFrame.getOriginalBufferedImage();
 		}
 

@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opencv.core.Mat;
@@ -66,6 +67,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private final String name;
 
 	private final AtomicBoolean closing = new AtomicBoolean(false);
+	// Cancelled on close() so a close and reopen within CAPTURE_STATE_LOG_DELAY doesn't log early or twice
+	private ScheduledFuture<?> captureStateLogFuture;
 
 	// setViewSize is called before open() by CameraManager/CheckableImageListCell, and
 	// VideoCapture.set ignores every property on an unopened capture, so the requested size is
@@ -159,7 +162,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			CameraFactory.openCamerasAdd(this);
 
 			// What the frame rate and the exposure settle into (spec §8 Revision 4, decision 3)
-			TimerPool.schedule(this::logCaptureState, CAPTURE_STATE_LOG_DELAY);
+			captureStateLogFuture = TimerPool.schedule(this::logCaptureState, CAPTURE_STATE_LOG_DELAY);
 		}
 
 		return open;
@@ -301,6 +304,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 		if (isOpen() && !closing.get()) {
 			closing.set(true);
+			TimerPool.cancelTimer(captureStateLogFuture);
 			resetExposure();
 			camera.release();
 
@@ -535,7 +539,11 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	@Override
 	public synchronized void restoreManualExposure(double exposure) {
-		if (switchToManualExposure()) camera.set(Videoio.CAP_PROP_EXPOSURE, exposure);
+		if (switchToManualExposure()) {
+			camera.set(Videoio.CAP_PROP_EXPOSURE, exposure);
+			// The exposure step's own exposure now, same as decreaseExposure
+			exposureLimited = false;
+		}
 	}
 
 	@Override

@@ -44,6 +44,8 @@ class TestCameraManagerCalibration {
 	private static final class ExposureCamera extends MockCamera {
 		OptionalDouble manual = OptionalDouble.empty();
 		final List<String> exposure = new CopyOnWriteArrayList<>();
+		// Runs while the limit is being taken, to land a race with something else on the exposure in the middle
+		Runnable onLimit = () -> {};
 
 		@Override
 		public OptionalDouble manualExposure() {
@@ -60,6 +62,13 @@ class TestCameraManagerCalibration {
 		public void resetExposure() {
 			exposure.add("auto");
 			manual = OptionalDouble.empty();
+		}
+
+		@Override
+		public boolean limitExposureToFramePeriod() {
+			exposure.add("limit taken");
+			onLimit.run();
+			return true;
 		}
 
 		@Override
@@ -169,6 +178,19 @@ class TestCameraManagerCalibration {
 		manager.disableAutoCalibration();
 
 		assertEquals(List.of("limit released"), camera.exposure);
+	}
+
+	// disableAutoCalibration (the UI thread) can land between processFrame's isAutoCalibrating check and the
+	// limit being taken (the camera thread, inside StepFindBounds.process): the release it fires then finds
+	// nothing held. The frame must still end released, not stuck at manual 333.
+	@Test
+	void aLimitTakenAsDisableRunsInTheMiddleOfTheFrameIsStillReleased() throws IOException {
+		manager.enableAutoCalibration(false);
+		camera.onLimit = manager::disableAutoCalibration;
+
+		manager.processFrame(new Frame(frame(new Rect(100, 80, 420, 296)), 1000), true);
+
+		assertEquals(List.of("limit taken", "limit released", "limit released"), camera.exposure);
 	}
 
 	@Test
