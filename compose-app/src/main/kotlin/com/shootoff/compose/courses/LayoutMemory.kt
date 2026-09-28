@@ -23,9 +23,11 @@ import com.shootoff.compose.arena.ArenaLayout
 import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.courses.io.CourseIO
 import com.shootoff.targets.model.PlacedTarget
+import com.shootoff.targets.model.TargetId
 import com.shootoff.targets.model.TargetSetListener
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Future
 
 /**
@@ -61,24 +63,42 @@ class LayoutMemory(
     @Volatile
     private var changed = false
 
+    // Whether the remembered file already reflects this session: the shooter has changed the layout or a restore loaded it
+    @Volatile
+    private var fileReflectsSession = false
+
+    // The shooter's targets, since a removed target's owner is already forgotten
+    private val shootersTargets: MutableSet<TargetId> = ConcurrentHashMap.newKeySet()
+
+    private var started = false
+
     /** Whether the shooter has changed the layout this session: once they have, [restore] leaves it alone */
     val changedThisSession: Boolean get() = changed
 
     /** Starts watching the layout for the shooter's changes */
     fun start() {
+        if (started) return // one watch only, however often it is asked for
+        started = true
         layout.targets.set.addListener(object : TargetSetListener {
             override fun targetAdded(target: PlacedTarget) {
-                if (layout.targets.owner(target.id) == TargetOwner.USER) changedByTheShooter()
+                if (layout.targets.owner(target.id) == TargetOwner.USER) {
+                    shootersTargets += target.id
+                    changedByTheShooter()
+                }
             }
 
-            // Its owner is already gone; an exercise's leaving costs a save that changes nothing
-            override fun targetRemoved(target: PlacedTarget) = changedByTheShooter()
+            // Its owner is already gone, so the shooter's own targets are the ones remembered here
+            override fun targetRemoved(target: PlacedTarget) {
+                if (shootersTargets.remove(target.id)) changedByTheShooter()
+            }
 
             override fun targetChanged(target: PlacedTarget) {
                 if (layout.targets.owner(target.id) == TargetOwner.USER) changedByTheShooter()
             }
         })
         layout.addBackgroundListener { changedByTheShooter() }
+        // A save before the layout is the shooter's would replace the remembered one, so only after an edit or a restore
+        layout.addSizeListener { if (fileReflectsSession && !restoring) scheduleSave() }
     }
 
     /**
@@ -110,6 +130,7 @@ class LayoutMemory(
         }
         for (missing in applied.missing) logger.warn("The remembered arena layout's target {} can't be loaded: it is left out", missing)
         applied.backgroundMissing?.let { logger.warn("The remembered arena layout's background {} can't be read: it is left out", it) }
+        fileReflectsSession = true
         logger.info("Restored the arena layout from {}", file)
         return true
     }
@@ -117,15 +138,25 @@ class LayoutMemory(
     private fun changedByTheShooter() {
         if (restoring) return
         changed = true
+        fileReflectsSession = true
+        scheduleSave()
+    }
+
+    private fun scheduleSave() {
         synchronized(lock) {
             pending?.cancel(false)
             pending = timers.schedule(::save, quietMillis)
+            if (pending == null) logger.warn("The arena layout can't be scheduled for saving to {}", file)
         }
     }
 
     // One save at a time: a slow one still running when the next is due finishes first
     @Synchronized
     private fun save() {
-        if (loader.save(loader.course(layout), file)) logger.debug("Saved the arena layout to {}", file)
+        try {
+            if (loader.save(loader.course(layout), file)) logger.debug("Saved the arena layout to {}", file)
+        } catch (e: RuntimeException) {
+            logger.error("Couldn't save the arena layout to {}", file, e)
+        }
     }
 }

@@ -24,6 +24,7 @@ import com.shootoff.geom.Size
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -38,6 +39,7 @@ class ArenaLayout(clock: AnimationClock = AnimationClock.background) {
     private val backgroundState = MutableStateFlow<ArenaBackground?>(null)
     private val sizeState = MutableStateFlow(Size(640.0, 480.0))
     private val backgroundListeners = CopyOnWriteArrayList<Runnable>()
+    private val sizeListeners = CopyOnWriteArrayList<Runnable>()
 
     /**
      * The shooter's background: what the arena shows unless calibration or an exercise has put up one of its
@@ -58,7 +60,13 @@ class ArenaLayout(clock: AnimationClock = AnimationClock.background) {
         backgroundListeners += listener
     }
 
+    /** [listener] runs, on the caller's thread, whenever the arena's size actually changes */
+    fun addSizeListener(listener: Runnable) {
+        sizeListeners += listener
+    }
+
     fun setSize(size: Size) {
-        sizeState.value = size
+        val changed = sizeState.getAndUpdate { size } != size
+        if (changed) sizeListeners.forEach(Runnable::run)
     }
 }

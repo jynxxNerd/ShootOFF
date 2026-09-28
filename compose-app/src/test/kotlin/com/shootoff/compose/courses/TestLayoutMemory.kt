@@ -169,4 +169,80 @@ class TestLayoutMemory {
         assertTrue(next.targets.set.targets.isEmpty())
         assertTrue(memory.changedThisSession)
     }
+
+    @Test
+    fun anExercisesTargetLeavingIsNoReasonToSave() {
+        val layout = layout()
+        val memory = memory(layout)
+        val target = add(layout, TargetOwner.EXERCISE)
+
+        layout.targets.remove(target.id)
+
+        assertTrue(timers.scheduled.isEmpty())
+        assertFalse(memory.changedThisSession)
+    }
+
+    @Test
+    fun theShootersTargetLeavingIsSaved() {
+        val layout = layout()
+        val memory = memory(layout)
+        val target = add(layout)
+        timers.runLive()
+        timers.scheduled.clear()
+
+        layout.targets.remove(target.id)
+        timers.runLive()
+
+        assertEquals(1, timers.scheduled.size)
+        assertTrue(memory.changedThisSession)
+        assertTrue(CourseIO.loadCourse(file()).get().targets.isEmpty())
+    }
+
+    @Test
+    fun aSizeChangeAfterAnEditIsSaved() {
+        val layout = layout()
+        memory(layout)
+        add(layout)
+        timers.runLive()
+        timers.scheduled.clear()
+
+        layout.setSize(Size(1280.0, 720.0))
+        assertTrue(timers.scheduled.isEmpty())
+        layout.setSize(Size(1920.0, 1080.0))
+        timers.runLive()
+
+        assertEquals(1, timers.scheduled.size)
+        assertEquals(Size(1920.0, 1080.0), CourseIO.loadCourse(file()).get().resolution.get())
+    }
+
+    @Test
+    fun aSizeChangeBeforeAnyEditOrRestoreSavesNothing() {
+        val layout = layout()
+        val memory = memory(layout)
+
+        layout.setSize(Size(1920.0, 1080.0))
+
+        assertTrue(timers.scheduled.isEmpty())
+        assertFalse(memory.changedThisSession)
+        assertFalse(file().exists())
+    }
+
+    @Test
+    fun aSizeChangeAfterARestoreIsSavedAndIsNotTheShootersChange() {
+        val first = layout()
+        memory(first)
+        add(first)
+        timers.runLive()
+        timers.scheduled.clear()
+
+        val next = layout()
+        val memory = memory(next)
+        assertTrue(memory.restore())
+        next.setSize(Size(1920.0, 1080.0))
+        timers.runLive()
+
+        assertEquals(1, timers.scheduled.size)
+        assertFalse(memory.changedThisSession)
+        assertEquals(Size(1920.0, 1080.0), CourseIO.loadCourse(file()).get().resolution.get())
+    }
 }
