@@ -24,7 +24,6 @@ import com.shootoff.geom.Size
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.getAndUpdate
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -39,7 +38,8 @@ class ArenaLayout(clock: AnimationClock = AnimationClock.background) {
     private val backgroundState = MutableStateFlow<ArenaBackground?>(null)
     private val sizeState = MutableStateFlow(Size(640.0, 480.0))
     private val backgroundListeners = CopyOnWriteArrayList<Runnable>()
-    private val sizeListeners = CopyOnWriteArrayList<Runnable>()
+    private val screenSizeState = MutableStateFlow<Size?>(null)
+    private val lastingSizeListeners = CopyOnWriteArrayList<Runnable>()
 
     /**
      * The shooter's background: what the arena shows unless calibration or an exercise has put up one of its
@@ -60,13 +60,29 @@ class ArenaLayout(clock: AnimationClock = AnimationClock.background) {
         backgroundListeners += listener
     }
 
-    /** [listener] runs, on the caller's thread, whenever the arena's size actually changes */
-    fun addSizeListener(listener: Runnable) {
-        sizeListeners += listener
+    /** [listener] runs, on the caller's thread, whenever the [lastingSize] actually changes */
+    fun addLastingSizeListener(listener: Runnable) {
+        lastingSizeListeners += listener
     }
 
-    fun setSize(size: Size) {
-        val changed = sizeState.getAndUpdate { size } != size
-        if (changed) sizeListeners.forEach(Runnable::run)
+    /**
+     * The size layouts are recorded at: the projector screen's when the arena belongs on one, since targets stay
+     * in its units while the window is smaller (F11 out); else the arena's own
+     */
+    val lastingSize: Size get() = screenSizeState.value ?: sizeState.value
+
+    /** The size of the projector screen the arena belongs on, or null if there is none */
+    fun setScreenSize(size: Size?) = changeLastingSize { screenSizeState.value = size }
+
+    fun setSize(size: Size) = changeLastingSize { sizeState.value = size }
+
+    // Tells the listeners if the change moved the lasting size; changes are serialized so none is missed
+    private fun changeLastingSize(change: () -> Unit) {
+        val moved = synchronized(this) {
+            val before = lastingSize
+            change()
+            lastingSize != before
+        }
+        if (moved) lastingSizeListeners.forEach(Runnable::run)
     }
 }

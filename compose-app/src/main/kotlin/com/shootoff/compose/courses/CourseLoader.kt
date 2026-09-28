@@ -65,7 +65,7 @@ class CourseLoader(private val home: File) {
     /**
      * Replaces the shooter's targets with [course]'s, and the background too when the course has one it can
      * read (a course without one, or with one that can't be read, keeps the current background, as the JavaFX
-     * app did). A course saved at another arena size is scaled to [layout]'s, by width and height separately.
+     * app did). A course saved at another arena size is scaled to [layout]'s lasting size, by width and height separately.
      * A target file that can't be loaded is skipped, and a background that can't be read is reported.
      */
     fun apply(course: Course, layout: ArenaLayout): CourseApplied {
@@ -76,7 +76,7 @@ class CourseLoader(private val home: File) {
         val image = background?.let(::readBackground)
         if (image != null) layout.setBackground(image)
 
-        val arena = layout.size.value
+        val arena = layout.lastingSize
         val resolution = course.resolution.orElse(null)
         val scale = resolution != null && (abs(resolution.width - arena.width) > .0001 || abs(resolution.height - arena.height) > .0001)
         val widthFactor = if (scale) arena.width / resolution.width else 1.0
@@ -107,7 +107,7 @@ class CourseLoader(private val home: File) {
             val bounds = target.bounds
             CourseTarget(relative(file), target.placement.x(), target.placement.y(), bounds.width, bounds.height)
         }
-        return Course(Optional.ofNullable(layout.background.value?.source), targets, Optional.of(layout.size.value))
+        return Course(Optional.ofNullable(layout.background.value?.source), targets, Optional.of(layout.lastingSize))
     }
 
     /**

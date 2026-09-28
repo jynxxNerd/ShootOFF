@@ -199,8 +199,7 @@ class TargetsModel(
      * @param replace whether a course of that name may be replaced (the shooter said yes)
      */
     fun saveCourse(name: String, replace: Boolean = false): SaveOutcome {
-        // A trailing ".course" is the file's, not part of the name
-        val trimmed = name.trim().let { if (it.endsWith(".course", ignoreCase = true)) it.dropLast(".course".length) else it }
+        val trimmed = courseName(name)
         if (trimmed.isEmpty() || trimmed.startsWith('.') || trimmed.contains('/') || trimmed.contains('\\')) return SaveOutcome.BAD_NAME
         val file = File(files.courses, "$trimmed.course")
         if (file.exists() && !replace) return SaveOutcome.EXISTS
@@ -299,3 +298,6 @@ class TargetsModel(
         messageState.value = Banner(nextMessage.incrementAndGet(), text, kind)
     }
 }
+
+/** The name a course is saved under: [typed], trimmed, without a trailing ".course", which is the file's */
+fun courseName(typed: String): String = typed.trim().let { if (it.endsWith(".course", ignoreCase = true)) it.dropLast(".course".length) else it }

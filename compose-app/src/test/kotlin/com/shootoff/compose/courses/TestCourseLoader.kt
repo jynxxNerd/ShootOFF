@@ -120,6 +120,20 @@ class TestCourseLoader {
     }
 
     @Test
+    fun aCourseIsScaledToTheScreenSizeNotTheWindowsAndSavedAtIt() {
+        val course = Course(Optional.empty(), listOf(CourseTarget(File("targets/Reset.target"), 100.0, 200.0, 50.0, 50.0)), Optional.of(Size(1280.0, 720.0)))
+        layout.setScreenSize(Size(1280.0, 720.0))
+        layout.setSize(Size(640.0, 480.0))
+
+        loader.apply(course, layout)
+
+        assertEquals(Placement(100.0, 200.0, 1.0, 1.0, true), shooters().single().placement)
+        assertEquals(Optional.of(Size(1280.0, 720.0)), loader.course(layout).resolution)
+        layout.setScreenSize(null)
+        assertEquals(Optional.of(Size(640.0, 480.0)), loader.course(layout).resolution)
+    }
+
+    @Test
     fun aMissingTargetFileIsSkippedAndNamedAndTheRestLoad() {
         val course = Course(
             Optional.empty(),

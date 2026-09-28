@@ -162,6 +162,26 @@ class TestRememberedLayout {
     }
 
     @Test
+    fun leavingFullScreenAndQuittingKeepsTheRememberedResolution() {
+        remember()
+        val app = app()
+        app.openArena()
+        AppFixture.putOnTheProjector(app)
+        awaitTrue("the layout is back") { shooters(app).size == 1 }
+        val before = layoutFile().readText()
+
+        // F11 out: the window drops to its old size, the targets stay in projector units
+        app.arena.value!!.setSize(Size(640.0, 480.0))
+        app.close()
+        this.app = null
+
+        val saved = CourseIO.loadCourse(layoutFile()).get()
+        assertEquals(Size(1280.0, 720.0), saved.resolution.get())
+        assertEquals(listOf(100.0 to 200.0), saved.targets.map { it.x() to it.y() })
+        assertEquals(before, layoutFile().readText())
+    }
+
+    @Test
     fun theDefaultAppRemembersNothing() {
         assertNull(ArenaFiles.scratch().layout)
     }

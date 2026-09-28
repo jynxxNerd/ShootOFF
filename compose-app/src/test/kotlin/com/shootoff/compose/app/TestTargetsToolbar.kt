@@ -1,15 +1,19 @@
 package com.shootoff.compose.app
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.pressKey
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.compose.theme.RangeTheme
@@ -85,7 +89,7 @@ class TestTargetsToolbar {
         reset()
         compose.onNodeWithTag("save-course").performClick()
         compose.onNodeWithTag("save").performClick()
-        compose.onNodeWithTag("name-hint").assertExists()
+        compose.onNodeWithTag("name-hint").assertTextEquals("Give the course a name that doesn't start with \".\" or use / or \\")
 
         compose.onNodeWithTag("course-name").performTextInput("Mine")
         compose.onNodeWithTag("save").performClick()
@@ -100,6 +104,30 @@ class TestTargetsToolbar {
         compose.onNodeWithTag("replace-question").assertExists()
         compose.onNodeWithTag("replace").performClick()
         waitUntil("the course is replaced") { CourseIO.loadCourse(file).map { it.targets.size }.orElse(0) == 2 }
+    }
+
+    @Test
+    fun theReplaceQuestionNamesTheCourseAsItWillBeSaved() {
+        reset()
+        File(model.files.courses, "Mine.course").also { it.parentFile.mkdirs() }.writeText("<course/>")
+        compose.onNodeWithTag("save-course").performClick()
+        compose.onNodeWithTag("course-name").performTextInput("Mine.course")
+        compose.onNodeWithTag("save").performClick()
+
+        compose.onNodeWithTag("replace-question").assertTextEquals("There is already a course named Mine. Replace it?")
+    }
+
+    @Test
+    fun arrowKeysMoveTheTargetJustAddedWithoutAClick() {
+        compose.onNodeWithTag("add-target").performClick()
+        compose.onNodeWithTag("target-list").performScrollToNode(hasTestTag("target-Reset"))
+        compose.onNodeWithTag("target-Reset").performClick()
+        waitUntil("the target is selected") { shooters().size == 1 && model.arenaEditor.selected.value == shooters().single().id }
+        val before = shooters().single().placement.x()
+
+        compose.onNodeWithTag("editing-surface").performKeyInput { pressKey(Key.DirectionRight) }
+
+        waitUntil("the target moved") { shooters().single().placement.x() == before + 1.0 }
     }
 
     @Test

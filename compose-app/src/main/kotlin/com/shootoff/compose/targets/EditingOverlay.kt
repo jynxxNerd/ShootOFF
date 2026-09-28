@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -81,6 +82,8 @@ fun EditingOverlay(targets: SurfaceTargets, editor: TargetEditor, transform: Sur
     val selected by editor.selected.collectAsState()
     val colors = Range.colors
     val focus = remember { FocusRequester() }
+    // A target selected some other way (Add target) takes the keys at once, without a click first
+    LaunchedEffect(selected) { if (selected != null) runCatching { focus.requestFocus() } }
 
     Box(
         modifier

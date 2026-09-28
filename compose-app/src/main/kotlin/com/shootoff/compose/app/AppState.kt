@@ -755,7 +755,10 @@ class AppState(
     fun openArena() {
         if (arenaState.value != null) return
 
-        placementState.value = arenaPlacementNow()
+        val placement = arenaPlacementNow()
+        placementState.value = placement
+        // Layouts are recorded at the projector screen's size, whatever size the window is (null: no such screen)
+        arenaLayout.setScreenSize(placement.screen?.let { Size(it.width, it.height) })
 
         lateinit var arena: ArenaModel
         arena = ArenaModel(settings, { runner }, { arenaCommands(arena) }, clock, arenaLayout)

@@ -97,8 +97,9 @@ class LayoutMemory(
             }
         })
         layout.addBackgroundListener { changedByTheShooter() }
-        // A save before the layout is the shooter's would replace the remembered one, so only after an edit or a restore
-        layout.addSizeListener { if (fileReflectsSession && !restoring) scheduleSave() }
+        // A save before the layout is the shooter's would replace the remembered one, so only after an edit or a restore.
+        // A window resized on the projector screen is no change: the layout is recorded at the screen's size
+        layout.addLastingSizeListener { if (fileReflectsSession && !restoring) scheduleSave() }
     }
 
     /**

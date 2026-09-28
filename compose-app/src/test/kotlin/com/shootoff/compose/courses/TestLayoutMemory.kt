@@ -267,4 +267,68 @@ class TestLayoutMemory {
         assertFalse(memory.changedThisSession)
         assertEquals(Size(1920.0, 1080.0), CourseIO.loadCourse(file()).get().resolution.get())
     }
+
+    @Test
+    fun aWindowedArenaAfterARestoreKeepsTheRememberedResolution() {
+        val first = layout()
+        memory(first)
+        add(first)
+        timers.runLive()
+        timers.scheduled.clear()
+        val before = file().readText()
+
+        val next = layout().apply { setScreenSize(Size(1280.0, 720.0)) }
+        val memory = memory(next)
+        assertTrue(memory.restore())
+        next.setSize(Size(640.0, 480.0))
+        timers.runLive()
+        memory.flush()
+
+        assertTrue(timers.scheduled.isEmpty())
+        val saved = CourseIO.loadCourse(file()).get()
+        assertEquals(Size(1280.0, 720.0), saved.resolution.get())
+        assertEquals(listOf(10.0 to 20.0), saved.targets.map { it.x() to it.y() })
+        assertEquals(before, file().readText())
+    }
+
+    @Test
+    fun anEditWhileWindowedIsRecordedAtTheScreensSize() {
+        val layout = layout().apply { setScreenSize(Size(1280.0, 720.0)) }
+        memory(layout)
+        layout.setSize(Size(640.0, 480.0))
+
+        add(layout)
+        timers.runLive()
+
+        assertEquals(Size(1280.0, 720.0), CourseIO.loadCourse(file()).get().resolution.get())
+    }
+
+    @Test
+    fun withNoProjectorScreenTheWindowsSizeIsRecorded() {
+        val layout = layout().apply { setScreenSize(Size(1280.0, 720.0)) }
+        memory(layout)
+        add(layout)
+        timers.runLive()
+        timers.scheduled.clear()
+
+        layout.setScreenSize(null)
+        layout.setSize(Size(800.0, 600.0))
+        timers.runLive()
+
+        assertEquals(Size(800.0, 600.0), CourseIO.loadCourse(file()).get().resolution.get())
+    }
+
+    @Test
+    fun aChangeOfTheProjectorScreensSizeIsSaved() {
+        val layout = layout().apply { setScreenSize(Size(1280.0, 720.0)) }
+        memory(layout)
+        add(layout)
+        timers.runLive()
+        timers.scheduled.clear()
+
+        layout.setScreenSize(Size(1920.0, 1080.0))
+        timers.runLive()
+
+        assertEquals(Size(1920.0, 1080.0), CourseIO.loadCourse(file()).get().resolution.get())
+    }
 }

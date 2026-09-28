@@ -322,7 +322,7 @@ private fun SaveCoursePanel(model: TargetsModel, close: () -> Unit) {
     Text("Saved in ${model.files.courses.path}", color = colors.muted, fontSize = 12.sp)
     when (outcome) {
         SaveOutcome.EXISTS -> {
-            Text("There is already a course named ${name.trim()}. Replace it?", color = colors.warning, modifier = Modifier.testTag("replace-question"))
+            Text("There is already a course named ${courseName(name)}. Replace it?", color = colors.warning, modifier = Modifier.testTag("replace-question"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(
                     onClick = {
@@ -336,7 +336,7 @@ private fun SaveCoursePanel(model: TargetsModel, close: () -> Unit) {
         }
         else -> {
             if (outcome == SaveOutcome.BAD_NAME) {
-                Text("Give the course a name, without / or \\", color = colors.warning, modifier = Modifier.testTag("name-hint"))
+                Text("Give the course a name that doesn't start with \".\" or use / or \\", color = colors.warning, modifier = Modifier.testTag("name-hint"))
             }
             FilledTonalButton(
                 onClick = {
