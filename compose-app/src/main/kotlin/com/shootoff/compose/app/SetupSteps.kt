@@ -89,6 +89,19 @@ fun calibrationSummary(
 }
 
 /**
+ * Why Setup's Show grid is off, said beside its disabled switch (spec §8 Revision 5, decision 3): calibration
+ * (including an automatic one waiting for the projector), the saved box's check, or a projector drill needs the
+ * arena. Null when the grid can be turned on, and with no arena, which the Projector step already says.
+ */
+fun gridUnavailableReason(arenaOpen: Boolean, calibrating: Boolean, check: CheckState, projectorDrill: Boolean): String? = when {
+    !arenaOpen -> null
+    calibrating || check == CheckState.WaitingToCalibrate -> "Not while calibrating"
+    check == CheckState.Checking -> "Not while checking the saved calibration"
+    projectorDrill -> "Stop the drill to show the grid"
+    else -> null
+}
+
+/**
  * What Range's not-ready card says after its "Calibrate —" step (it shows only with a camera): the summary, except
  * that a pattern not found says to press the card's own Set up button.
  */

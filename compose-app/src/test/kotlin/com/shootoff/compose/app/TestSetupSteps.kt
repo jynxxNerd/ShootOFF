@@ -55,4 +55,20 @@ class TestSetupSteps {
         assertEquals("Not calibrated", notReadyCalibrateDetail(true, false, false, null, CheckState.Idle))
         assertEquals("No arena", notReadyCalibrateDetail(false, false, false, null, CheckState.Idle))
     }
+
+    // Plan 9's hardware check: the owner had to guess that the drill kept Show grid off (spec §8 Revision 5, decision 3)
+    @Test
+    fun showGridSaysWhyItIsOff() {
+        val idle = CheckState.Idle
+        assertEquals("Not while calibrating", gridUnavailableReason(true, true, idle, false))
+        assertEquals("Not while calibrating", gridUnavailableReason(true, false, CheckState.WaitingToCalibrate, false))
+        assertEquals("Not while checking the saved calibration", gridUnavailableReason(true, false, CheckState.Checking, false))
+        assertEquals("Stop the drill to show the grid", gridUnavailableReason(true, false, idle, true))
+        // Calibration pauses the drill: calibrating is the reason then
+        assertEquals("Not while calibrating", gridUnavailableReason(true, true, idle, true))
+        // It can be turned on; or there is no arena, which the Projector step already says
+        assertEquals(null, gridUnavailableReason(true, false, idle, false))
+        assertEquals(null, gridUnavailableReason(true, false, CheckState.NotFound, false))
+        assertEquals(null, gridUnavailableReason(false, false, idle, false))
+    }
 }

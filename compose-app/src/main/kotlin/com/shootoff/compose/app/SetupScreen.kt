@@ -238,15 +238,16 @@ private fun CalibrateStep(app: AppState) {
             Text("A box placed by hand is reused and checked instead", color = colors.muted, fontSize = 12.sp)
         }
     }
-    val projectorDrill = running?.host?.isProjector == true
+    val gridReason = gridUnavailableReason(arena != null, calibrating, check, running?.host?.isProjector == true)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Switch(
             checked = grid,
             onCheckedChange = app::showGrid,
-            enabled = arena != null && !calibrating && !check.showsPattern && !projectorDrill,
+            enabled = arena != null && gridReason == null,
             modifier = Modifier.testTag("show-grid"),
         )
         Text("Show grid", color = colors.text)
+        // Beside the switch, where the owner looks (Plan 9's hardware check: they had to guess)
+        gridReason?.let { Text(it, color = colors.muted, fontSize = 12.sp, modifier = Modifier.testTag("grid-reason")) }
     }
-    if (projectorDrill) Text("Stop the drill to show the grid", color = colors.muted, fontSize = 12.sp)
 }

@@ -10,6 +10,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -157,6 +159,29 @@ class TestSetupScreen {
 
         assertTrue(app.rememberCalibration.value)
         assertTrue(app.arena.value!!.grid.value)
+    }
+
+    @Test
+    fun showGridSaysBesideItThatTheDrillKeepsItOff() {
+        app.close()
+        app = AppFixture.appWithCamera()
+        AppFixture.setUpForProjectorDrills(app)
+        assertTrue(app.startDrill(AppFixture.projectorDrill))
+        app.navigate(Destination.SETUP)
+        showApp()
+
+        compose.onNodeWithTag("show-grid").assertIsNotEnabled()
+        compose.onNodeWithTag("grid-reason").assertTextEquals("Stop the drill to show the grid")
+    }
+
+    @Test
+    fun showGridHasNoReasonWhenItCanBeTurnedOn() {
+        app.openArena()
+        app.navigate(Destination.SETUP)
+        showApp()
+
+        compose.onNodeWithTag("show-grid").assertIsEnabled()
+        compose.onNodeWithTag("grid-reason").assertDoesNotExist()
     }
 
     @Test

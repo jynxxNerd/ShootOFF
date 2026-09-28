@@ -176,8 +176,9 @@ class PatternRun<T : Any>(
     }
 
     /**
-     * Stops the run; on the UI thread. Never touches the work itself: a check's `offer` is `synchronized` and can hold its lock for as long as a detection takes (hundreds of milliseconds when
-     * the pattern isn't found), which would freeze the UI thread here (spec §8 rule 6). [finish]'s
+     * Stops the run; on the UI thread. Never touches the work itself: a check's `offer` is `synchronized` and
+     * can hold its lock for as long as a detection takes (hundreds of milliseconds when the pattern isn't
+     * found), which would freeze the UI thread here (spec §8 rule 6). [finish]'s
      * compare-and-set makes the first end final, so a result arriving after this is ignored.
      */
     fun stop() = finish(null)
