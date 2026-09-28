@@ -767,7 +767,7 @@ class AppState(
             is CalibrationCheck.Kept -> {
                 // Kept as saved, or, for a drift within twice the tolerance, at the fresh measurement, which is
                 // then what is remembered
-                val kept = SavedCalibration(saved.camera, saved.feed, saved.screen, outcome.bounds(), saved.paper)
+                val kept = SavedCalibration(saved.camera, saved.feed, saved.screen, outcome.bounds(), saved.paper, saved.manual)
                 calibrationState.value?.applySaved(kept)
                 currentCalibration = kept
                 if (kept.bounds != saved.bounds && settings.rememberCalibration()) {
@@ -796,7 +796,7 @@ class AppState(
             startPatternRun(arena, camera, measurement) { result ->
                 checkState.value = CheckState.Idle
                 if (result is PatternMeasurement.Measured && currentCalibration === calibration && settings.rememberCalibration()) {
-                    val measured = SavedCalibration(calibration.camera, calibration.feed, calibration.screen, result.median(), calibration.paper)
+                    val measured = SavedCalibration(calibration.camera, calibration.feed, calibration.screen, result.median(), calibration.paper, calibration.manual)
                     currentCalibration = measured
                     settings.setSavedCalibration(measured)
                     saveSettings()
@@ -966,7 +966,7 @@ class AppState(
         val screen = placementState.value?.screen
         // Made without a projector screen, a calibration can't be matched to one next time
         currentCalibration = if (camera != null && screen != null) {
-            SavedCalibration(camera.name, Size(camera.feedWidth.toDouble(), camera.feedHeight.toDouble()), Size(screen.width, screen.height), cameraBounds, paper)
+            SavedCalibration(camera.name, Size(camera.feedWidth.toDouble(), camera.feedHeight.toDouble()), Size(screen.width, screen.height), cameraBounds, paper, false)
         } else {
             null
         }

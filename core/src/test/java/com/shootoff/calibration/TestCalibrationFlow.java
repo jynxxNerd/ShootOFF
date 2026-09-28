@@ -348,6 +348,48 @@ class TestCalibrationFlow {
 	}
 
 	@Test
+	void anUnattendedCalibrationThatTimesOutIsCancelledWithoutTheManualBox() {
+		projectorExerciseRunning = true;
+		final CalibrationFlow flow = flow();
+		flow.startUnattended(() -> events.add("not found"));
+		assertTrue(flow.isCalibrating());
+		assertTrue(events.contains("show pattern"));
+		events.clear();
+
+		// Attended calibration's 12 seconds go by: a camera just plugged in may still be settling
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT);
+		assertTrue(flow.isCalibrating());
+		assertEquals(List.of(), events);
+
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED);
+
+		assertFalse(flow.isCalibrating());
+		// Cancelled, as Cancel does it, and only then told; never the box, never the calibrating feed
+		assertEquals(List.of("(UI thread)", "camera stops looking", "hide AUTO_CALIBRATING",
+				"calibrate button calibrating false", "restore selected view", "camera calibrating false",
+				"camera detecting false", "not found"), events);
+		assertFalse(projectorExerciseRunning, "the drill was stopped, not restarted");
+	}
+
+	@Test
+	void anUnattendedCalibrationThatFindsThePatternEndsAsAnyOtherAndTheNextStartIsAttended() {
+		final CalibrationFlow flow = flow();
+		flow.startUnattended(() -> events.add("not found"));
+
+		flow.calibrated(new Rect(100, 50, 400, 300), Optional.empty(), false);
+		assertFalse(flow.isCalibrating());
+		assertTrue(events.contains("calibrated"));
+
+		// Calibrate, pressed afterwards: its timeout opens the box as ever
+		flow.start();
+		events.clear();
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT);
+		assertTrue(flow.isCalibrating());
+		assertTrue(events.contains("show box"));
+		assertFalse(events.contains("not found"));
+	}
+
+	@Test
 	void cancelEndsCalibrationWithNoBackgroundRestoreOrRestartAndReEnablesDetection() {
 		projectorExerciseRunning = true;
 		final CalibrationFlow flow = flow();

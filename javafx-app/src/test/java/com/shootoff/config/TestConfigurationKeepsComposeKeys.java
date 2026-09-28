@@ -23,7 +23,7 @@ class TestConfigurationKeepsComposeKeys {
 	private static final List<String> COMPOSE_KEYS = List.of("shootoff.arena.calibration.remember=true",
 			"shootoff.arena.calibration.camera=C270", "shootoff.arena.calibration.feed=640.0x480.0",
 			"shootoff.arena.calibration.screen=1280.0x720.0",
-			"shootoff.arena.calibration.bounds=100.0,80.0,400.0,300.0",
+			"shootoff.arena.calibration.bounds=100.0,80.0,400.0,300.0", "shootoff.arena.calibration.manual=true",
 			"shootoff.compose.unknown=a key no version of the JavaFX app knows");
 
 	@BeforeAll
@@ -54,5 +54,6 @@ class TestConfigurationKeepsComposeKeys {
 		assertEquals(Optional.of(new Rect(100, 80, 400, 300)),
 				new Configuration(file.getPath(), new String[0]).getSavedCalibration().map(c -> c.bounds()));
 		assertEquals(new Size(1280, 720), config.getSavedCalibration().get().screen());
+		assertTrue(config.getSavedCalibration().get().manual());
 	}
 }

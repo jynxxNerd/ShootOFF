@@ -20,7 +20,7 @@ import com.shootoff.geom.Size;
 
 class TestSavedCalibrationSettings {
 	private static final SavedCalibration SAVED = new SavedCalibration("UVC Camera (046d:0825) /dev/video0",
-			new Size(640, 480), new Size(1280, 720), new Rect(101.5, 80, 400, 300), Optional.of(new Size(11, 8.5)));
+			new Size(640, 480), new Size(1280, 720), new Rect(101.5, 80, 400, 300), Optional.of(new Size(11, 8.5)), false);
 
 	@BeforeAll
 	static void setUpHome() {
@@ -53,6 +53,24 @@ class TestSavedCalibrationSettings {
 
 		assertTrue(read.rememberCalibration());
 		assertEquals(Optional.of(SAVED), read.getSavedCalibration());
+	}
+
+	@Test
+	void aManualBoxIsMarkedAsOneAndAnythingElseIsNot() throws Exception {
+		final File file = ScratchConfig.emptyFile();
+		final Settings written = settings(file);
+		written.setRememberCalibration(true);
+		written.setSavedCalibration(SAVED);
+		written.writeConfigurationFile();
+		assertFalse(Files.readString(file.toPath(), StandardCharsets.ISO_8859_1).contains("shootoff.arena.calibration.manual"));
+
+		final SavedCalibration box = new SavedCalibration(SAVED.camera(), SAVED.feed(), SAVED.screen(), SAVED.bounds(),
+				Optional.empty(), true);
+		written.setSavedCalibration(box);
+		written.writeConfigurationFile();
+
+		assertTrue(Files.readAllLines(file.toPath(), StandardCharsets.ISO_8859_1).contains("shootoff.arena.calibration.manual=true"));
+		assertEquals(Optional.of(box), settings(file).getSavedCalibration());
 	}
 
 	@Test

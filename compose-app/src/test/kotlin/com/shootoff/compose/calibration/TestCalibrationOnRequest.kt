@@ -126,7 +126,7 @@ class TestCalibrationOnRequest {
 
     @Test
     fun aRememberedCalibrationIsAppliedWithoutCalibratingOrReportingASuccess() {
-        val saved = SavedCalibration("C270", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty())
+        val saved = SavedCalibration("C270", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), true)
 
         controller.applySaved(saved)
 

@@ -33,7 +33,7 @@ class TestNothingBlocks {
     fun rule1AtLaunchTheCameraAndTheArenaOpenAndNothingCalibrates() {
         val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
         settings.setRememberCalibration(true)
-        settings.setSavedCalibration(SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty()))
+        settings.setSavedCalibration(SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), true))
         val looked = AtomicLong()
         val app = AppFixture.appWithCamera(settings, detector = {
             looked.incrementAndGet()
@@ -153,7 +153,7 @@ class TestNothingBlocks {
     fun rule3TheCheckRunsOffTheUiThreadAndGivesUpQuietlyAtItsTimeLimit() {
         val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
         settings.setRememberCalibration(true)
-        settings.setSavedCalibration(SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty()))
+        settings.setSavedCalibration(SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), true))
         val now = AtomicLong(0)
         val lookedOn = AtomicReference<Thread>()
         // The projector is off: the pattern is never seen

@@ -39,8 +39,11 @@ import com.shootoff.geom.Size;
  *            the projection on the camera's feed, in feed pixels
  * @param paper
  *            the perspective paper's size, if auto-calibration found one
+ * @param manual
+ *            whether it is a box the user placed by hand; the Compose app remembers only those as bounds, and
+ *            calibrates anew for any other (spec §8 Revision 3)
  */
-public record SavedCalibration(String camera, Size feed, Size screen, Rect bounds, Optional<Size> paper) {
+public record SavedCalibration(String camera, Size feed, Size screen, Rect bounds, Optional<Size> paper, boolean manual) {
 	public SavedCalibration {
 		Objects.requireNonNull(camera, "camera");
 		Objects.requireNonNull(feed, "feed");

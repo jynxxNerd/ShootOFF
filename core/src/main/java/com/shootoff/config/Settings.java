@@ -115,6 +115,8 @@ public class Settings {
 	private static final String SAVED_CALIBRATION_SCREEN_PROP = "shootoff.arena.calibration.screen";
 	private static final String SAVED_CALIBRATION_BOUNDS_PROP = "shootoff.arena.calibration.bounds";
 	private static final String SAVED_CALIBRATION_PAPER_PROP = "shootoff.arena.calibration.paper";
+	// Written only for a manual box; a saved calibration without it (as Plan 7 saved them) isn't one
+	private static final String SAVED_CALIBRATION_MANUAL_PROP = "shootoff.arena.calibration.manual";
 
 	// Every key this class reads; any other key in the file is carried through a save untouched
 	private static final Set<String> KNOWN_KEYS = Set.of(FIRST_RUN_PROP, ERROR_REPORTING_PROP, IPCAMS_PROP,
@@ -125,7 +127,8 @@ public class Settings {
 			PERSPECTIVE_WEBCAM_DISTANCES, CALIBRATED_FEED_BEHAVIOR_PROP, SHOW_ARENA_SHOT_MARKERS,
 			CALIBRATE_AUTO_ADJUST_EXPOSURE, SHOWED_PERSPECTIVE_USAGE_MESSAGE, POI_ADJUSTMENT_X, POI_ADJUSTMENT_Y,
 			REMEMBER_CALIBRATION_PROP, SAVED_CALIBRATION_CAMERA_PROP, SAVED_CALIBRATION_FEED_PROP,
-			SAVED_CALIBRATION_SCREEN_PROP, SAVED_CALIBRATION_BOUNDS_PROP, SAVED_CALIBRATION_PAPER_PROP);
+			SAVED_CALIBRATION_SCREEN_PROP, SAVED_CALIBRATION_BOUNDS_PROP, SAVED_CALIBRATION_PAPER_PROP,
+			SAVED_CALIBRATION_MANUAL_PROP);
 
 	protected static final String MARKER_RADIUS_MESSAGE = "MARKER_RADIUS has an invalid value: %d. Acceptable values are "
 			+ "between 1 and 20.";
@@ -475,7 +478,8 @@ public class Settings {
 			final String paper = prop.getProperty(SAVED_CALIBRATION_PAPER_PROP);
 			return Optional.of(new SavedCalibration(camera, size(feed, "x"), size(screen, "x"),
 					new Rect(b[0], b[1], b[2], b[3]),
-					paper == null ? Optional.empty() : Optional.of(size(paper, ","))));
+					paper == null ? Optional.empty() : Optional.of(size(paper, ",")),
+					Boolean.parseBoolean(prop.getProperty(SAVED_CALIBRATION_MANUAL_PROP))));
 		} catch (final IllegalArgumentException e) {
 			logger.warn("Ignoring the saved calibration, which can't be read: {}", e.getMessage());
 			return Optional.empty();
@@ -600,6 +604,7 @@ public class Settings {
 			prop.setProperty(SAVED_CALIBRATION_BOUNDS_PROP,
 					b.getMinX() + "," + b.getMinY() + "," + b.getWidth() + "," + b.getHeight());
 			saved.paper().ifPresent(paper -> prop.setProperty(SAVED_CALIBRATION_PAPER_PROP, format(paper, ",")));
+			if (saved.manual()) prop.setProperty(SAVED_CALIBRATION_MANUAL_PROP, "true");
 		}
 
 		for (final String key : otherProperties.stringPropertyNames()) {

@@ -47,7 +47,8 @@ import com.shootoff.geom.Size;
  * <li><b>Success</b>: the camera reports the pattern's bounds, which become the arena's projection,
  * and calibration ends.</li>
  * <li><b>Timeout</b>: after 12 seconds the user gets a box to drag over the projection by hand
- * (headless: after 45 seconds calibration ends).</li>
+ * (headless: after 45 seconds calibration ends; unattended: after 30 seconds calibration is cancelled,
+ * see {@link #startUnattended}).</li>
  * <li><b>End</b>: stopping with the box calibrates to it. Then the perspective is worked out, the
  * arena's background comes back, detection resumes after a moment, and the projector exercise that
  * was stopped starts again, last.</li>
@@ -60,6 +61,10 @@ public final class CalibrationFlow {
 
 	public static final long AUTO_CALIBRATION_TIMEOUT = 12 * 1000;
 	public static final long AUTO_CALIBRATION_TIMEOUT_HEADLESS = 45 * 1000;
+	// A camera just plugged in (or just opened) can take 10-15 seconds to settle its exposure, and until then
+	// the pattern may be washed out: an unattended calibration, with no one to press Calibrate again, waits
+	// that out (spec §8 Revision 3)
+	public static final long AUTO_CALIBRATION_TIMEOUT_UNATTENDED = 30 * 1000;
 	// The pattern going away can look like shots
 	public static final long DETECTION_RESTART_DELAY = 600;
 	// Before auto-calibrating once the arena is full screen (ShootOFF issue #444)
@@ -193,6 +198,8 @@ public final class CalibrationFlow {
 	private volatile Future<?> autoCalibrationTimer = null;
 	private volatile Optional<Runnable> restartExercise = Optional.empty();
 	private volatile Optional<Size> perspectivePaperDims = Optional.empty();
+	// Set while an unattended calibration runs (startUnattended): what its timeout runs instead of the box
+	private volatile Optional<Runnable> unattendedTimeout = Optional.empty();
 
 	/**
 	 * @param headlessTimeout
@@ -240,11 +247,29 @@ public final class CalibrationFlow {
 	}
 
 	/**
+	 * Starts calibrating with no one there to drag the manual box (the Compose app calibrating by itself as
+	 * the arena opens). It runs as {@link #start()} does, except when auto-calibration times out, after
+	 * {@link #AUTO_CALIBRATION_TIMEOUT_UNATTENDED}: then calibration is cancelled, as {@link #cancel()} does,
+	 * and <tt>onTimeout</tt> runs, instead of the box being shown. Stopping or cancelling ends it; the next
+	 * {@link #start()} is attended again.
+	 *
+	 * @param onTimeout
+	 *            runs, after the cancel, if the pattern isn't found in time
+	 */
+	public void startUnattended(Runnable onTimeout) {
+		if (isCalibrating()) return;
+
+		unattendedTimeout = Optional.of(onTimeout);
+		setFullScreen(view.isArenaFullScreen());
+	}
+
+	/**
 	 * Ends calibrating: with the manual box's bounds if it is showing, otherwise with the bounds found
 	 * so far (possibly none).
 	 */
 	public void stop() {
 		isCalibrating.set(false);
+		unattendedTimeout = Optional.empty();
 
 		final Optional<Rect> manualBox = view.manualBox();
 		if (manualBox.isPresent()) calibrated(manualBox.get(), Optional.empty(), true);
@@ -288,6 +313,7 @@ public final class CalibrationFlow {
 	 */
 	public void cancel() {
 		isCalibrating.set(false);
+		unattendedTimeout = Optional.empty();
 
 		cancelAutoCalibrationTimer();
 
@@ -419,9 +445,13 @@ public final class CalibrationFlow {
 
 		autoCalibrationTimer = scheduler.schedule(() -> view.runOnUiThread(() -> {
 			if (isCalibrating.get() && isFullScreen) {
+				final Optional<Runnable> unattended = unattendedTimeout;
 				if (headlessTimeout.isPresent()) {
 					headlessTimeout.get().run();
 					stop();
+				} else if (unattended.isPresent()) {
+					cancel();
+					unattended.get().run();
 				} else {
 					camera.disableAutoCalibration();
 					startManualCalibration();
@@ -429,7 +459,13 @@ public final class CalibrationFlow {
 			}
 			// Keep waiting
 			else if (!isFullScreen) launchAutoCalibrationTimer();
-		}), headlessTimeout.isPresent() ? AUTO_CALIBRATION_TIMEOUT_HEADLESS : AUTO_CALIBRATION_TIMEOUT);
+		}), timeout());
+	}
+
+	private long timeout() {
+		if (headlessTimeout.isPresent()) return AUTO_CALIBRATION_TIMEOUT_HEADLESS;
+		if (unattendedTimeout.isPresent()) return AUTO_CALIBRATION_TIMEOUT_UNATTENDED;
+		return AUTO_CALIBRATION_TIMEOUT;
 	}
 
 	private void cancelAutoCalibrationTimer() {

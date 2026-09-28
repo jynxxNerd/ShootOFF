@@ -31,7 +31,7 @@ class TestRememberedCalibration {
     private val file: File = ScratchConfig.emptyFile()
 
     // The owner's projector is the 1280x720 screen; the test camera's feed is 640x480
-    private val saved = SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty())
+    private val saved = SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), true)
 
     // What the fake detector finds in any frame, and the check's clock
     private val seen = AtomicReference<Optional<Rect>>(Optional.empty())
@@ -222,7 +222,7 @@ class TestRememberedCalibration {
         val projector = Rect(4480.0, 0.0, 1280.0, 720.0)
         val feed = Size(640.0, 480.0)
         val savedOnVideo0 = SavedCalibration(
-            "UVC Camera (046d:0825) /dev/video0", feed, Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(),
+            "UVC Camera (046d:0825) /dev/video0", feed, Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), true,
         )
 
         assertNull(savedCalibrationMismatch(savedOnVideo0, "UVC Camera (046d:0825) /dev/video2", feed, projector))
