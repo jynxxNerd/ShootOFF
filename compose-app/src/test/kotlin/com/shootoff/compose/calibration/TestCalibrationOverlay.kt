@@ -103,4 +103,66 @@ class TestCalibrationOverlay {
         compose.onNodeWithTag("calibration-done").performClick()
         assertEquals(Rect(80.0, 77.5, 160.0, 155.0), fixture.arena.projection.value)
     }
+
+    // The owner's box (Plan 8's hardware check): the handles moved about a tenth as far as the mouse. A real mouse
+    // sends many small moves between two frames, and every one of them must count
+    @Test
+    fun aCornerFollowsEveryMoveOfTheMouseNotOnlyTheLastBeforeTheNextFrame() {
+        startOnTheProjector()
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        show()
+
+        // Nothing is drawn (so nothing recomposes) between the moves, as with a fast mouse
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("calibration-corner-bottom-right").performMouseInput {
+            moveTo(center)
+            press()
+            repeat(10) { moveBy(Offset(2f, 1f), delayMillis = 0) }
+            release()
+        }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+
+        // 20 x 10 view pixels are 10 x 5 canvas pixels
+        assertEquals(Rect(75.0, 75.0, 160.0, 155.0), controller.state.value.box)
+    }
+
+    @Test
+    fun theBoxFollowsEveryMoveOfTheMouseToo() {
+        startOnTheProjector()
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        show()
+
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("calibration-box").performMouseInput {
+            moveTo(center)
+            press()
+            repeat(10) { moveBy(Offset(2f, 1f), delayMillis = 0) }
+            release()
+        }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+
+        assertEquals(Rect(85.0, 80.0, 150.0, 150.0), controller.state.value.box)
+    }
+
+    // Held at the canvas's edge while the pointer goes on, the box is back under the pointer when it returns
+    @Test
+    fun theBoxStaysUnderThePointerAfterBeingHeldAtTheCanvasEdge() {
+        startOnTheProjector()
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        show()
+
+        compose.onNodeWithTag("calibration-box").performMouseInput {
+            moveTo(center)
+            press()
+            // 100 canvas pixels left: the box stops at the edge, 75 canvas pixels along
+            moveBy(Offset(-200f, 0f))
+            moveBy(Offset(200f, 0f))
+            release()
+        }
+        compose.waitForIdle()
+
+        assertEquals(Rect(75.0, 75.0, 150.0, 150.0), controller.state.value.box)
+    }
 }

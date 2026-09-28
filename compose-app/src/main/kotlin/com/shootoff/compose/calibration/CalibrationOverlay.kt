@@ -40,7 +40,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -68,7 +67,7 @@ internal const val MIN_BOX = 20.0
 fun CalibrationOverlay(controller: CalibrationController, transform: SurfaceTransform, modifier: Modifier = Modifier) {
     val state by controller.state.collectAsState()
     Box(modifier.fillMaxSize()) {
-        state.box?.let { ManualBox(it, transform, controller::moveBox) }
+        state.box?.let { ManualBox(it, transform, controller) }
 
         val message = state.message
         if (state.calibrating && message != null) {
@@ -99,9 +98,8 @@ fun CalibrationOverlay(controller: CalibrationController, transform: SurfaceTran
 }
 
 @Composable
-private fun ManualBox(box: Rect, transform: SurfaceTransform, onMove: (Rect) -> Unit) {
+private fun ManualBox(box: Rect, transform: SurfaceTransform, controller: CalibrationController) {
     val colors = Range.colors
-    val current by rememberUpdatedState(box)
     val topLeft = transform.toView(box.minX, box.minY)
     val density = LocalDensity.current
     val width = with(density) { (box.width * transform.scale).toFloat().toDp() }
@@ -115,10 +113,7 @@ private fun ManualBox(box: Rect, transform: SurfaceTransform, onMove: (Rect) -> 
             .border(2.dp, colors.accent)
             .testTag("calibration-box")
             .pointerInput(transform) {
-                dragWithoutSlop { drag ->
-                    val b = current
-                    onMove(Rect(b.minX + drag.x / transform.scale, b.minY + drag.y / transform.scale, b.width, b.height))
-                }
+                dragBox(controller, transform) { start, dx, dy -> Rect(start.minX + dx, start.minY + dy, start.width, start.height) }
             },
     ) {
         // Each corner resizes the box from that corner
@@ -135,23 +130,32 @@ private fun ManualBox(box: Rect, transform: SurfaceTransform, onMove: (Rect) -> 
                     .background(colors.accent)
                     .testTag("calibration-corner-${corner.name}")
                     .pointerInput(transform) {
-                        dragWithoutSlop { drag ->
-                            onMove(corner.resize(current, (drag.x / transform.scale).toDouble(), (drag.y / transform.scale).toDouble()))
-                        }
+                        dragBox(controller, transform) { start, dx, dy -> corner.resize(start, dx, dy) }
                     },
             )
         }
     }
 }
 
-// The box follows the pointer from the first pixel: a slop would leave it behind the pointer
-private suspend fun PointerInputScope.dragWithoutSlop(onDrag: (Offset) -> Unit) {
+// Moves or resizes the box with the pointer. Each move places it from where it was as the drag began, by the
+// pointer's whole movement since (in canvas pixels): a fast mouse sends several moves between two frames, and
+// working from the box as last drawn kept only the last of them, so the box moved a fraction of the mouse's
+// movement (the owner's box, Plan 8's hardware check). The box also follows from the first pixel: a slop would
+// leave it behind the pointer.
+private suspend fun PointerInputScope.dragBox(
+    controller: CalibrationController,
+    transform: SurfaceTransform,
+    place: (start: Rect, dx: Double, dy: Double) -> Rect,
+) {
     awaitEachGesture {
         val down = awaitFirstDown()
         down.consume()
+        val start = controller.state.value.box ?: return@awaitEachGesture
+        var moved = Offset.Zero
         drag(down.id) { change ->
-            onDrag(change.positionChange())
+            moved += change.positionChange()
             change.consume()
+            controller.moveBox(place(start, (moved.x / transform.scale).toDouble(), (moved.y / transform.scale).toDouble()))
         }
     }
 }
