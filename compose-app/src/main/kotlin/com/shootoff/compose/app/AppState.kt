@@ -543,6 +543,8 @@ class AppState(
             }
             return false
         }
+        // The lost camera itself, reopened (by the reconnect, or picked again), rather than one opening afresh
+        val cameBack = waitingForState.value?.let { sameCamera(it, manager.camera.name) } == true
         // A camera is open, whichever: the lost one needn't be watched for any more
         stopWatchingForReturn()
         cameras.addStartedCameraManager(manager)
@@ -557,7 +559,7 @@ class AppState(
             // An uncalibrated arena is calibrated (or its remembered box checked) now that there is a camera
             // (spec §8 Revision 3); without the option, Setup's Calibrate step is next
             if (settings.rememberCalibration() && arena.projection.value == null && !checkState.value.showsPattern) {
-                calibrateOrCheck(arena, "the camera came back")
+                calibrateOrCheck(arena, if (cameBack) "the camera came back" else "the camera opened")
             }
         }
         return true
@@ -765,6 +767,8 @@ class AppState(
             calibrationState.value?.startUnattended {
                 logger.info("The pattern wasn't found in {} s: calibration ended", CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED / 1000)
                 checkState.value = CheckState.NotFound
+                calibrationStartedAt = null
+                arenaFilledAt = null
             }
         }
     }
@@ -976,6 +980,8 @@ class AppState(
             logger.info("The owner is attending the automatic calibration")
         } else {
             calibrationStartedAt = checkClock()
+            // When the arena reached the projector says nothing about a calibration the owner starts later
+            arenaFilledAt = null
         }
         // A check under way stops first, putting the arena's background back before calibration saves it
         stopCheckQuietly()
@@ -988,6 +994,12 @@ class AppState(
     /** Cancel: calibration ends, leaving the arena and the camera as they were before it started. */
     fun cancelCalibration() {
         calibrationState.value?.cancel()
+    }
+
+    override fun calibrationCancelled() {
+        logger.info("Calibration cancelled, {} ms after it started", calibrationStartedAt?.let { checkClock() - it })
+        calibrationStartedAt = null
+        arenaFilledAt = null
     }
 
     override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>, byCamera: Boolean) {

@@ -87,3 +87,14 @@ fun calibrationSummary(
         else -> "Not calibrated"
     }
 }
+
+/**
+ * What Range's not-ready card says after its "Calibrate —" step (it shows only with a camera): the summary, except
+ * that a pattern not found says to press the card's own Set up button.
+ */
+fun notReadyCalibrateDetail(arenaOpen: Boolean, calibrating: Boolean, calibrated: Boolean, calibratedAt: LocalTime?, check: CheckState): String =
+    if (arenaOpen && !calibrating && check == CheckState.NotFound) {
+        "the pattern wasn't found. Press Set up to calibrate."
+    } else {
+        calibrationSummary(true, arenaOpen, calibrating, calibrated, calibratedAt, check)
+    }

@@ -66,6 +66,9 @@ interface CalibrationViews {
      * @param byCamera true if the camera found the pattern; false for the manual box
      */
     fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>, byCamera: Boolean)
+
+    /** The owner cancelled a calibration (Setup's Cancel, or the feed's), which left everything as it was. */
+    fun calibrationCancelled() {}
 }
 
 /**
@@ -176,6 +179,7 @@ class CalibrationController(
         if (!flow.isCalibrating) return
         flow.cancel()
         putBack()
+        views.calibrationCancelled()
     }
 
     // Calibration ended without calibrating (Cancel, or an unattended one that didn't find the pattern): the

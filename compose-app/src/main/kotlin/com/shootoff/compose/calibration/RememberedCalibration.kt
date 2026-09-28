@@ -70,7 +70,7 @@ val CheckState.showsPattern: Boolean get() = this == CheckState.Checking || this
 fun CheckState.text(): String? = when (this) {
     CheckState.Idle -> null
     CheckState.WaitingToCalibrate -> "Calibrating once the arena is on the projector…"
-    CheckState.NotFound -> "The pattern wasn't found: not calibrated — calibrate on Setup"
+    CheckState.NotFound -> "The pattern wasn't found: not calibrated"
     CheckState.Checking -> "Checking the saved calibration…"
     is CheckState.Moved -> "The projection moved about $pixels px — recalibrate"
     is CheckState.NotVerified -> when (reason) {

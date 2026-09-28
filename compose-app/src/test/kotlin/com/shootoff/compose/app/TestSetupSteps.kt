@@ -31,7 +31,7 @@ class TestSetupSteps {
             calibrationSummary(true, true, false, false, null, CheckState.WaitingToCalibrate),
         )
         assertEquals(
-            "The pattern wasn't found: not calibrated — calibrate on Setup",
+            "The pattern wasn't found: not calibrated",
             calibrationSummary(true, true, false, false, null, CheckState.NotFound),
         )
         assertEquals("The projection moved about 14 px — recalibrate", calibrationSummary(true, true, false, false, null, CheckState.Moved(14)))
@@ -41,5 +41,18 @@ class TestSetupSteps {
         )
         assertEquals("✓ Calibrated 01:12", calibrationSummary(true, true, false, true, LocalTime.of(1, 12, 40), idle))
         assertEquals("Not calibrated", calibrationSummary(true, true, false, false, null, idle))
+    }
+
+    // The owner's wording (Plan 8's hardware check): the card read "Calibrate — The pattern wasn't found: not
+    // calibrated — calibrate on Setup". The card's own button is Set up, so it says to press that
+    @Test
+    fun theNotReadyCardSaysToPressSetUpWhenThePatternWasntFound() {
+        assertEquals(
+            "the pattern wasn't found. Press Set up to calibrate.",
+            notReadyCalibrateDetail(true, false, false, null, CheckState.NotFound),
+        )
+        // Otherwise it says what Setup and the chip say
+        assertEquals("Not calibrated", notReadyCalibrateDetail(true, false, false, null, CheckState.Idle))
+        assertEquals("No arena", notReadyCalibrateDetail(false, false, false, null, CheckState.Idle))
     }
 }

@@ -197,7 +197,7 @@ fun NotReadyPrompt(app: AppState, modifier: Modifier = Modifier) {
                 val detail = when (step) {
                     Step.CAMERA -> ""
                     Step.PROJECTOR -> if (arena == null) " — not open" else ""
-                    Step.CALIBRATE -> if (state == StepState.DONE) "" else " — " + calibrationSummary(true, arena != null, calibrating, calibrated, calibratedAt, check)
+                    Step.CALIBRATE -> if (state == StepState.DONE) "" else " — " + notReadyCalibrateDetail(arena != null, calibrating, calibrated, calibratedAt, check)
                 }
                 Text(
                     (if (state == StepState.DONE) "✓ " else "•  ") + step.label + detail,
