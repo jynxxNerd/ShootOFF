@@ -5,7 +5,6 @@ import static org.junit.Assert.assertFalse;
 
 import java.awt.Dimension;
 import java.util.Optional;
-import java.util.OptionalDouble;
 import java.util.OptionalInt;
 
 import org.bytedeco.javacpp.Loader;
@@ -102,22 +101,16 @@ public class TestSarxosCaptureCamera {
 		assertFalse(SarxosCaptureCamera.disableDynamicFramerate("/nonexistent/video99"));
 	}
 
-	// The owner's C270 with its lens covered: auto exposure at 1002 (100 ms) at 30 FPS
+	// 10000 (V4L2 exposure units per second) / 30 FPS = 333.3, floored to 333
 	@Test
-	public void testAnExposureLongerThanAFramePeriodIsHeldToOne() {
-		assertEquals(OptionalDouble.of(333), SarxosCaptureCamera.exposureLimit(1002, 30));
+	public void testAFramePeriodAtThirtyFpsIsThreeThirtyThree() {
+		assertEquals(333, SarxosCaptureCamera.framePeriodExposure(30), 0);
 	}
 
-	// The owner's C270 in normal light sits at 336, a hair over the 333 of a frame at 30 FPS: left alone
-	@Test
-	public void testAnExposureAboutAFramePeriodIsLeftAlone() {
-		assertEquals(OptionalDouble.empty(), SarxosCaptureCamera.exposureLimit(336, 30));
-		assertEquals(OptionalDouble.empty(), SarxosCaptureCamera.exposureLimit(120, 30));
-	}
-
+	// An unknown frame rate (0, or NaN/negative) is taken as 30 FPS
 	@Test
 	public void testAnUnknownFrameRateIsTakenAsThirty() {
-		assertEquals(OptionalDouble.of(333), SarxosCaptureCamera.exposureLimit(700, 0));
+		assertEquals(333, SarxosCaptureCamera.framePeriodExposure(0), 0);
 	}
 
 	@Test

@@ -55,9 +55,6 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 	// V4L2's CAP_PROP_EXPOSURE is exposure_time_absolute, in units of 100 µs
 	private static final double V4L2_EXPOSURE_UNITS_PER_SECOND = 10_000;
-	// An exposure this much longer than a frame still keeps the frame rate: the owner's C270 sits at 336 in
-	// normal light, a hair over the 333 of a frame at 30 FPS
-	private static final double EXPOSURE_LIMIT_SLACK = 1.1;
 	// How long after opening the frame rate and exposure are logged, once the camera has settled into them
 	static final long CAPTURE_STATE_LOG_DELAY = 3000;
 
@@ -213,14 +210,11 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	}
 
 	/**
-	 * @return one frame period at <tt>fps</tt> (30 if unknown), in V4L2's exposure units, if <tt>exposure</tt>
-	 *         is longer than that (give or take {@link #EXPOSURE_LIMIT_SLACK}); otherwise empty
+	 * @return one frame period at <tt>fps</tt> (30 if unknown), in V4L2's exposure units
 	 */
-	static OptionalDouble exposureLimit(double exposure, double fps) {
+	static double framePeriodExposure(double fps) {
 		final double framesPerSecond = fps > 0 ? fps : DEFAULT_FPS;
-		final double framePeriod = Math.floor(V4L2_EXPOSURE_UNITS_PER_SECOND / framesPerSecond);
-
-		return exposure > framePeriod * EXPOSURE_LIMIT_SLACK ? OptionalDouble.of(framePeriod) : OptionalDouble.empty();
+		return Math.floor(V4L2_EXPOSURE_UNITS_PER_SECOND / framesPerSecond);
 	}
 
 	/**
@@ -467,12 +461,14 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	public synchronized boolean limitExposureToFramePeriod() {
 		if (!SystemInfo.isLinux() || !isOpen() || manualExposureActive) return false;
 
-		final double exposure = freshExposure();
-		final OptionalDouble limit = exposureLimit(exposure, camera.get(Videoio.CAP_PROP_FPS));
-		if (limit.isEmpty() || !switchToManualExposure()) return false;
+		// Not freshExposure(): the UVC driver's cache can be stale for seconds (freshExposure's own comment), and a
+		// stale reading here is only recorded below to write back later, so a stale ~336 beats a dark 20724 for that
+		final double exposure = camera.get(Videoio.CAP_PROP_EXPOSURE);
+		final double limit = framePeriodExposure(camera.get(Videoio.CAP_PROP_FPS));
+		if (!switchToManualExposure()) return false;
 
-		if (!camera.set(Videoio.CAP_PROP_EXPOSURE, limit.getAsDouble())) {
-			logger.warn("{} wouldn't take a manual exposure of {}; auto exposure again", getName(), limit.getAsDouble());
+		if (!camera.set(Videoio.CAP_PROP_EXPOSURE, limit)) {
+			logger.warn("{} wouldn't take a manual exposure of {}; auto exposure again", getName(), limit);
 			resetExposure();
 			return false;
 		}
@@ -481,8 +477,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		// which would switch the exposure back to auto and so end the hold, isn't needed
 		if (origExposure.isEmpty()) origExposure = Optional.of(exposure);
 
-		logger.info("{} auto exposure was {}, longer than a frame: held at {} by hand while looking for the pattern",
-				getName(), exposure, limit.getAsDouble());
+		logger.info("{} held the exposure at {} by hand while looking for the pattern (auto exposure read {})",
+				getName(), limit, exposure);
 
 		return true;
 	}
