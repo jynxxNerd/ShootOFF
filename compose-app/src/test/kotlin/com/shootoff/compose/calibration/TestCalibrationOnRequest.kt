@@ -174,6 +174,49 @@ class TestCalibrationOnRequest {
         assertEquals(null, arena.background.value)
     }
 
+    // Review fix round 1: the generation half of the guard, not just flow.isCalibrating, must reject a
+    // white request queued for a calibration that Cancel already ended, once a fresh one is running (whose
+    // isCalibrating alone would let it through).
+    @Test
+    fun aQueuedWhiteRequestFromTheCancelledCalibrationNeverShowsOnTheOneStartedAfter() {
+        val uiTasks = mutableListOf<Runnable>()
+        val fixture = CalibrationFixture(uiThread = { uiTasks += it })
+        val controller = fixture.controller
+        val arena = fixture.arena
+
+        arena.setFullScreen(true)
+        controller.start()
+        controller.setArenaBackground("white.png")
+        assertEquals(1, uiTasks.size)
+        val queuedWhite = uiTasks.removeAt(0)
+
+        controller.cancel()
+        controller.start()
+        assertEquals("pattern.png", arena.background.value!!.name)
+
+        // The queued assignment from the cancelled calibration finally runs, mid the new one
+        queuedWhite.run()
+
+        assertEquals("pattern.png", arena.background.value!!.name)
+    }
+
+    // Review fix round 1: a missing resource is checked on the calling thread too (loadResource, not a
+    // decode deferred to the UI thread), so nothing is ever queued for it.
+    @Test
+    fun aMissingResourceIsCheckedOnTheCallingThreadSoNothingIsQueuedForIt() {
+        val uiTasks = mutableListOf<Runnable>()
+        val fixture = CalibrationFixture(uiThread = { uiTasks += it })
+        val controller = fixture.controller
+        val arena = fixture.arena
+
+        arena.setFullScreen(true)
+        controller.start()
+
+        controller.setArenaBackground("no_such.png")
+
+        assertEquals(0, uiTasks.size)
+    }
+
     @Test
     fun cancellingOnAnUncalibratedArenaBringsBackItsLabel() {
         arena.setFullScreen(true)

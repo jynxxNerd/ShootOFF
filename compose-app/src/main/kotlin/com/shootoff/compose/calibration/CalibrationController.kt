@@ -269,12 +269,25 @@ class CalibrationController(
      * calibration ends, so this reaches the arena on the UI thread and only while that same calibration still
      * runs: a request landing after Cancel, the arena closing or a success has put the arena back is dropped,
      * and never leaves the projector white (the owner's white arena, Plan 7's hardware check).
+     *
+     * White.png decodes slowly enough to stall the UI thread (and the exposure step times its next sample
+     * from when this call returns, not from when the decode finishes), so the decode happens here, on the
+     * calling (camera) thread; only the cheap assignment is posted.
      */
     override fun setArenaBackground(resourceFilename: String?) {
         val expectedGeneration = generation
+        if (resourceFilename == null) {
+            uiThread(
+                Runnable {
+                    if (generation == expectedGeneration && flow.isCalibrating) arena.setBackground(null)
+                },
+            )
+            return
+        }
+        val background = arena.loadResource(resourceFilename) ?: return
         uiThread(
             Runnable {
-                if (generation == expectedGeneration && flow.isCalibrating) arena.showResource(resourceFilename)
+                if (generation == expectedGeneration && flow.isCalibrating) arena.setBackground(background)
             },
         )
     }

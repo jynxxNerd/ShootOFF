@@ -114,6 +114,21 @@ class ArenaModel(
     }
 
     /**
+     * Loads one of ShootOFF's own images (the calibration pattern, the exposure step's white screen) without
+     * showing it, so a caller that must not decode on the UI thread (e.g. the camera's thread, ahead of a
+     * cheap [setBackground] posted there) can do the decode itself. Logs and returns null if there is no
+     * such resource, same as [showResource].
+     */
+    fun loadResource(name: String): ArenaBackground? {
+        val stream = ArenaModel::class.java.getResourceAsStream("/" + name.removePrefix("/"))
+        if (stream == null) {
+            logger.error("ShootOFF has no image {}", name)
+            return null
+        }
+        return ArenaBackground.read(stream, name)
+    }
+
+    /**
      * Shows one of ShootOFF's own images as the background (the calibration pattern, the exposure step's
      * white screen), or none for null.
      */
@@ -122,12 +137,7 @@ class ArenaModel(
             setBackground(null)
             return
         }
-        val stream = ArenaModel::class.java.getResourceAsStream("/" + name.removePrefix("/"))
-        if (stream == null) {
-            logger.error("ShootOFF has no image {}", name)
-            return
-        }
-        setBackground(ArenaBackground.read(stream, name))
+        loadResource(name)?.let { setBackground(it) }
     }
 
     fun setProjection(projection: Rect?) {
