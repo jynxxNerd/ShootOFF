@@ -135,6 +135,16 @@ class LayoutMemory(
         return true
     }
 
+    /** Saves at once if a save is waiting for the changes to stop: the app is closing */
+    fun flush() {
+        val waiting = synchronized(lock) {
+            val cancelled = pending?.cancel(false) == true
+            pending = null
+            cancelled
+        }
+        if (waiting) save()
+    }
+
     private fun changedByTheShooter() {
         if (restoring) return
         changed = true

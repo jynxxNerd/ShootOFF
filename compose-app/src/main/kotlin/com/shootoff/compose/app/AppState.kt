@@ -41,6 +41,7 @@ import com.shootoff.compose.calibration.PatternWork
 import com.shootoff.compose.calibration.savedCalibrationMismatch
 import com.shootoff.compose.calibration.showsPattern
 import com.shootoff.compose.calibration.work
+import com.shootoff.compose.courses.LayoutMemory
 import com.shootoff.compose.drill.ArenaHostSurface
 import com.shootoff.compose.drill.ComposeExerciseHost
 import com.shootoff.compose.drill.DrillState
@@ -90,6 +91,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
@@ -183,6 +185,13 @@ class AppState(
 
     /** The Targets screen's state */
     val targetsModel = TargetsModel(arenaLayout, feedTargets, displaySize, arenaFiles, imagePicker, scope, io)
+
+    // Remembers the arena's layout between sessions (spec §5), if there is a file to keep it in
+    private val layoutMemory = arenaFiles.layout?.let { LayoutMemory(arenaLayout, targetsModel.loader, it, TIMER_POOL).also(LayoutMemory::start) }
+
+    // Whether the remembered layout has been restored, or tried, this session: it comes back once
+    private var layoutRestored = false
+    private var layoutWatch: Job? = null
 
     private val arenaState = MutableStateFlow<ArenaModel?>(null)
     private val placementState = MutableStateFlow<ArenaPlacement?>(null)
@@ -753,6 +762,32 @@ class AppState(
 
         cameraState.value?.let { makeCalibratable(arena, it) }
         if (settings.rememberCalibration()) calibrateOrCheck(arena, "the arena opened")
+        restoreLayoutOnceInPlace(arena)
+    }
+
+    // The remembered layout comes back the first time an arena this session is where it stays (spec §5): filling
+    // the projector's screen, so a course saved at another size is scaled to the arena's real one; or, with no
+    // projector screen, at once in its window. Restored off the UI thread: its target images are read.
+    private fun restoreLayoutOnceInPlace(arena: ArenaModel) {
+        val memory = layoutMemory ?: return
+        if (layoutRestored) return
+        val screen = placementState.value?.screen
+        if (screen == null) {
+            layoutRestored = true
+            scope.launch(io) { memory.restore() }
+            return
+        }
+        layoutWatch?.cancel()
+        layoutWatch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            combine(arena.fullScreen, arena.size) { fullScreen, size -> fullScreen && fills(size, screen) }.first { it }
+            uiThread(
+                Runnable {
+                    if (arenaState.value !== arena || layoutRestored) return@Runnable
+                    layoutRestored = true
+                    scope.launch(io) { memory.restore() }
+                },
+            )
+        }
     }
 
     // With the option on, what an uncalibrated arena does (spec §8 Revision 3): a remembered manual box is
@@ -969,6 +1004,7 @@ class AppState(
         calibrationState.value?.arenaClosing()
         forgetCalibrationTimes()
         fullScreenWatch?.cancel()
+        layoutWatch?.cancel()
         calibrationState.value = null
         // The arena goes first, so no projector drill can start on it from here on (newHost finds none);
         // then the one running, if any, stops under the runner's lock, so one started just before can't slip by
@@ -1190,6 +1226,8 @@ class AppState(
         stopWatchingForReturn()
         runner.stop()
         closeArena()
+        // A change still waiting out its quiet time is saved before the app goes
+        layoutMemory?.flush()
         cameras.closeAll()
         scope.cancel()
     }

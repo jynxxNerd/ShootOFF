@@ -35,8 +35,10 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.shootoff.compose.app.AppState
+import com.shootoff.compose.app.ArenaFiles
 import com.shootoff.compose.app.CameraSource
 import com.shootoff.compose.app.ExerciseCatalog
+import com.shootoff.compose.app.ImagePicker
 import com.shootoff.compose.app.PrefsStore
 import com.shootoff.compose.app.UiPrefs
 import com.shootoff.compose.app.WindowBounds
@@ -78,7 +80,15 @@ fun main() {
     val plugins = PluginEngine(catalog, listOf(V2ExerciseLoader()), emptyList())
     plugins.startWatching()
 
-    val app = AppState(settings, catalog, CameraSource.System, prefs = UiPrefs(PrefsStore.User()))
+    val app = AppState(
+        settings,
+        catalog,
+        CameraSource.System,
+        prefs = UiPrefs(PrefsStore.User()),
+        // The arena's layout is remembered in ShootOFF's folder, beside the courses (spec §5)
+        arenaFiles = ArenaFiles.inHome(File(home)),
+        imagePicker = ImagePicker.Awt,
+    )
     Settings.setUserNotifier(app.notices)
     // The camera opens in the background; the arena opens on the projector, if there is one, once the main
     // window below reports where it really landed. The window shows at once and nothing calibrates (spec §8

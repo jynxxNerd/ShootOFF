@@ -74,6 +74,18 @@ class TestLayoutMemory {
     }
 
     @Test
+    fun aSaveWaitingWhenTheAppClosesIsMadeAtOnce() {
+        val layout = layout()
+        val memory = memory(layout)
+        add(layout)
+
+        memory.flush()
+
+        assertTrue(file().isFile)
+        assertTrue(timers.live().isEmpty())
+    }
+
+    @Test
     fun aNewBackgroundIsSaved() {
         val layout = layout()
         memory(layout)
