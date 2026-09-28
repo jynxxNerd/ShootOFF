@@ -237,4 +237,90 @@ class TestTargetEditor {
         assertEquals(5.0 to 0.0, keepOn(Rect(-45.0, 10.0, 50.0, 50.0), surface))
         assertEquals(0.0 to -5.0, keepOn(Rect(10.0, 475.0, 50.0, 50.0), surface))
     }
+
+    @Test
+    fun aSelectedTargetAnExerciseHidesCantBeEditedUntilItShowsAgain() {
+        val target = box()
+        editor.select(target)
+        val initial = bounds(target)
+
+        targets.set.setVisible(target, false)
+
+        editor.nudge(Arrow.RIGHT, resize = false)
+        assertBounds(initial, target)
+
+        assertFalse(editor.startDrag())
+        editor.dragMove(50.0, 50.0)
+        editor.endDrag()
+        assertBounds(initial, target)
+
+        assertFalse(editor.startDrag())
+        editor.dragResize(Corner.BOTTOM_RIGHT, 100.0, 50.0, keepAspect = false)
+        editor.endDrag()
+        assertBounds(initial, target)
+
+        editor.delete()
+        assertTrue(targets.set.get(target).isPresent)
+
+        targets.set.setVisible(target, true)
+        editor.nudge(Arrow.RIGHT, resize = false)
+        assertBounds(Rect(101.0, 100.0, 100.0, 50.0), target)
+    }
+
+    @Test
+    fun aTargetWithoutAreaIsNeverGivenANonFiniteScale() {
+        val target = box()
+        editor.select(target)
+
+        // Hide all regions by disabling the sole one (index 0)
+        targets.set.setRegionVisible(target, 0, false)
+
+        editor.nudge(Arrow.RIGHT, resize = true)
+        val placement1 = targets.set.get(target).get().placement
+        assertTrue(placement1.scaleX().isFinite() && placement1.scaleY().isFinite())
+        assertBounds(bounds(target), target)
+
+        editor.startDrag()
+        editor.dragResize(Corner.BOTTOM_RIGHT, 50.0, 30.0, keepAspect = false)
+        editor.endDrag()
+        val placement2 = targets.set.get(target).get().placement
+        assertTrue(placement2.scaleX().isFinite() && placement2.scaleY().isFinite())
+        assertBounds(bounds(target), target)
+    }
+
+    @Test
+    fun aCornerResizeOfAnAlreadyScaledTargetKeepsTheOppositeCornerStill() {
+        val target = box()
+        editor.select(target)
+
+        // First resize to scale ~1.5
+        editor.startDrag()
+        editor.dragResize(Corner.BOTTOM_RIGHT, 50.0, 50.0, keepAspect = false)
+        editor.endDrag()
+        val firstResize = bounds(target)
+
+        // Second resize from a different corner
+        editor.startDrag()
+        editor.dragResize(Corner.TOP_LEFT, 30.0, 20.0, keepAspect = false)
+        editor.endDrag()
+        val secondResize = bounds(target)
+
+        // The opposite corner (BOTTOM_RIGHT from TOP_LEFT resize) should be unchanged
+        assertEquals(firstResize.maxX, secondResize.maxX, 1e-6)
+        assertEquals(firstResize.maxY, secondResize.maxY, 1e-6)
+
+        // Test with keepAspect too
+        editor.startDrag()
+        editor.dragResize(Corner.TOP_LEFT, -20.0, -20.0, keepAspect = true)
+        editor.endDrag()
+        val withAspect = bounds(target)
+
+        // Opposite corner should still be the same
+        assertEquals(secondResize.maxX, withAspect.maxX, 1e-6)
+        assertEquals(secondResize.maxY, withAspect.maxY, 1e-6)
+        // And aspect should be preserved (width/height ratio should not change drastically)
+        val expectedRatio = secondResize.width / secondResize.height
+        val actualRatio = withAspect.width / withAspect.height
+        assertEquals(expectedRatio, actualRatio, 1e-6)
+    }
 }

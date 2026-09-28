@@ -115,10 +115,11 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
      * A drag of the selected target begins. Each move or resize after it is placed from where the target
      * was now, by the pointer's whole movement since, so moves the UI coalesces are never lost.
      *
-     * @return false if nothing is selected
+     * @return false if nothing is selected or if it can't be edited
      */
     fun startDrag(): Boolean {
         val target = selectedTarget() ?: return false
+        if (!canEdit(target)) return false
         dragStart = target.placement
         dragBounds = target.bounds
         return true
@@ -132,6 +133,7 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
     /** Moves the selected target by ([dx], [dy]) from where the drag began */
     fun dragMove(dx: Double, dy: Double) {
         val target = selectedTarget() ?: return
+        if (!canEdit(target)) return
         val start = dragStart ?: return
         place(target, start.withPosition(start.x() + dx, start.y() + dy))
     }
@@ -143,6 +145,7 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
      */
     fun dragResize(corner: Corner, dx: Double, dy: Double, keepAspect: Boolean) {
         val target = selectedTarget() ?: return
+        if (!canEdit(target)) return
         val start = dragStart ?: return
         val from = dragBounds ?: return
         val minWidth = min(MIN_SIZE, from.width)
@@ -170,6 +173,7 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
      */
     fun nudge(arrow: Arrow, resize: Boolean) {
         val target = selectedTarget() ?: return
+        if (!canEdit(target)) return
         val p = target.placement
         if (!resize) {
             val (dx, dy) = when (arrow) {
@@ -196,8 +200,9 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
 
     /** Removes the selected target */
     fun delete() {
+        val target = selectedTarget() ?: return
+        if (!canEdit(target)) return
         val id = selectedState.value ?: return
-        if (targets.owner(id) != TargetOwner.USER) return
         selectedState.value = null
         targets.remove(id)
     }
@@ -206,6 +211,13 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
         val id = selectedState.value ?: return null
         if (targets.owner(id) != TargetOwner.USER) return null
         return targets.set.get(id).orElse(null)
+    }
+
+    // Checks if the target can be edited: must be visible and have positive width and height
+    private fun canEdit(target: PlacedTarget): Boolean {
+        if (!target.isVisible) return false
+        val bounds = target.bounds
+        return bounds.width > 0 && bounds.height > 0
     }
 
     // The placement that gives [target] the bounds [wanted]: scaled from [from] by the bounds' change, then
