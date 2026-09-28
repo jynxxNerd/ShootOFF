@@ -88,9 +88,8 @@ public interface Camera extends Runnable, Closeable {
 	default void restoreManualExposure(double exposure) {}
 
 	/**
-	 * While auto-calibration looks for the pattern: if automatic exposure has made the exposure longer than a
-	 * frame, which lowers the frame rate in a dark scene, holds it to one frame by hand until
-	 * {@link #releaseExposureLimit()}.
+	 * While auto-calibration looks for the pattern: while automatic exposure is on, holds the exposure at one
+	 * frame period by hand, without reading it first, until {@link #releaseExposureLimit()}.
 	 *
 	 * @return true if the exposure is held now
 	 */
