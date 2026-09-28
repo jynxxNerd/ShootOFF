@@ -775,20 +775,24 @@ public class CameraManager
 	}
 
 	protected void autoCalibrateSuccess(Rect arenaBounds, Optional<Size> paperDims, long delay) {
-		if (isAutoCalibrating.get() && cameraCalibrationListener != null) {
+		// Under the camera's monitor, as disableAutoCalibration is: a Cancel either ends auto-calibration first, and
+		// this does nothing, or waits until the camera is marked calibrated, and then puts the old calibration back
+		// over it (spec §8 Revision 5, decision 2)
+		synchronized (camera) {
+			if (!isAutoCalibrating.get() || cameraCalibrationListener == null) return;
 			isAutoCalibrating.set(false);
-
-			logger.debug("autoCalibrateSuccess {} {} {} {} paper {}", (int) arenaBounds.getMinX(),
-					(int) arenaBounds.getMinY(), (int) arenaBounds.getWidth(), (int) arenaBounds.getHeight(),
-					paperDims.isPresent());
-
 			cameraAutoCalibrated = true;
-			cameraCalibrationListener.calibrate(arenaBounds, paperDims, false, delay);
-
-			if (recordCalibratedArea && !recordingCalibratedArea)
-				startRecordingCalibratedArea(new File("calibratedArea.mp4"), (int) arenaBounds.getWidth(),
-						(int) arenaBounds.getHeight());
 		}
+
+		logger.debug("autoCalibrateSuccess {} {} {} {} paper {}", (int) arenaBounds.getMinX(),
+				(int) arenaBounds.getMinY(), (int) arenaBounds.getWidth(), (int) arenaBounds.getHeight(),
+				paperDims.isPresent());
+
+		cameraCalibrationListener.calibrate(arenaBounds, paperDims, false, delay);
+
+		if (recordCalibratedArea && !recordingCalibratedArea)
+			startRecordingCalibratedArea(new File("calibratedArea.mp4"), (int) arenaBounds.getWidth(),
+					(int) arenaBounds.getHeight());
 	}
 
 	public void enableAutoCalibration(boolean calculateFrameDelay) {
@@ -807,9 +811,15 @@ public class CameraManager
 	}
 
 	public void disableAutoCalibration() {
-		isAutoCalibrating.set(false);
-		// Whatever ended it (the pattern found, Cancel, the time limit), the search's frame-rate limit ends too
-		camera.releaseExposureLimit();
+		// Under the camera's monitor, so an exposure call the calibration has under way ends first, and it makes no
+		// more: Cancel puts the old exposure back (restoreCalibration) only after this (spec §8 Revision 5, decision 2)
+		synchronized (camera) {
+			isAutoCalibrating.set(false);
+			final AutoCalibrationManager acm = this.acm;
+			if (acm != null) acm.stop();
+			// Whatever ended it (the pattern found, Cancel, the time limit), the search's frame-rate limit ends too
+			camera.releaseExposureLimit();
+		}
 	}
 
 	@Override

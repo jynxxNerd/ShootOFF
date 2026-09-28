@@ -418,6 +418,7 @@ public final class CalibrationFlow {
 	 * The arena window is closing: its projection is gone.
 	 */
 	public void arenaClosing() {
+		unattendedTimeout = Optional.empty();
 		camera.setProjectionBounds(null);
 	}
 

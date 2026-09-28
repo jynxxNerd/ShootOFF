@@ -53,6 +53,7 @@ class TestStepAdjustExposure {
 
 	private final ExposureCamera camera = new ExposureCamera();
 	private final List<String> backgrounds = new CopyOnWriteArrayList<>();
+	private AutoCalibrationManager manager;
 	private AutoCalibrationManager.AutoCalStep step;
 
 	@BeforeAll
@@ -62,7 +63,7 @@ class TestStepAdjustExposure {
 
 	@BeforeEach
 	void setUp() {
-		final AutoCalibrationManager manager = new AutoCalibrationManager(new CameraCalibrationListener() {
+		manager = new AutoCalibrationManager(new CameraCalibrationListener() {
 			@Override
 			public void calibrate(Rect arenaBounds, Optional<Size> paper, boolean calibratedFromCanvas, long delay) {}
 
@@ -131,5 +132,21 @@ class TestStepAdjustExposure {
 		frame(166, 140);
 
 		assertEquals(1, camera.decreases);
+	}
+
+	// Cancel (spec §8 Revision 5, decision 2): the step of a calibration that has ended no longer touches the exposure
+	// Cancel put back, whatever frames still reach it
+	@Test
+	void theStepOfAStoppedCalibrationLeavesTheExposureAlone() {
+		frame(0, 40);
+		frame(33, 130);
+
+		manager.stop();
+		frame(66, 131);
+		frame(166, 118);
+		frame(AutoCalibrationManager.WHITE_SCREEN_TIMEOUT + 100, 40);
+
+		assertEquals(0, camera.decreases);
+		assertEquals(0, camera.resets);
 	}
 }

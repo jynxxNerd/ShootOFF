@@ -99,6 +99,11 @@ public class AutoCalibrationManager {
 		return ((StepFindPaperPattern) stepFindPaperPattern).paperDimensions;
 	}
 
+	// Set once auto-calibration ends (CameraManager.disableAutoCalibration), under the camera's monitor: from then on
+	// this calibration neither changes the camera's exposure nor reports a pattern it finds (spec §8 Revision 5,
+	// decision 2)
+	private volatile boolean stopped = false;
+
 	protected AutoCalStep stepFindBounds = null;
 	protected AutoCalStep stepFindDelay = null;
 	protected AutoCalStep stepFindPaperPattern = null;
@@ -137,6 +142,17 @@ public class AutoCalibrationManager {
 			logger.error("getBoundsResult called when boundsResult==null, isCalibrated {}", isCalibrated);
 
 		return ((StepFindBounds) stepFindBounds).boundsResult;
+	}
+
+	/**
+	 * Auto-calibration has ended (found, cancelled, timed out): a frame still being processed changes nothing on the
+	 * camera from here on. Takes the camera's monitor, so it waits for an exposure call already under way; that is
+	 * only ever a few V4L2 calls, never a look for the pattern.
+	 */
+	public void stop() {
+		synchronized (camera) {
+			stopped = true;
+		}
 	}
 
 	public void reset() {
@@ -180,7 +196,7 @@ public class AutoCalibrationManager {
 				break;
 			}
 		}
-		if (isFinished()) calibrationListener.calibrate(((StepFindBounds) stepFindBounds).boundsResult,
+		if (isFinished() && !stopped) calibrationListener.calibrate(((StepFindBounds) stepFindBounds).boundsResult,
 				((StepFindPaperPattern) stepFindPaperPattern).paperDimensions, false,
 				((StepFindDelay) stepFindDelay).frameDelayResult);
 
@@ -232,7 +248,9 @@ public class AutoCalibrationManager {
 
 			// A dark scene lengthens automatic exposure and drops the frame rate, slowing the search (spec §8
 			// Revision 4, decision 3); held to a frame until auto-calibration stops (CameraManager)
-			camera.limitExposureToFramePeriod();
+			synchronized (camera) {
+				if (!stopped) camera.limitExposureToFramePeriod();
+			}
 
 			Imgproc.equalizeHist(frame.getOriginalMat(), frame.getOriginalMat());
 
@@ -460,10 +478,11 @@ public class AutoCalibrationManager {
 				return;
 			}
 
+			final double brightness = Core.mean(frame.getOriginalMat()).val[0];
+
 			// The baseline is the white screen's brightness, so it waits for the white to reach the camera: the
 			// arena, the projector and the camera can take several frames to show it (spec §8 Revision 4, decision 2)
 			if (origMean == 0) {
-				final double brightness = Core.mean(frame.getOriginalMat()).val[0];
 				if (!whiteScreenSettled(brightness, frame.getTimestamp())) {
 					lastMean = brightness;
 					return;
@@ -473,33 +492,39 @@ public class AutoCalibrationManager {
 
 			if (frame.getTimestamp() - lastSample < SAMPLE_DELAY) return;
 
-			final Scalar mean = Core.mean(frame.getOriginalMat());
-			if (origMean == 0) origMean = mean.val[0];
+			if (origMean == 0) origMean = brightness;
 
-			logger.trace("{} {}", mean.val[0], TARGET_THRESH);
+			logger.trace("{} {}", brightness, TARGET_THRESH);
 
-			if (mean.val[0] > TARGET_THRESH) {
-				if (!camera.decreaseExposure()) completed = true;
-			} else {
-				completed = true;
-			}
+			// Its calls on the camera take the camera's monitor, as the end of auto-calibration does, and are made only
+			// while this calibration runs: Cancel ends it before putting the old exposure back, so a frame still here
+			// can't lower or reset that exposure afterwards (spec §8 Revision 5, decision 2)
+			synchronized (camera) {
+				if (stopped) return;
 
-			if (logger.isTraceEnabled()) {
-				String filename = String.format("exposure-%d.png", lastSample);
-				final File file = new File(filename);
-				filename = file.toString();
-				Imgcodecs.imwrite(filename, frame.getOriginalMat());
-			}
-
-			tries++;
-			if (tries == NUM_TRIES) completed = true;
-
-			if (completed) {
-				if (mean.val[0] > origMean * .95 || mean.val[0] < .6 * TARGET_THRESH) {
-					camera.resetExposure();
-					logger.info("Failed to adjust exposure, mean originally {} lowest {}", origMean, mean.val[0]);
+				if (brightness > TARGET_THRESH) {
+					if (!camera.decreaseExposure()) completed = true;
 				} else {
-					logger.info("Exposure lowered to {} mean from {}", mean.val[0], origMean);
+					completed = true;
+				}
+
+				if (logger.isTraceEnabled()) {
+					String filename = String.format("exposure-%d.png", lastSample);
+					final File file = new File(filename);
+					filename = file.toString();
+					Imgcodecs.imwrite(filename, frame.getOriginalMat());
+				}
+
+				tries++;
+				if (tries == NUM_TRIES) completed = true;
+
+				if (completed) {
+					if (brightness > origMean * .95 || brightness < .6 * TARGET_THRESH) {
+						camera.resetExposure();
+						logger.info("Failed to adjust exposure, mean originally {} lowest {}", origMean, brightness);
+					} else {
+						logger.info("Exposure lowered to {} mean from {}", brightness, origMean);
+					}
 				}
 			}
 

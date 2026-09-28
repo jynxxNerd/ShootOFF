@@ -446,6 +446,18 @@ class TestCalibrationFlow {
 				timers.stream().map(Timer::delayMillis).toList());
 	}
 
+	// Plan 8's Task 1 minor: the arena closing ends an unattended calibration's unattendedness itself, not only
+	// through the cancel the Compose app runs first
+	@Test
+	void theArenaClosingEndsAnUnattendedCalibrationsTimeoutToo() {
+		final CalibrationFlow flow = flow();
+		flow.startUnattended(() -> events.add("not found"));
+
+		flow.arenaClosing();
+
+		assertFalse(flow.isUnattended());
+	}
+
 	@Test
 	void anUnattendedCalibrationThatFindsThePatternEndsAsAnyOtherAndTheNextStartIsAttended() {
 		final CalibrationFlow flow = flow();

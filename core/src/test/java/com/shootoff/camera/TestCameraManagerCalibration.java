@@ -46,6 +46,9 @@ class TestCameraManagerCalibration {
 		final List<String> exposure = new CopyOnWriteArrayList<>();
 		// Runs while the limit is being taken, to land a race with something else on the exposure in the middle
 		Runnable onLimit = () -> {};
+		// Whether the exposure step runs, and what runs while it lowers the exposure
+		boolean adjustable = false;
+		Runnable onDecrease = () -> {};
 
 		@Override
 		public OptionalDouble manualExposure() {
@@ -79,7 +82,15 @@ class TestCameraManagerCalibration {
 		@Override
 		public boolean supportsExposureAdjustment() {
 			exposure.add("probe");
-			return false;
+			return adjustable;
+		}
+
+		@Override
+		public boolean decreaseExposure() {
+			exposure.add("lowering");
+			onDecrease.run();
+			exposure.add("lowered");
+			return true;
 		}
 	}
 
@@ -264,6 +275,90 @@ class TestCameraManagerCalibration {
 		manager.restoreCalibration(saved);
 
 		assertDoesNotThrow(() -> manager.processFrame(new Frame(frame(new Rect(100, 80, 420, 296)), 1000), true));
+	}
+
+	// A plain white camera frame, as the exposure step's white screen looks
+	private static BufferedImage white() {
+		final BufferedImage frame = new BufferedImage(640, 480, BufferedImage.TYPE_3BYTE_BGR);
+		final Graphics2D g = frame.createGraphics();
+		g.setColor(Color.WHITE);
+		g.fillRect(0, 0, 640, 480);
+		g.dispose();
+		return frame;
+	}
+
+	// Plan 9's final review, minor 1: a frame still in the exposure step as Cancel lands lowered the exposure just
+	// after Cancel had put the old one back. Cancel now waits for a camera call under way, and none starts after it
+	// (spec §8 Revision 5, decision 2).
+	@Test
+	void anExposureStepCallUnderWayAtCancelEndsBeforeTheExposureIsPutBack() throws Exception {
+		final CalibrationCamera.Saved saved = manager.saveCalibration();
+		camera.adjustable = true;
+		manager.enableAutoCalibration(false);
+		final Thread[] cancel = new Thread[1];
+		camera.onDecrease = () -> {
+			// Cancel, on the UI thread, while the camera's thread is lowering the exposure
+			cancel[0] = new Thread(() -> {
+				manager.disableAutoCalibration();
+				manager.restoreCalibration(saved);
+			});
+			cancel[0].start();
+			try {
+				cancel[0].join(200);
+			} catch (final InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		};
+
+		// The pattern, then the paper step's frames, then the exposure step's white screen until it lowers the exposure
+		manager.processFrame(new Frame(frame(new Rect(100, 80, 420, 296)), 1000), true);
+		final BufferedImage white = white();
+		for (long timestamp = 1100; !camera.exposure.contains("lowering") && timestamp < 5000; timestamp += 100)
+			manager.processFrame(new Frame(white, timestamp), true);
+		cancel[0].join();
+
+		// The exposure lowered, then put back ("auto": it exposed automatically before), never the other way round
+		final List<String> exposure = camera.exposure;
+		assertTrue(exposure.indexOf("lowered") < exposure.lastIndexOf("auto"), exposure.toString());
+	}
+
+	// The same gap in the success: the pattern found just as Cancel lands must not mark the camera calibrated again
+	// after Cancel put the old calibration back
+	@Test
+	void aPatternFoundAsCancelLandsWaitsForCancelAndThenChangesNothing() throws Exception {
+		final CalibrationCamera.Saved saved = manager.saveCalibration();
+		manager.enableAutoCalibration(false);
+
+		final Thread success = new Thread(
+				() -> manager.autoCalibrateSuccess(new Rect(100, 80, 420, 296), Optional.empty(), 0));
+		// Cancel holds the camera while it ends auto-calibration and puts the calibration back
+		synchronized (camera) {
+			success.start();
+			success.join(200);
+			manager.disableAutoCalibration();
+			manager.restoreCalibration(saved);
+		}
+		success.join();
+
+		assertFalse(manager.cameraAutoCalibrated);
+		assertTrue(found.isEmpty(), found.toString());
+	}
+
+	// Cancel, then Calibrate again, while the cancelled calibration's last look is still under way: what that look
+	// goes on to find is not the new calibration's
+	@Test
+	void aStoppedCalibrationReportsNothingItFindsLater() throws IOException {
+		manager.enableAutoCalibration(false);
+		final AutoCalibrationManager cancelled = manager.acm;
+		manager.disableAutoCalibration();
+		manager.enableAutoCalibration(false);
+
+		final BufferedImage image = frame(new Rect(100, 80, 420, 296));
+		for (long timestamp = 1000; timestamp < 5000; timestamp += 300)
+			cancelled.processFrame(new Frame(image, timestamp));
+
+		assertTrue(found.isEmpty(), found.toString());
+		assertFalse(manager.cameraAutoCalibrated);
 	}
 
 	// Cancel pressed while the camera's thread is still looking at a frame (a look takes 400-500 ms): whatever that
