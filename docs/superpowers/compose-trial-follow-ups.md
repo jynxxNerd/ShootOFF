@@ -95,3 +95,16 @@ Collected from the Plan 5 to 10 ledgers (branch `compose-ui`, HEAD f028b8e5) and
 - **`placeMainWindow`** clamps onto the first overlapping screen, not the largest overlap. `autoPlaceArena` logs an extra error if the main window is off-screen (S).
 - **App exit** leaves the device open (JavaFX parity). A stale `OpenView` stays live until its IO job hits the generation check (unreachable in production).
 - **`onlyIf` path match** for compose-app run from inside the module dir (build script, S). `openArenaAtLaunch` is not `@Volatile` (`AppState.kt:699`). Non-volatile `frameCount` in `CalculatedFPSCamera`. Stale or overlong comments and KDoc: the `RememberedCalibration` POLL_MILLIS wording, the "release re-check" comment, `calibratedAt` doc vs a remembered calibration, and the "within 2 px" prose vs the 5 px `DEFAULT_TOLERANCE`.
+
+## Plan 11: target placement (deferred minors)
+
+- **For the exercise-port spec:** exercises get `Handle`s to the shooter's targets too. A move or resize an exercise makes to one is counted as the shooter's change and saved into `arena-layout.course`, and a shooter's target an exercise left hidden can't be selected or deleted until Clear or a restart (visibility isn't saved).
+- **Edits during the launch restore** made with the mouse or keys (not the toolbar) aren't counted while `LayoutMemory.restoring` is set; the window is the time to read the course's target images.
+- **Quitting mid-turn:** `flush()` on close doesn't wait for a toolbar turn under way (a Load course or Clear), or for a save already running before `TimerPool.close()`.
+- **The Undo offer** outlives its 8 s if the shooter leaves the Targets screen (the timer lives in the screen); it restarts on return.
+- **Screen size kept after the arena closes:** reopening it on a different-sized screen mid-session relabels the remembered layout at the new resolution without rescaling.
+- The Targets preview shows calibration's own background while it isn't `covered`; AppState's timer never returns null, so LayoutMemory's "can't be scheduled" warning is dead; lasting-size listeners notify outside the lock (harmless).
+- Background URLs that are relative and not resources no longer resolve (JavaFX resolved them against the classpath).
+- Custom targets with non-resizable regions scale approximately under a corner drag; a thin target can't shrink with Ctrl held; the editor's listener is never removed.
+- The AWT file dialog for "An image file…" runs modally on the UI thread; two quick saves of one new name both pass the "already exists" check; the Save panel's Cancel has no test tag; `ArenaFiles.scratch()` leaves temp folders.
+- Tests: the Targets screen has no UI test for Ctrl aspect lock, the other corners, or removal mid-drag; the right-button test and a few ordering tests guard rather than prove; `Thread.sleep(100)` negative checks in `TestRememberedLayout`; one tautological `assertBounds` in `TestTargetEditor`; `ArenaCanvas.kt` has a 155-character KDoc line.
