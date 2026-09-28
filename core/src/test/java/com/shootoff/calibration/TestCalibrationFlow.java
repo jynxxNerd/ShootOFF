@@ -35,6 +35,7 @@ class TestCalibrationFlow {
 
 	private final class FakeCamera implements CalibrationCamera {
 		Optional<Rect> projectionBounds = Optional.of(new Rect(1, 2, 3, 4));
+		boolean patternFound = false;
 
 		@Override
 		public String getName() {
@@ -80,6 +81,11 @@ class TestCalibrationFlow {
 		@Override
 		public void disableAutoCalibration() {
 			events.add("camera stops looking");
+		}
+
+		@Override
+		public boolean isPatternFound() {
+			return patternFound;
 		}
 
 		@Override
@@ -339,6 +345,53 @@ class TestCalibrationFlow {
 				"camera stops looking", "calibrate button calibrating false", "hide MANUAL_REQUEST",
 				"restore selected view", "calibrated", "restore background", "camera calibrating false",
 				"camera detecting false", "arena shots visible false"), events);
+	}
+
+	// Plan 8's final review: a pattern found just before the time limit was thrown away while the steps after it
+	// (the paper, the exposure) still ran; the exposure step now waits for its white screen, so they take longer
+	@Test
+	void aPatternFoundJustBeforeTheTimeoutGetsTimeToFinishInsteadOfTheBox() {
+		final CalibrationFlow flow = flow();
+		flow.setFullScreen(true);
+		camera.patternFound = true;
+		events.clear();
+
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT);
+		assertEquals(List.of("(UI thread)"), events);
+		assertTrue(flow.isCalibrating());
+
+		// The steps after it finish in time
+		flow.calibrated(new Rect(100, 50, 400, 300), Optional.empty(), false);
+		runTimers(CalibrationFlow.PATTERN_FOUND_GRACE);
+
+		assertFalse(flow.isCalibrating());
+		assertFalse(events.contains("show box"));
+	}
+
+	@Test
+	void aPatternFoundWhoseLastStepsNeverFinishStillReachesTheBoxAfterTheGrace() {
+		final CalibrationFlow flow = flow();
+		flow.setFullScreen(true);
+		camera.patternFound = true;
+
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT);
+		runTimers(CalibrationFlow.PATTERN_FOUND_GRACE);
+
+		assertTrue(events.contains("show box"));
+	}
+
+	@Test
+	void anUnattendedCalibrationWhosePatternWasFoundIsNotCancelledAtItsTimeout() {
+		final CalibrationFlow flow = flow();
+		flow.startUnattended(() -> events.add("not found"));
+		camera.patternFound = true;
+
+		runTimers(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED);
+		assertTrue(flow.isCalibrating());
+
+		runTimers(CalibrationFlow.PATTERN_FOUND_GRACE);
+		assertFalse(flow.isCalibrating());
+		assertTrue(events.contains("not found"));
 	}
 
 	@Test

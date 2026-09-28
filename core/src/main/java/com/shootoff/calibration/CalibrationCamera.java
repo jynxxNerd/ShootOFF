@@ -59,6 +59,12 @@ public interface CalibrationCamera {
 
 	void disableAutoCalibration();
 
+	/**
+	 * @return true once auto-calibration has found the pattern and is finishing the steps after it (the paper,
+	 *         the exposure), until it reports success or is turned off
+	 */
+	boolean isPatternFound();
+
 	void setCropFeedToProjection(boolean cropFeed);
 
 	void setLimitDetectProjection(boolean limitDetection);

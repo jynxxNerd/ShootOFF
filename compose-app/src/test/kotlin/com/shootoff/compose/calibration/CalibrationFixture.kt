@@ -62,6 +62,8 @@ class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }
             events += "auto off"
         }
 
+        override fun isPatternFound() = false
+
         override fun setCropFeedToProjection(cropFeed: Boolean) {}
 
         override fun setLimitDetectProjection(limitDetection: Boolean) {}

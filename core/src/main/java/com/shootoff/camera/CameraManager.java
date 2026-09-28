@@ -625,7 +625,10 @@ public class CameraManager
 
 	protected BufferedImage processFrame(Frame currentFrame, boolean shouldDedistort) {
 		if (isAutoCalibrating.get()) {
-			acm.processFrame(currentFrame);
+			// Read once: Cancel on a camera that was never calibrated can restore acm to null between the
+			// isAutoCalibrating check above and this read (restoreCalibration, which sets acm before the flag)
+			final AutoCalibrationManager acm = this.acm;
+			if (acm != null) acm.processFrame(currentFrame);
 			return currentFrame.getOriginalBufferedImage();
 		}
 
@@ -794,6 +797,12 @@ public class CameraManager
 
 	public void disableAutoCalibration() {
 		isAutoCalibrating.set(false);
+	}
+
+	@Override
+	public boolean isPatternFound() {
+		final AutoCalibrationManager acm = this.acm;
+		return isAutoCalibrating.get() && acm != null && acm.patternFound();
 	}
 
 	// What saveCalibration saves: the auto-calibration manager holds the perspective warp and the paper size

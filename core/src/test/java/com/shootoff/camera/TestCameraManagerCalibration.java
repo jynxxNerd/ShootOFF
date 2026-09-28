@@ -1,5 +1,6 @@
 package com.shootoff.camera;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -140,6 +141,21 @@ class TestCameraManagerCalibration {
 		assertEquals(bounds, manager.getProjectionBounds());
 	}
 
+	// Calibration's time limit gives a pattern found just before it time to finish (spec §8 Revision 4, decision 2)
+	@Test
+	void thePatternIsFoundFromTheFrameThatFindsItUntilAutoCalibrationStops() throws IOException {
+		manager.enableAutoCalibration(false);
+		assertFalse(manager.isPatternFound());
+
+		// One frame finds the pattern; the paper step, which takes the next frames, hasn't run yet
+		manager.processFrame(new Frame(frame(new Rect(100, 80, 420, 296)), 1000), true);
+		assertTrue(manager.isPatternFound());
+		assertFalse(manager.cameraAutoCalibrated);
+
+		manager.disableAutoCalibration();
+		assertFalse(manager.isPatternFound());
+	}
+
 	@Test
 	void restoringPutsBackTheExposureTheExposureStepHadSet() {
 		camera.manual = OptionalDouble.of(120);
@@ -174,6 +190,18 @@ class TestCameraManagerCalibration {
 		assertFalse(manager.cameraAutoCalibrated);
 		assertNull(manager.acm);
 		assertEquals(Optional.empty(), manager.getProjectionBounds());
+	}
+
+	// Task 1's review: a Cancel on a camera that was never calibrated restores acm to null (restoreCalibration
+	// puts back the null saveCalibration saw) without clearing isAutoCalibrating; a frame arriving in between,
+	// as the camera's thread can, must not throw when processFrame reads isAutoCalibrating then acm
+	@Test
+	void aFrameArrivingAfterCancelRestoresANeverCalibratedAcmToNullDoesNotThrow() throws IOException {
+		final CalibrationCamera.Saved saved = manager.saveCalibration();
+		manager.enableAutoCalibration(false);
+		manager.restoreCalibration(saved);
+
+		assertDoesNotThrow(() -> manager.processFrame(new Frame(frame(new Rect(100, 80, 420, 296)), 1000), true));
 	}
 
 	// Cancel pressed while the camera's thread is still looking at a frame (a look takes 400-500 ms): whatever that

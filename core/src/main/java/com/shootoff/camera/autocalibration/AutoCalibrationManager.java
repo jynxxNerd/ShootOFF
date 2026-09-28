@@ -85,6 +85,14 @@ public class AutoCalibrationManager {
 
 	private final TermCriteria term = new TermCriteria(TermCriteria.EPS | TermCriteria.MAX_ITER, 60, 0.0001);
 
+	// The exposure step's white screen has reached the camera once a frame is this many grey levels brighter
+	// than the blank arena was when the white was asked for...
+	static final double WHITE_SCREEN_RISE = 20;
+	// ...and has stopped brightening: a frame at most this much brighter than the one before it
+	static final double WHITE_SCREEN_SETTLED = 1.02;
+	// How long to wait for that before measuring anyway, in the frames' own time
+	static final long WHITE_SCREEN_TIMEOUT = 2000;
+
 	/* Paper Pattern */
 
 	public Optional<Size> getPaperDimensions() {
@@ -115,6 +123,13 @@ public class AutoCalibrationManager {
 
 	public Mat getPerspMat() {
 		return perspMat;
+	}
+
+	/**
+	 * @return true once the pattern has been found, while the steps after it (the paper, the exposure) finish
+	 */
+	public boolean patternFound() {
+		return stepFindBounds.completed();
 	}
 
 	public Rect getBoundsResult() {
@@ -400,6 +415,11 @@ public class AutoCalibrationManager {
 		private boolean patternSet = false;
 		private long lastSample = 0;
 		private double origMean = 0;
+		// When the white screen was asked for, how bright the blank arena was then, and the last frame's brightness
+		// while waiting for the white to reach the camera
+		private long whiteRequestedAt = 0;
+		private double blankMean = 0;
+		private double lastMean = 0;
 
 		@Override
 		public void reset() {
@@ -408,6 +428,9 @@ public class AutoCalibrationManager {
 			lastSample = 0;
 			origMean = 0;
 			tries = 0;
+			whiteRequestedAt = 0;
+			blankMean = 0;
+			lastMean = 0;
 		}
 
 		@Override
@@ -422,14 +445,29 @@ public class AutoCalibrationManager {
 
 		@Override
 		public void process(Frame frame) {
+			if (completed) return;
+
 			if (!patternSet) {
 				calibrationListener.setArenaBackground("white.png");
 				patternSet = true;
-				lastSample = System.currentTimeMillis();
+				whiteRequestedAt = frame.getTimestamp();
+				blankMean = Core.mean(frame.getOriginalMat()).val[0];
+				lastMean = blankMean;
 				return;
 			}
 
-			if (completed || (System.currentTimeMillis() - lastSample) < SAMPLE_DELAY) return;
+			// The baseline is the white screen's brightness, so it waits for the white to reach the camera: the
+			// arena, the projector and the camera can take several frames to show it (spec §8 Revision 4, decision 2)
+			if (origMean == 0) {
+				final double brightness = Core.mean(frame.getOriginalMat()).val[0];
+				if (!whiteScreenSettled(brightness, frame.getTimestamp())) {
+					lastMean = brightness;
+					return;
+				}
+				lastSample = frame.getTimestamp() - SAMPLE_DELAY;
+			}
+
+			if (frame.getTimestamp() - lastSample < SAMPLE_DELAY) return;
 
 			final Scalar mean = Core.mean(frame.getOriginalMat());
 			if (origMean == 0) origMean = mean.val[0];
@@ -461,9 +499,29 @@ public class AutoCalibrationManager {
 				}
 			}
 
-			lastSample = System.currentTimeMillis();
+			lastSample = frame.getTimestamp();
 		}
 
+		// Whether the white screen shows on the camera: a frame clearly brighter than the blank arena, no longer
+		// getting brighter; or, once WHITE_SCREEN_TIMEOUT has passed, whatever the camera sees by then
+		private boolean whiteScreenSettled(double brightness, long timestamp) {
+			final long waited = timestamp - whiteRequestedAt;
+			final double white = blankMean + WHITE_SCREEN_RISE;
+
+			if (brightness >= white && lastMean >= white && brightness <= lastMean * WHITE_SCREEN_SETTLED) {
+				logger.info("The white screen reached the camera after {} ms: mean {} from {} blank", waited, brightness,
+						blankMean);
+				return true;
+			}
+
+			if (waited >= WHITE_SCREEN_TIMEOUT) {
+				logger.info("The white screen didn't reach the camera in {} ms (mean {} from {} blank); measuring anyway",
+						waited, brightness, blankMean);
+				return true;
+			}
+
+			return false;
+		}
 	}
 
 	private List<MatOfPoint2f> findPatterns(Mat mat, boolean findMultiple) {

@@ -48,7 +48,8 @@ import com.shootoff.geom.Size;
  * and calibration ends.</li>
  * <li><b>Timeout</b>: after 12 seconds the user gets a box to drag over the projection by hand
  * (headless: after 45 seconds calibration ends; unattended: after 30 seconds calibration is cancelled,
- * see {@link #startUnattended}).</li>
+ * see {@link #startUnattended}). A pattern the camera has already found by then gets
+ * {@link #PATTERN_FOUND_GRACE} more for the steps after it.</li>
  * <li><b>End</b>: stopping with the box calibrates to it. Then the perspective is worked out, the
  * arena's background comes back, detection resumes after a moment, and the projector exercise that
  * was stopped starts again, last.</li>
@@ -65,6 +66,9 @@ public final class CalibrationFlow {
 	// the pattern may be washed out: an unattended calibration, with no one to press Calibrate again, waits
 	// that out (spec §8 Revision 3)
 	public static final long AUTO_CALIBRATION_TIMEOUT_UNATTENDED = 30 * 1000;
+	// A pattern the camera found just before the time limit: the steps after it (the paper, the exposure) get this
+	// much longer to finish before the limit applies (spec §8 Revision 4, decision 2)
+	public static final long PATTERN_FOUND_GRACE = 5 * 1000;
 	// The pattern going away can look like shots
 	public static final long DETECTION_RESTART_DELAY = 600;
 	// Before auto-calibrating once the arena is full screen (ShootOFF issue #444)
@@ -200,6 +204,8 @@ public final class CalibrationFlow {
 	private volatile Optional<Size> perspectivePaperDims = Optional.empty();
 	// Set while an unattended calibration runs (startUnattended): what its timeout runs instead of the box
 	private volatile Optional<Runnable> unattendedTimeout = Optional.empty();
+	// Whether this search for the pattern has had its PATTERN_FOUND_GRACE already
+	private volatile boolean graceGiven = false;
 
 	/**
 	 * @param headlessTimeout
@@ -458,14 +464,26 @@ public final class CalibrationFlow {
 
 		showMessage(Message.AUTO_CALIBRATING);
 
+		graceGiven = false;
 		launchAutoCalibrationTimer();
 	}
 
 	private void launchAutoCalibrationTimer() {
+		launchAutoCalibrationTimer(timeout());
+	}
+
+	private void launchAutoCalibrationTimer(long delayMillis) {
 		cancelAutoCalibrationTimer();
 
 		autoCalibrationTimer = scheduler.schedule(() -> view.runOnUiThread(() -> {
 			if (isCalibrating.get() && isFullScreen) {
+				// The pattern was found just now: its last steps finish first
+				if (!graceGiven && camera.isPatternFound()) {
+					graceGiven = true;
+					launchAutoCalibrationTimer(PATTERN_FOUND_GRACE);
+					return;
+				}
+
 				final Optional<Runnable> unattended = unattendedTimeout;
 				if (headlessTimeout.isPresent()) {
 					headlessTimeout.get().run();
@@ -480,7 +498,7 @@ public final class CalibrationFlow {
 			}
 			// Keep waiting
 			else if (!isFullScreen) launchAutoCalibrationTimer();
-		}), timeout());
+		}), delayMillis);
 	}
 
 	private long timeout() {
