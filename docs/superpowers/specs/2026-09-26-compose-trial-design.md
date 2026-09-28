@@ -402,3 +402,25 @@ Adds:
 #### Delivery
 
 **Plan 9** implements this revision on `compose-ui`. The owner then repeats a short hardware check of each item.
+
+### Revision 5 (2026-09-28): tightening after the Plan 9 hardware check
+
+Plan 9's hardware re-check passed every item. The owner approved four small follow-ups from it; Plan 9's ledger (its "Task 7" lines) and `build/plan9-compose-run.log` have the evidence. This revision supersedes the conflicting parts of Revision 4, decision 3.
+
+1. **The exposure is held from the moment the search starts, on a fresh reading.**
+   - *The finding.* With the lens covered, the C270's auto exposure reached 20724 (about 2 s a frame), and the hold at one frame period came 6–10 s after the search started, after "Current webcam FPS … too low" had fired.
+   - *The cause.* The hold was decided only at each look for the pattern, and each look read an exposure the Linux UVC driver had cached: `exposure_time_absolute` is re-read from the camera only after a control on the same unit is written, or when the camera reports a change. The looks read the stale 336 until the real value arrived.
+   - *The fix.* The hold is decided as soon as auto-calibration starts looking, before the exposure step's first probe of the camera, and again at each look, as before. Each decision reads the exposure afresh: `exposure_dynamic_framerate` (on the same unit) is written back with its own value first, which makes the driver ask the camera. It stays Linux (V4L2) only, and applies only when auto exposure is longer than a frame period.
+2. **Cancel can't be undone by a frame still in the exposure step.** A frame the camera's thread was still processing could lower or reset the exposure just after Cancel had put the old one back, and a pattern found at that moment could mark the camera calibrated again. The exposure step's calls on the camera and the end of auto-calibration now take turns: once auto-calibration has ended, that calibration touches the camera no more. Nothing here waits for a look for the pattern, only for a camera call already under way.
+3. **Show grid says why it is off.** When the switch is disabled, a short reason sits beside it: "Not while calibrating" (including while an automatic calibration waits for the projector), "Not while checking the saved calibration", or "Stop the drill to show the grid".
+4. **The log is accurate.** The "3 s after opening" line gives the frame rate measured from the frames since the camera opened, and the exposure read afresh. "Since the pattern first showed" counts from when the pattern actually showed, and an arena closed mid-calibration leaves nothing behind for the next one.
+
+#### Success criteria (revision 5)
+
+Criterion 17 now reads: "With the projector's lens covered, the exposure is held within about a second of the search starting, and no low frame rate warning appears." Adds:
+
+19. With Show grid disabled, Setup says why.
+
+#### Delivery
+
+**Plan 10** implements this revision on `compose-ui`. The owner then repeats a short hardware check.
