@@ -175,6 +175,51 @@ class TestTargetsScreen {
         assertEquals(Rect(200.0, 100.0, 150.0, 120.0), bounds(target))
     }
 
+    // The handle moves as the target resizes, so its pointer positions must be followed as changes
+    @Test
+    fun aCornerDraggedInManySmallStepsFollowsThePointer() {
+        val target = square(200.0, 100.0)
+        showEditor()
+        compose.onNodeWithTag("editing-surface").performMouseInput { click(Offset(125f, 75f)) }
+
+        compose.onNodeWithTag("handle-BOTTOM_RIGHT").performMouseInput {
+            moveTo(center)
+            press()
+            moveBy(Offset(1f, 1f))
+        }
+        repeat(10) {
+            compose.onNodeWithTag("handle-BOTTOM_RIGHT").performMouseInput { moveBy(Offset(5f, 3f)) }
+            compose.waitForIdle()
+        }
+        compose.onNodeWithTag("handle-BOTTOM_RIGHT").performMouseInput { moveBy(Offset(-1f, -1f)); release() }
+        compose.waitForIdle()
+
+        val b = bounds(target)
+        assertEquals(200.0, b.width, 0.5)
+        assertEquals(160.0, b.height, 0.5)
+    }
+
+    @Test
+    fun aTargetDraggedInManySmallStepsFollowsThePointer() {
+        val target = square(200.0, 100.0)
+        showEditor()
+
+        compose.onNodeWithTag("editing-surface").performMouseInput {
+            moveTo(Offset(125f, 75f))
+            press()
+        }
+        repeat(10) {
+            compose.onNodeWithTag("editing-surface").performMouseInput { moveBy(Offset(5f, 3f)) }
+            compose.waitForIdle()
+        }
+        compose.onNodeWithTag("editing-surface").performMouseInput { release() }
+        compose.waitForIdle()
+
+        val b = bounds(target)
+        assertEquals(300.0, b.minX, 0.5)
+        assertEquals(160.0, b.minY, 0.5)
+    }
+
     @Test
     fun theKeysNudgeResizeRemoveAndDeselectTheSelectedTarget() {
         val target = square(200.0, 100.0)

@@ -55,6 +55,7 @@ import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isPrimaryPressed
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
@@ -161,20 +162,22 @@ fun EditingOverlay(targets: SurfaceTargets, editor: TargetEditor, transform: Sur
 // Follows a drag to its end, giving [moved] the pointer's whole movement since it went down, in surface units:
 // a fast mouse sends several moves between two frames, and each is placed from where the drag began. Nothing
 // moves until the pointer has travelled past the touch slop, so a click that wobbles a little is only a click.
+// After the slop the movement is added up change by change, not measured from the down: a handle's positions
+// are its own, and it moves as the target resizes.
 private suspend fun AwaitPointerEventScope.followDrag(
     down: PointerInputChange,
     transform: SurfaceTransform,
     moved: AwaitPointerEventScope.(dx: Double, dy: Double) -> Unit,
 ) {
-    fun report(at: Offset) {
-        val total = at - down.position
-        moved((total.x / transform.scale).toDouble(), (total.y / transform.scale).toDouble())
-    }
+    var total = Offset.Zero
+    fun report() = moved((total.x / transform.scale).toDouble(), (total.y / transform.scale).toDouble())
     val pastSlop = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return
-    report(pastSlop.position)
+    total = pastSlop.position - down.position
+    report()
     drag(down.id) { change ->
+        total += change.positionChange()
         change.consume()
-        report(change.position)
+        report()
     }
 }
 
