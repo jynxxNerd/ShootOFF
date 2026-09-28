@@ -57,7 +57,7 @@ Where the spec leaves room, the plan decides as follows. Each ruling gives the d
 7. **Editing details.** Hit-testing and handles use the target's bounds. A corner drag keeps the opposite corner still; with Ctrl it keeps the shape, following whichever side changed more. Shift+arrow resizes about the centre, as the JavaFX app did. A resize stops at 10 units a side (or the target's size, if smaller). A drag is placed from where it began by the pointer's whole movement, as the calibration box learned in Plan 8. The clamp (spec §4) shifts the target back after every change. *Cost:* the numbers are the owner's to change (`TargetEditor.KEEP_ON`, `STEP`, `MIN_SIZE`).
 8. **A new target lands at its natural size in the surface's middle and is selected**, except one whose `.target` asks to fill the canvas (the POI adjustment target), which fills it, as it always has. Add target lists the `.target` files at the top of `targets/` (not its subfolders), as the JavaFX app's Add Target did. *Cost:* none.
 9. **The toolbar's dialogs are panels beside the surface,** not windows: they can be tested, and don't stack windows on the projector's desktop. The one exception is "An image file…", which opens AWT's file dialog. Load course lists the `.course` files in `courses/` and its subfolders (grouped by folder, as the JavaFX slide did), leaving out hidden files. Save course takes a name, saves to `courses/<name>.course`, and asks "There is already a course named X. Replace it?" before replacing one. *Cost:* a course elsewhere on disk can't be loaded from the screen.
-10. **A course without a background leaves the arena without one.** Spec §4: Load course "replaces … the background with the course's". The JavaFX app kept the old background. A background that can't be read is reported and leaves none. *Cost:* a shooter who liked the old behaviour picks the background again after loading.
+10. **A course without a background keeps the current one (owner's ruling, 2026-09-28), as the JavaFX app did.** A course's background that can't be read is reported and also keeps the current one. Only a course with a readable background replaces it. *Cost:* none; the owner chose it.
 11. **Messages go in the screen's own banner** (the feed's `BannerView`, dismissible), not in the app-wide snackbars: a target or course that can't be read (ERROR), a course loaded without some targets (WARNING, naming them), a save (INFO or ERROR). The launch restore only logs (spec §6). *Cost:* none.
 12. **Clear's Undo is offered for 8 s** (`UNDO_MILLIS`), and the offer ends at the next toolbar action. Clear with nothing to clear offers nothing. *Cost:* the length is the owner's to change.
 13. **Files are written safely.** `CourseLoader.save` writes a hidden `.name.course` beside the file and moves it over, so a failed write leaves the old file (the remembered layout included) whole. `core`'s `XMLCourseWriter` now escapes `&`, `<`, `>` and `"` in its attribute values: a background picked from a folder named "Range & Bay" would otherwise make the whole layout unreadable, and the arena would start empty. The format is unchanged; the JavaFX app's courses gain the same fix.
@@ -69,7 +69,6 @@ Where the spec leaves room, the plan decides as follows. Each ruling gives the d
 
 **For the owner to decide** (none blocks the plan):
 - The numbers in ruling 7 and the 8 s Undo.
-- Whether a course without a background should keep the current one, as the old app did (ruling 10).
 
 ## Global Constraints
 
@@ -1997,6 +1996,7 @@ import com.shootoff.targets.model.TargetDefinitions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -2133,16 +2133,19 @@ class TestCourseLoader {
     }
 
     @Test
-    fun aCourseReplacesTheBackgroundAndOneItCantReadLeavesNoneAndIsNamed() {
-        layout.setBackground(loader.readBackground(CourseBackground("/arena/backgrounds/indoor_range.gif", true)))
+    fun aCourseWithoutAReadableBackgroundKeepsTheCurrentOneAndOneItCantReadIsNamed() {
+        val current = loader.readBackground(CourseBackground("/arena/backgrounds/indoor_range.gif", true))
+        layout.setBackground(current)
 
         loader.apply(Course(Optional.empty(), emptyList(), Optional.empty()), layout)
-        assertNull(layout.background.value)
+        assertSame(current, layout.background.value)
 
-        layout.setBackground(loader.readBackground(CourseBackground("/arena/backgrounds/indoor_range.gif", true)))
         val applied = loader.apply(Course(Optional.of(CourseBackground("/arena/backgrounds/no_such.gif", true)), emptyList(), Optional.empty()), layout)
-        assertNull(layout.background.value)
+        assertSame(current, layout.background.value)
         assertEquals("/arena/backgrounds/no_such.gif", applied.backgroundMissing)
+
+        loader.apply(Course(Optional.of(CourseBackground("/arena/backgrounds/outdoor_range.gif", true)), emptyList(), Optional.empty()), layout)
+        assertEquals("/arena/backgrounds/outdoor_range.gif", layout.background.value?.source?.url())
     }
 
     @Test
@@ -2289,9 +2292,10 @@ class CourseLoader(private val home: File) {
     private val logger = LoggerFactory.getLogger(CourseLoader::class.java)
 
     /**
-     * Replaces the shooter's targets and background with [course]'s. A course saved at another arena size is
-     * scaled to [layout]'s, by width and height separately. A target file that can't be loaded is skipped,
-     * and a background that can't be read leaves the arena without one; both are reported.
+     * Replaces the shooter's targets with [course]'s, and the background too when the course has one it can
+     * read (a course without one, or with one that can't be read, keeps the current background, as the JavaFX
+     * app did). A course saved at another arena size is scaled to [layout]'s, by width and height separately.
+     * A target file that can't be loaded is skipped, and a background that can't be read is reported.
      */
     fun apply(course: Course, layout: ArenaLayout): CourseApplied {
         val targets = layout.targets
@@ -2299,7 +2303,7 @@ class CourseLoader(private val home: File) {
 
         val background = course.background.orElse(null)
         val image = background?.let(::readBackground)
-        layout.setBackground(image)
+        if (image != null) layout.setBackground(image)
 
         val arena = layout.size.value
         val resolution = course.resolution.orElse(null)
