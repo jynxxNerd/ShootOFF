@@ -10,7 +10,9 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -123,6 +125,40 @@ class TestTargetsScreen {
     }
 
     @Test
+    fun aClickThatWobblesALittleSelectsWithoutMoving() {
+        val target = square(200.0, 100.0)
+        showEditor()
+
+        compose.onNodeWithTag("editing-surface").performMouseInput {
+            moveTo(Offset(125f, 75f))
+            press()
+            moveBy(Offset(2f, 0f))
+            release()
+        }
+        compose.waitForIdle()
+
+        assertEquals(target, editor.selected.value)
+        assertEquals(Rect(200.0, 100.0, 100.0, 100.0), bounds(target))
+    }
+
+    @Test
+    fun aRightButtonDragMovesNothing() {
+        val target = square(200.0, 100.0)
+        showEditor()
+
+        compose.onNodeWithTag("editing-surface").performMouseInput {
+            moveTo(Offset(125f, 75f))
+            press(MouseButton.Secondary)
+            moveBy(Offset(40f, 0f))
+            release(MouseButton.Secondary)
+        }
+        compose.waitForIdle()
+
+        assertNull(editor.selected.value)
+        assertEquals(Rect(200.0, 100.0, 100.0, 100.0), bounds(target))
+    }
+
+    @Test
     fun draggingACornerHandleResizesTheTarget() {
         val target = square(200.0, 100.0)
         showEditor()
@@ -188,7 +224,7 @@ class TestTargetsScreen {
         app.navigate(Destination.TARGETS)
         compose.setContent { RangeTheme(dark = true) { ShootOffApp(app) } }
 
-        compose.onNodeWithTag("calibrating-note").assertExists()
+        compose.onNodeWithTag("calibrating-note").assertExists().assertTextEquals(CALIBRATING_NOTE)
         val pixels = compose.onNodeWithTag("targets-arena").captureToImage().toPixelMap()
         var red = 0
         for (x in 0 until pixels.width) for (y in 0 until pixels.height) if (pixels[x, y] == Color.Red) red++

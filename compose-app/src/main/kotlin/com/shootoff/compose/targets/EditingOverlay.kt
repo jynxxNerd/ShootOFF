@@ -23,6 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,10 +52,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
-import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -90,11 +91,12 @@ fun EditingOverlay(targets: SurfaceTargets, editor: TargetEditor, transform: Sur
             .pointerInput(transform) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
+                    if (!currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
                     focus.requestFocus()
                     editor.click(transform.toSurface(down.position))
                     if (!editor.startDrag()) return@awaitEachGesture
                     down.consume()
-                    followDrag(down.id, transform) { dx, dy -> editor.dragMove(dx, dy) }
+                    followDrag(down, transform) { dx, dy -> editor.dragMove(dx, dy) }
                     editor.endDrag()
                 }
             },
@@ -139,9 +141,10 @@ fun EditingOverlay(targets: SurfaceTargets, editor: TargetEditor, transform: Sur
                                     awaitEachGesture {
                                         val down = awaitFirstDown()
                                         down.consume()
+                                        if (!currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
                                         focus.requestFocus()
                                         if (!editor.startDrag()) return@awaitEachGesture
-                                        followDrag(down.id, transform) { dx, dy ->
+                                        followDrag(down, transform) { dx, dy ->
                                             editor.dragResize(corner, dx, dy, keepAspect = currentEvent.keyboardModifiers.isCtrlPressed)
                                         }
                                         editor.endDrag()
@@ -156,17 +159,22 @@ fun EditingOverlay(targets: SurfaceTargets, editor: TargetEditor, transform: Sur
 }
 
 // Follows a drag to its end, giving [moved] the pointer's whole movement since it went down, in surface units:
-// a fast mouse sends several moves between two frames, and each is placed from where the drag began
+// a fast mouse sends several moves between two frames, and each is placed from where the drag began. Nothing
+// moves until the pointer has travelled past the touch slop, so a click that wobbles a little is only a click.
 private suspend fun AwaitPointerEventScope.followDrag(
-    pointer: PointerId,
+    down: PointerInputChange,
     transform: SurfaceTransform,
     moved: AwaitPointerEventScope.(dx: Double, dy: Double) -> Unit,
 ) {
-    var total = Offset.Zero
-    drag(pointer) { change ->
-        total += change.positionChange()
-        change.consume()
+    fun report(at: Offset) {
+        val total = at - down.position
         moved((total.x / transform.scale).toDouble(), (total.y / transform.scale).toDouble())
+    }
+    val pastSlop = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return
+    report(pastSlop.position)
+    drag(down.id) { change ->
+        change.consume()
+        report(change.position)
     }
 }
 
