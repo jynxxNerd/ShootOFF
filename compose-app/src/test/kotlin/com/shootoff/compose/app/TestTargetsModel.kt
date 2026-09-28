@@ -12,6 +12,9 @@ import com.shootoff.geom.Size
 import com.shootoff.targets.model.Placement
 import com.shootoff.targets.model.ResourceResolver
 import com.shootoff.targets.model.TargetDefinitions
+import com.shootoff.targets.model.TargetSetListener
+import com.shootoff.targets.model.PlacedTarget
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Path
+import kotlin.coroutines.CoroutineContext
 import javax.imageio.ImageIO
 
 class TestTargetsModel {
@@ -265,5 +269,130 @@ class TestTargetsModel {
         model.clear()
 
         assertNull(model.undo.value)
+    }
+
+    // Everything waits in a queue until the test runs it, as the shooter's clicks would while file work is going on
+    private class Queue : CoroutineDispatcher() {
+        val waiting = ArrayDeque<Runnable>()
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            waiting.addLast(block)
+        }
+
+        fun runAll() {
+            while (waiting.isNotEmpty()) waiting.removeFirst().run()
+        }
+    }
+
+    private fun queuedModel(queue: Queue) = TargetsModel(
+        layout,
+        feed,
+        Size(640.0, 480.0),
+        ArenaFiles(home, File(temp.toFile(), "targets").apply { mkdirs() }, File(temp.toFile(), "courses"), null),
+        { picked },
+        CoroutineScope(Dispatchers.Unconfined),
+        queue,
+    )
+
+    private fun course(name: String, target: String): CourseChoice {
+        val file = File(temp.toFile(), "courses/$name.course").apply { parentFile.mkdirs() }
+        file.writeText(
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <course>
+            	<target file="targets/$target.target" x="10" y="20" width="10" height="1" />
+            	<resolution width="1280" height="720" />
+            </course>
+            """.trimIndent(),
+        )
+        return CourseChoice(file, name, "")
+    }
+
+    @Test
+    fun aClearPressedWhileACourseLoadsTakesTheLoadedTargetsAndUndoBringsThemBack() {
+        reset()
+        val queue = Queue()
+        val queued = queuedModel(queue)
+
+        queued.loadCourse(course("mine", "Reset"))
+        queued.clear()
+        queue.runAll()
+
+        assertTrue(layout.targets.set.targets.isEmpty())
+        queued.undoClear()
+        queue.runAll()
+        assertEquals(1, shooters().size)
+        assertEquals(10.0, shooters().single().bounds.width, 0.001)
+    }
+
+    @Test
+    fun twoLoadsInARowLeaveOnlyTheSecondCourse() {
+        val queue = Queue()
+        val queued = queuedModel(queue)
+
+        queued.loadCourse(course("first", "Reset"))
+        queued.loadCourse(course("second", "Steel_Challenge_Circle"))
+        queue.runAll()
+
+        assertEquals(1, shooters().size)
+        assertEquals(1.0, shooters().single().bounds.height, 0.001)
+    }
+
+    @Test
+    fun aBackgroundPickedBeforeAClearIsClearedToo() {
+        val queue = Queue()
+        val queued = queuedModel(queue)
+
+        queued.useBackground(BUNDLED_BACKGROUNDS.first())
+        queued.clear()
+        queue.runAll()
+
+        assertNull(layout.background.value)
+        queued.undoClear()
+        queue.runAll()
+        assertEquals(CourseBackground(BUNDLED_BACKGROUNDS.first().resource, true), layout.background.value!!.source)
+    }
+
+    @Test
+    fun aNameStartingWithADotIsRefusedAndACourseSuffixIsntDoubled() {
+        assertEquals(SaveOutcome.BAD_NAME, model.saveCourse("."))
+        assertEquals(SaveOutcome.BAD_NAME, model.saveCourse(".."))
+        assertEquals(SaveOutcome.BAD_NAME, model.saveCourse(".hidden"))
+
+        assertEquals(SaveOutcome.SAVING, model.saveCourse("Nice.COURSE"))
+
+        assertTrue(File(temp.toFile(), "courses/Nice.course").exists())
+        assertFalse(File(temp.toFile(), "courses/Nice.COURSE.course").exists())
+        assertEquals("Saved the course Nice.", model.message.value!!.text)
+    }
+
+    @Test
+    fun savingEndsTheUndoOffer() {
+        reset()
+        model.clear()
+
+        model.saveCourse("Mine")
+
+        assertNull(model.undo.value)
+    }
+
+    @Test
+    fun aTargetIsAddedWhereItStaysWithoutBeingMovedAfterwards() {
+        var changes = 0
+        var added: PlacedTarget? = null
+        layout.targets.set.addListener(object : TargetSetListener {
+            override fun targetAdded(target: PlacedTarget) {
+                added = target
+            }
+
+            override fun targetChanged(target: PlacedTarget) {
+                changes++
+            }
+        })
+
+        model.addTarget(targetFile("box"))
+
+        assertEquals(0, changes)
+        assertEquals(Rect(590.0, 335.0, 100.0, 50.0), added!!.bounds)
     }
 }

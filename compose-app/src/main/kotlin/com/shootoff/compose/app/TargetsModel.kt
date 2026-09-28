@@ -34,12 +34,17 @@ import com.shootoff.targets.model.ResourceResolver
 import com.shootoff.targets.model.TargetDefinition
 import com.shootoff.targets.model.TargetDefinitions
 import com.shootoff.targets.model.TargetFormatException
+import com.shootoff.targets.model.TargetSet
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
@@ -72,7 +77,9 @@ enum class SaveOutcome {
  * edits, each surface's [TargetEditor], and the toolbar's actions. Only the shooter's targets
  * ([TargetOwner.USER]) are added, cleared, loaded or saved; a running exercise's are left alone.
  *
- * The actions are called on the UI thread; reading files and images happens on [io].
+ * The actions are called on the UI thread and run one at a time, in the order they were asked for (a Clear
+ * pressed while a course loads takes the loaded targets off); their work, including reading files and
+ * images, happens on [io].
  *
  * @param layout the shooter's arena, open or not
  * @param feedTargets the camera feed's targets, kept for the session only
@@ -96,6 +103,9 @@ class TargetsModel(
     private val messageState = MutableStateFlow<Banner?>(null)
     private val undoState = MutableStateFlow<Cleared?>(null)
     private val nextMessage = AtomicLong()
+
+    // Fair, so actions get their turn in the order they were asked for
+    private val turns = Mutex()
 
     /** The surface being edited */
     val surface: StateFlow<EditedSurface> = surfaceState.asStateFlow()
@@ -124,47 +134,40 @@ class TargetsModel(
      */
     fun addTarget(choice: TargetChoice) {
         val surface = surfaceState.value
-        dropUndo()
-        scope.launch(io) {
+        inOrder {
+            endUndoOffer()
             val definition = try {
                 TargetDefinitions.load(choice.file.toPath())
             } catch (e: TargetFormatException) {
                 say("Couldn't load the target ${choice.name}: ${e.message}", BannerKind.ERROR)
-                return@launch
+                return@inOrder
             }
             val targets = targets(surface)
             val size = if (surface == EditedSurface.ARENA) layout.size.value else feedSize
-            val target = targets.add(definition, ResourceResolver.files(), Placement.ORIGIN, TargetOwner.USER)
-            if (definition.fillsCanvas()) {
-                targets.set.resize(target.id, size.width, size.height)
-            }
-            val bounds = targets.set.get(target.id).get().bounds
-            val (x, y) = if (definition.fillsCanvas()) {
-                0.0 to 0.0
-            } else {
-                (size.width - bounds.width) / 2 to (size.height - bounds.height) / 2
-            }
-            val placement = targets.set.get(target.id).get().placement
-            targets.set.move(target.id, placement.x() + x - bounds.minX, placement.y() + y - bounds.minY)
+            val target = targets.add(definition, ResourceResolver.files(), placedInMiddle(definition, size), TargetOwner.USER)
             editor(surface).select(target.id)
         }
     }
 
     /** Puts up one of ShootOFF's backgrounds, or none for null */
     fun useBackground(background: BundledBackground?) {
-        dropUndo()
-        if (background == null) {
-            layout.setBackground(null)
-            return
+        inOrder {
+            endUndoOffer()
+            if (background == null) {
+                layout.setBackground(null)
+            } else {
+                readBackground(CourseBackground(background.resource, true), background.name)
+            }
         }
-        readBackground(CourseBackground(background.resource, true), background.name)
     }
 
     /** Asks for an image file and puts it up as the background; cancelling leaves the background as it was */
     fun pickBackground() {
         val file = picker.pick() ?: return
-        dropUndo()
-        readBackground(CourseBackground(file.toURI().toString(), false), file.name)
+        inOrder {
+            endUndoOffer()
+            readBackground(CourseBackground(file.toURI().toString(), false), file.name)
+        }
     }
 
     /**
@@ -172,13 +175,13 @@ class TargetsModel(
      * the arena as it was; one with missing target files loads the rest and names them.
      */
     fun loadCourse(choice: CourseChoice) {
-        dropUndo()
-        arenaEditor.deselect()
-        scope.launch(io) {
+        inOrder {
+            endUndoOffer()
+            arenaEditor.deselect()
             val course = CourseIO.loadCourse(choice.file).orElse(null)
             if (course == null) {
                 say("Couldn't read the course ${choice.name}; the arena is as it was.", BannerKind.ERROR)
-                return@launch
+                return@inOrder
             }
             val applied = loader.apply(course, layout)
             val problems = buildList {
@@ -195,12 +198,14 @@ class TargetsModel(
      * @param replace whether a course of that name may be replaced (the shooter said yes)
      */
     fun saveCourse(name: String, replace: Boolean = false): SaveOutcome {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty() || trimmed.contains('/') || trimmed.contains('\\')) return SaveOutcome.BAD_NAME
+        // A trailing ".course" is the file's, not part of the name
+        val trimmed = name.trim().let { if (it.endsWith(".course", ignoreCase = true)) it.dropLast(".course".length) else it }
+        if (trimmed.isEmpty() || trimmed.startsWith('.') || trimmed.contains('/') || trimmed.contains('\\')) return SaveOutcome.BAD_NAME
         val file = File(files.courses, "$trimmed.course")
         if (file.exists() && !replace) return SaveOutcome.EXISTS
-        val course = loader.course(layout)
-        scope.launch(io) {
+        inOrder {
+            endUndoOffer()
+            val course = loader.course(layout)
             files.courses.mkdirs()
             if (loader.save(course, file)) {
                 say("Saved the course $trimmed.", BannerKind.INFO)
@@ -214,21 +219,26 @@ class TargetsModel(
     /** Takes the shooter's targets (and, on the arena, the background) off the surface being edited, offering Undo */
     fun clear() {
         val surface = surfaceState.value
-        val targets = targets(surface)
-        val shooters = targets.targetsOf(TargetOwner.USER)
-        val background = if (surface == EditedSurface.ARENA) layout.background.value else null
-        if (shooters.isEmpty() && background == null) return
-        undoState.value = Cleared(surface, shooters.map { it.definition to it.placement }, background)
-        for (target in shooters) targets.remove(target.id)
-        if (surface == EditedSurface.ARENA) layout.setBackground(null)
+        inOrder {
+            val targets = targets(surface)
+            val shooters = targets.targetsOf(TargetOwner.USER)
+            val background = if (surface == EditedSurface.ARENA) layout.background.value else null
+            if (shooters.isEmpty() && background == null) {
+                endUndoOffer()
+                return@inOrder
+            }
+            undoState.value = Cleared(surface, shooters.map { it.definition to it.placement }, background)
+            for (target in shooters) targets.remove(target.id)
+            if (surface == EditedSurface.ARENA) layout.setBackground(null)
+        }
     }
 
     /** Puts back what the last Clear took off, while its Undo is offered */
     fun undoClear() {
-        val cleared = undoState.value ?: return
-        undoState.value = null
-        if (cleared.surface == EditedSurface.ARENA) layout.setBackground(cleared.background)
-        scope.launch(io) {
+        inOrder {
+            val cleared = undoState.value ?: return@inOrder
+            undoState.value = null
+            if (cleared.surface == EditedSurface.ARENA) layout.setBackground(cleared.background)
             val targets = targets(cleared.surface)
             for ((definition, placement) in cleared.targets) targets.add(definition, ResourceResolver.files(), placement, TargetOwner.USER)
         }
@@ -236,17 +246,42 @@ class TargetsModel(
 
     /** The Undo offer ran out */
     fun dropUndo() {
+        inOrder { endUndoOffer() }
+    }
+
+    private fun endUndoOffer() {
         undoState.value = null
     }
 
+    // Runs [work] on io once every action asked for before it has finished. The turn is taken on the calling
+    // thread, so it is the order of the calls that counts, not which thread gets going first.
+    private fun inOrder(work: () -> Unit) {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            turns.withLock { withContext(io) { work() } }
+        }
+    }
+
+    // Where [definition] goes: the middle of a surface of [size] at its own size, or all of it if it fills the canvas
+    private fun placedInMiddle(definition: TargetDefinition, size: Size): Placement {
+        val trial = TargetSet()
+        val target = trial.add(definition, Placement.ORIGIN)
+        if (definition.fillsCanvas()) trial.resize(target.id, size.width, size.height)
+        val bounds = trial.get(target.id).get().bounds
+        val (x, y) = if (definition.fillsCanvas()) {
+            0.0 to 0.0
+        } else {
+            (size.width - bounds.width) / 2 to (size.height - bounds.height) / 2
+        }
+        val placement = trial.get(target.id).get().placement
+        return placement.withPosition(placement.x() + x - bounds.minX, placement.y() + y - bounds.minY)
+    }
+
     private fun readBackground(source: CourseBackground, name: String) {
-        scope.launch(io) {
-            val background = loader.readBackground(source)
-            if (background == null) {
-                say("Couldn't read the background $name.", BannerKind.ERROR)
-            } else {
-                layout.setBackground(background)
-            }
+        val background = loader.readBackground(source)
+        if (background == null) {
+            say("Couldn't read the background $name.", BannerKind.ERROR)
+        } else {
+            layout.setBackground(background)
         }
     }
 
