@@ -21,7 +21,6 @@ package com.shootoff.compose.app
 import com.shootoff.calibration.CalibrationCamera
 import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationFlow
-import com.shootoff.calibration.PatternMeasurement
 import com.shootoff.camera.CameraManager
 import com.shootoff.camera.CameraView
 import com.shootoff.camera.CamerasSupervisor
@@ -113,8 +112,8 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param detector finds the calibration pattern in a camera's frames, for the remembered calibration's check
  * @param checkClock the check's time limit runs on it
  * @param reconnectMillis how often a lost camera is looked for, to reopen it when it is plugged back in
- * @param patternSettleMillis how long the arena must have filled the projector's screen before a check or a
- *   measurement shows the pattern
+ * @param patternSettleMillis how long the arena must have filled the projector's screen before a check shows
+ *   the pattern
  */
 class AppState(
     val settings: Settings,
@@ -133,7 +132,7 @@ class AppState(
     private val patternSettleMillis: Long = PATTERN_SETTLE_MILLIS,
 ) : CalibrationViews {
     companion object {
-        /** How long the arena settles on the projector before a pattern shows for a check or measurement */
+        /** How long the arena settles on the projector before a pattern shows for a check */
         const val PATTERN_SETTLE_MILLIS = 500L
     }
 
@@ -179,7 +178,7 @@ class AppState(
     private val checkState = MutableStateFlow<CheckState>(CheckState.Idle)
     private val checkFrames = LatestFrame()
 
-    // The check's or the measurement's run, while its pattern shows; read by CalibratingCamera on timer threads
+    // The check's run, while its pattern shows; read by CalibratingCamera on timer threads
     @Volatile
     private var patternRun: PatternRun<*>? = null
     private var patternWatch: Job? = null
@@ -609,10 +608,6 @@ class AppState(
         } else if (running != null) {
             pauseDrill()
         }
-        // Review fix (Task 8 round 2): a drill a measurement was holding back is dropped, not restarted —
-        // there's no camera left to calibrate it with, or to measure the pattern against (spec §8 Revision 2,
-        // decision 7)
-        dropDeferredDrillRestart()
         val arena = arenaState.value ?: return
         stopCheckQuietly()
         currentCalibration = null
@@ -706,7 +701,7 @@ class AppState(
     // Starts [start] once the arena is on the projector (spec §8 Revision 2, decision 3): full screen, as big
     // as the projector's screen, and settled there for [patternSettleMillis], so the pattern is never measured
     // in a window on its way (or, after F11, off) the projector. Leaving the projector stops the run quietly
-    // (the state stays, so its return starts a fresh run). Runs until the check or measurement ends.
+    // (the state stays, so its return starts a fresh run). Runs until the check ends.
     private fun watchArenaForPattern(arena: ArenaModel, start: () -> Unit) {
         patternWatch?.cancel()
         val screen = placementState.value?.screen
@@ -731,8 +726,8 @@ class AppState(
     private fun fills(size: Size, screen: Rect?): Boolean =
         screen == null || (abs(size.width - screen.width) <= 1 && abs(size.height - screen.height) <= 1)
 
-    // The arena left the projector mid-run. The run stops without a word, but the state stays (Checking or
-    // Measuring) and the watch keeps going, so a fresh run starts once the arena is back.
+    // The arena left the projector mid-run. The run stops without a word, but the state stays (Checking) and
+    // the watch keeps going, so a fresh run starts once the arena is back.
     private fun stopRunQuietlyOffTheProjector() {
         val run = patternRun ?: return
         patternRun = null
@@ -749,7 +744,7 @@ class AppState(
             if (patternRun === run && result != null) {
                 patternRun = null
                 cameraView.frameTap = null
-                // A result ends the check or measurement: the watch has nothing left to restart
+                // A result ends the check: the watch has nothing left to restart
                 patternWatch?.cancel()
                 patternWatch = null
                 done(result)
@@ -782,60 +777,7 @@ class AppState(
         }
     }
 
-    // After a calibration the camera found, with Remember on, the pattern is measured once more, the way the
-    // check measures it (the median of five detections), and that is what is remembered (spec §8 Revision 2,
-    // decision 3). The calibration's own bounds stay saved until then, and if it can't be measured.
-    override fun calibrationFinishedByCamera() {
-        val arena = arenaState.value ?: return
-        val camera = cameraState.value ?: return
-        val calibration = currentCalibration ?: return
-        if (!settings.rememberCalibration()) return
-        checkState.value = CheckState.Measuring
-        watchArenaForPattern(arena) {
-            val measurement = { PatternMeasurement("Calibration measurement", uncroppedDetector(camera, calibration), checkClock, Optional.of(calibration.bounds)).work() }
-            startPatternRun(arena, camera, measurement) { result ->
-                checkState.value = CheckState.Idle
-                if (result is PatternMeasurement.Measured && currentCalibration === calibration && settings.rememberCalibration()) {
-                    val measured = SavedCalibration(calibration.camera, calibration.feed, calibration.screen, result.median(), calibration.paper, calibration.manual)
-                    currentCalibration = measured
-                    settings.setSavedCalibration(measured)
-                    saveSettings()
-                }
-                // Measured or not, the measurement is over: a drill it held back from restarting runs now
-                // (Task 8 review fix)
-                runDeferredDrillRestart()
-            }
-        }
-    }
-
-    // With CalibrationOption.CROP, CameraManager crops every frame to the projection before frameTap hands
-    // it to the measurement (CameraManager, around updateFrame's crop and updateBackground calls), so the
-    // detector's rects are relative to the crop's own top-left corner, not the camera's full frame. The
-    // saved median must be in full-frame coordinates, to match the relaunch check's own (uncropped)
-    // detections (spec §8 Revision 2, decision 3's "both sides measure the same way"), so [calibration]'s
-    // own origin — the crop's own rectangle — is added back to every detection while cropping is on.
-    //
-    // Final review (Plan 7): turning cropping off for the measurement's duration, and back on afterwards,
-    // was the other option; it was rejected because restoring it needs a call on every one of the
-    // measurement's several end paths (done, cancel, stopCheckQuietly, camera loss, arena close) — a single
-    // missed one would leave the Setup feed uncropped, or a later measurement uncorrected. Adding the
-    // offset back here is a pure, stateless correction with nothing left to restore.
-    private fun uncroppedDetector(camera: CameraManager, calibration: SavedCalibration): CalibrationCheck.Detector<BufferedImage> {
-        val base = detector(camera)
-        return CalibrationCheck.Detector { frame ->
-            base.detect(frame).map { detected ->
-                if (camera.isCroppingFeedToProjection) {
-                    Rect(detected.minX + calibration.bounds.minX, detected.minY + calibration.bounds.minY, detected.width, detected.height)
-                } else {
-                    detected
-                }
-            }
-        }
-    }
-
-    // Ends a check or a measurement without a word (something replaced it); the arena's look comes back.
-    // Review fix (Task 8 round 2): never touches deferredDrillRestart itself — every caller decides, right
-    // after, whether to release it (runDeferredDrillRestart) or drop it (dropDeferredDrillRestart).
+    // Ends a check without a word (something replaced it); the arena's look comes back
     private fun stopCheckQuietly() {
         patternWatch?.cancel()
         patternWatch = null
@@ -846,28 +788,16 @@ class AppState(
         checkState.value = CheckState.Idle
     }
 
-    /**
-     * Cancel on Setup while the pattern shows: a check ends with the arena uncalibrated and "not verified"; a
-     * measurement ends leaving the calibration's own bounds remembered, and a drill it held back restarts.
-     */
+    /** Cancel on Setup while the check's pattern shows: the arena stays uncalibrated, "not verified". */
     fun cancelCheck() {
-        when (checkState.value) {
-            CheckState.Checking -> {
-                stopCheckQuietly()
-                checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
-            }
-            CheckState.Measuring -> {
-                stopCheckQuietly()
-                runDeferredDrillRestart()
-            }
-            else -> {}
-        }
+        if (checkState.value != CheckState.Checking) return
+        stopCheckQuietly()
+        checkState.value = CheckState.NotVerified(CalibrationCheck.Reason.CANCELLED)
     }
 
     /**
      * "Remember calibration". On: the arena's calibration, now and after each calibration, is saved for the
-     * next session. Off: nothing is saved, the saved one is forgotten, a check under way stops, and a drill a
-     * measurement held back restarts (there's no measurement left to remember it for).
+     * next session. Off: nothing is saved, the saved one is forgotten, and a check under way stops.
      */
     fun setRememberCalibration(remember: Boolean) {
         // A no-op when nothing changed: turning it on again with nothing calibrated this session (so
@@ -876,10 +806,7 @@ class AppState(
         rememberState.value = remember
         settings.setRememberCalibration(remember)
         settings.setSavedCalibration(if (remember) currentCalibration else null)
-        if (!remember && checkState.value.showsPattern) {
-            stopCheckQuietly()
-            runDeferredDrillRestart()
-        }
+        if (!remember && checkState.value.showsPattern) stopCheckQuietly()
         saveSettings()
     }
 
@@ -916,9 +843,6 @@ class AppState(
     fun closeArena() {
         val arena = arenaState.value ?: return
         stopCheckQuietly()
-        // Review fix (Task 8 round 2): dropped, not restarted — starting it now only to stop it again below
-        // (runner.stopProjectorExercise()) could add targets or play sounds for a drill about to go anyway
-        dropDeferredDrillRestart()
         currentCalibration = null
         calibrationState.value?.arenaClosing()
         fullScreenWatch?.cancel()
@@ -1021,12 +945,7 @@ class AppState(
         if (entry.isProjectorOnly && !projectorReady()) return false
         arenaState.value?.showGrid(false)
         val started = runner.start(entry)
-        if (started) {
-            destinationState.value = Destination.RANGE
-            // Review fix (Task 8 round 2): the owner's own choice wins over a drill a measurement was holding
-            // back — that restart, once released, must not stop this one and replace it
-            dropDeferredDrillRestart()
-        }
+        if (started) destinationState.value = Destination.RANGE
         return started
     }
 
@@ -1061,68 +980,12 @@ class AppState(
 
     // What calibration does to the running drill (spec §8 Revision 2, decision 2): a projector drill is paused,
     // and stays paused afterwards, never restarted; one with no Pause button is stopped and started afresh
-    // after a success, as before. A camera drill doesn't use the arena and is left alone.
-    //
-    // Review fix (Task 8 round 1): the flow runs this restart itself, synchronously, as a camera-found
-    // calibration ends — before calibrationFinishedByCamera decides whether a measurement follows. While
-    // aroundCameraCalibration is holding restarts (a measurement may follow, and the drill mustn't run,
-    // deaf, under its cover), the restart is stashed in deferredDrillRestart instead of running at once.
-    //
-    // Review fix (Task 8 round 2): a restart still held when a fresh calibration starts (F6 mid-measurement)
-    // is carried over as that calibration's own restartExercise, rather than asking pauseOrStopProjectorDrill
-    // again — the drill it would look for has already been stopped, so a fresh ask would find nothing and
-    // the held restart would never run.
-    private val drillForCalibration = CalibrationFlow.Exercises {
-        val held = deferredDrillRestart
-        if (held != null) {
-            deferredDrillRestart = null
-            Optional.of(Runnable { if (holdingDrillRestart) deferredDrillRestart = held else held.run() })
-        } else {
-            pauseOrStopProjectorDrill().map { restart -> Runnable { if (holdingDrillRestart) deferredDrillRestart = restart else restart.run() } }
-        }
-    }
+    // as calibration ends, as before. A camera drill doesn't use the arena and is left alone.
+    private val drillForCalibration = CalibrationFlow.Exercises { pauseOrStopProjectorDrill() }
 
-    // Set only around a camera-found calibration's own end (CalibrationController.calibrate), so
-    // drillForCalibration's wrapper above knows to hold a restart back instead of running it there
-    @Volatile
-    private var holdingDrillRestart = false
-
-    // A drill's restart, held back because a measurement might follow the calibration that stopped it.
-    // Review fix (Task 8 round 2): releasing (running) it and dropping (forgetting) it are different, explicit
-    // choices made at each call site — never a side effect of stopCheckQuietly, which merely ends the pattern
-    // run. Released when the measurement ends (measured, not seen, or cancelled) or Remember goes off
-    // mid-measurement; dropped when there's no longer a place, or reason, to restart the drill into: the
-    // camera going (detachCamera), the arena or the app closing, or the owner starting a drill of their own.
-    private var deferredDrillRestart: Runnable? = null
-
-    private fun runDeferredDrillRestart() {
-        val restart = deferredDrillRestart ?: return
-        deferredDrillRestart = null
-        restart.run()
-    }
-
-    private fun dropDeferredDrillRestart() {
-        deferredDrillRestart = null
-    }
-
-    /**
-     * Runs [action] — a camera-found calibration ending — holding back any drill restart it triggers until
-     * [action] decides whether a measurement follows: if it does (checkState is Measuring once [action]
-     * returns), the measurement's own end releases it later; otherwise it releases at once, here.
-     */
-    override fun aroundCameraCalibration(action: () -> Unit) {
-        holdingDrillRestart = true
-        try {
-            action()
-        } finally {
-            holdingDrillRestart = false
-            if (checkState.value != CheckState.Measuring) runDeferredDrillRestart()
-        }
-    }
-
-    // The camera as calibration, the check and the measurement see it: when they turn shot detection back on
-    // as they end, it stays off while a pattern still shows (a check or measurement started meanwhile: Plan 6's
-    // N1) and while the running drill has it paused (a paused drill turned it off itself)
+    // The camera as calibration and the check see it: when they turn shot detection back on as they end, it
+    // stays off while a pattern still shows (a check started meanwhile: Plan 6's N1) and while the running
+    // drill has it paused (a paused drill turned it off itself)
     private inner class CalibratingCamera(private val camera: CameraManager) : CalibrationCamera by camera {
         override fun setDetecting(isDetecting: Boolean) {
             camera.setDetecting(isDetecting && patternRun == null && runner.running.value?.host?.shotDetectionPaused != true)
@@ -1166,8 +1029,6 @@ class AppState(
         stopWatchingForReturn()
         runner.stop()
         closeArena()
-        // Belt and suspenders alongside closeArena's own drop (Task 8 round 2): nothing starts on the way out
-        dropDeferredDrillRestart()
         cameras.closeAll()
         scope.cancel()
     }

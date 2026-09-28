@@ -129,26 +129,6 @@ class TestSetupScreen {
     }
 
     @Test
-    fun whileTheCalibrationIsMeasuredForNextTimeSetupSaysSoWithCancel() {
-        app.close()
-        app = AppFixture.appWithCamera()
-        app.setRememberCalibration(true)
-        app.openStartCamera()
-        app.openArena()
-        AppFixture.putOnTheProjector(app)
-        app.navigate(Destination.SETUP)
-        showApp()
-
-        compose.onNodeWithTag("setup-calibrate").performClick()
-        compose.runOnIdle { app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0) }
-
-        compose.onNodeWithText("Measuring the calibration for next time…").assertExists()
-        compose.onNodeWithTag("setup-cancel").performClick()
-        compose.onNodeWithTag("setup-calibrate").assertExists()
-        compose.onNodeWithTag("calibration-complete").assertExists()
-    }
-
-    @Test
     fun rememberAndShowGridAreOnTheCalibrateStep() {
         app.openArena()
         app.navigate(Destination.SETUP)

@@ -5,7 +5,6 @@ import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.savedCalibrationMismatch
-import com.shootoff.config.CalibrationOption
 import com.shootoff.config.SavedCalibration
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
@@ -129,28 +128,6 @@ class TestRememberedCalibration {
         assertEquals(emptyMap<String, String>(), savedKeys())
     }
 
-    // Final review (Plan 7): with CalibrationOption.CROP, CameraManager crops each frame to the projection
-    // before ComposeCameraView.frameTap hands it to the measurement, so the detector sees the pattern near
-    // the crop's own origin, not full-frame coordinates. The saved median must be shifted back by the
-    // crop's own origin, so it lines up with the relaunch check's full-frame detections.
-    @Test
-    fun withCropOnTheMeasuredMedianIsInFullFrameCoordinates() {
-        app.setRememberCalibration(true)
-        app.settings.setCalibratedFeedBehavior(CalibrationOption.CROP)
-        openArenaOnTheProjector()
-        // As a cropped frame's detector would report it: near the crop's own origin, not the camera's
-        seen.set(Optional.of(Rect(2.0, -1.0, 400.0, 300.0)))
-
-        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
-
-        assertTrue(app.camera.value!!.isCroppingFeedToProjection)
-        assertEquals(CheckState.Measuring, app.check.value)
-        sendFramesUntil { app.check.value == CheckState.Idle }
-
-        // The crop's origin (100, 80) added back to the detection (2, -1): full-frame coordinates
-        assertEquals("102.0,79.0,400.0,300.0", savedKeys()["shootoff.arena.calibration.bounds"])
-    }
-
     @Test
     fun openingTheArenaChecksTheSavedCalibrationAndKeepsItWhenThePatternIsInPlace() {
         remembered()
@@ -236,11 +213,7 @@ class TestRememberedCalibration {
 
         calibrateWithTheCamera(Rect(120.0, 90.0, 400.0, 300.0))
 
-        // With Remember on, the new calibration is measured next; once that ends, the arena's own
-        // background is back, not the check's pattern
-        assertEquals(CheckState.Measuring, app.check.value)
-        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
-        app.cancelCheck()
+        // Once calibration ends, the arena's own background is back, not the check's pattern
         assertEquals(CheckState.Idle, app.check.value)
         assertNull(app.arena.value!!.background.value)
         assertEquals(Rect(120.0, 90.0, 400.0, 300.0), app.arena.value!!.projection.value)
@@ -447,26 +420,6 @@ class TestRememberedCalibration {
     }
 
     @Test
-    fun afterAnAutoCalibrationWithRememberOnThePatternIsMeasuredAndItsMedianRemembered() {
-        app.setRememberCalibration(true)
-        openArenaOnTheProjector()
-        seen.set(Optional.of(Rect(102.0, 80.0, 400.0, 300.0)))
-
-        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
-
-        // Saved at once as calibrated, then measured as the check will measure it next time
-        assertEquals(SAVED_KEYS, savedKeys())
-        assertEquals(CheckState.Measuring, app.check.value)
-        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
-        sendFramesUntil { app.check.value == CheckState.Idle }
-
-        assertEquals("102.0,80.0,400.0,300.0", savedKeys()["shootoff.arena.calibration.bounds"])
-        // This session keeps the calibration it made
-        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
-        assertNull(app.arena.value!!.background.value)
-    }
-
-    @Test
     fun aManualBoxCalibrationIsRememberedAsTheBoxWithoutMeasuring() {
         app.setRememberCalibration(true)
         openArenaOnTheProjector()
@@ -477,21 +430,6 @@ class TestRememberedCalibration {
 
         assertEquals(CheckState.Idle, app.check.value)
         assertEquals("90.0,70.0,420.0,310.0", savedKeys()["shootoff.arena.calibration.bounds"])
-    }
-
-    @Test
-    fun cancellingTheMeasurementLeavesTheCalibrationsOwnBoundsRemembered() {
-        app.setRememberCalibration(true)
-        openArenaOnTheProjector()
-        calibrateWithTheCamera(Rect(100.0, 80.0, 400.0, 300.0))
-        awaitTrue { app.arena.value!!.background.value?.name == "pattern.png" }
-
-        app.cancelCheck()
-
-        assertEquals(CheckState.Idle, app.check.value)
-        assertNull(app.arena.value!!.background.value)
-        assertEquals(SAVED_KEYS, savedKeys())
-        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), app.arena.value!!.projection.value)
     }
 
     @Test

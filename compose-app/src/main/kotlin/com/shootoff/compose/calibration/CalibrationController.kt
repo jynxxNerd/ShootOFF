@@ -65,20 +65,6 @@ interface CalibrationViews {
      * @param paper the perspective paper's size, if auto-calibration found one
      */
     fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>)
-
-    /**
-     * A calibration the camera found (not the manual box) has finished and the arena looks as it did
-     * before: the pattern may show again, to measure it for the remembered calibration.
-     */
-    fun calibrationFinishedByCamera() {}
-
-    /**
-     * Runs [action] — a calibration the camera found ending — around whatever it does with a projector
-     * drill calibration paused or stopped (spec §8 Revision 2, decision 2): a drill with no Pause button,
-     * about to restart as [action] ends it, may need to wait instead for a measurement [action] starts
-     * (Task 8 review fix round 1). The default just runs it, restarting at once as before.
-     */
-    fun aroundCameraCalibration(action: () -> Unit) = action()
 }
 
 /**
@@ -230,12 +216,7 @@ class CalibrationController(
             Runnable {
                 if (generation == expectedGeneration && flow.isCalibrating) {
                     foundPaper = perspectivePaperDims
-                    val asked = session
-                    views.aroundCameraCalibration {
-                        flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
-                        // The flow has finished (it reported the success, and put the arena's look back)
-                        if (asked && !session) views.calibrationFinishedByCamera()
-                    }
+                    flow.calibrated(arenaBounds, perspectivePaperDims, calibratedFromCanvas)
                 }
             },
         )
