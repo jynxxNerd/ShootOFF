@@ -7,7 +7,6 @@ import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.calibration.CalibrationFlow.Message
 import com.shootoff.geom.Rect
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -15,6 +14,7 @@ import org.slf4j.LoggerFactory
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The INFO lines an automatic calibration logs on AppState's own logger (spec §8 Revision 3, decision 11):
@@ -39,7 +39,8 @@ class TestCalibrationLogging {
         app.close()
     }
 
-    private fun messages() = appender.list.map { it.formattedMessage }
+    // The appender adds under its own lock (AppenderBase.doAppend), from whichever thread logs
+    private fun messages() = synchronized(appender) { appender.list.map { it.formattedMessage } }
 
     @Test
     fun anAutomaticCalibrationLogsItsStartAndItsSuccess() {
@@ -106,12 +107,13 @@ class TestCalibrationLogging {
     }
 
     // Plan 8's final review: after an automatic calibration timed out, a Calibrate the owner pressed logged the
-    // automatic one's stale "ms since the pattern first showed"
+    // automatic one's stale "ms since the pattern first showed". It logs its own pattern's time.
     @Test
-    fun aCalibrationTheOwnerStartsAfterAnAutomaticOneTimedOutLogsNoStalePatternTime() {
+    fun aCalibrationTheOwnerStartsAfterAnAutomaticOneTimedOutLogsItsOwnPatternTime() {
+        val now = AtomicLong(0)
         val timers = CopyOnWriteArrayList<Pair<Long, Runnable>>()
         app.close()
-        app = AppFixture.appWithCamera(calibrationTimers = { task, delay ->
+        app = AppFixture.appWithCamera(checkClock = now::get, calibrationTimers = { task, delay ->
             timers += delay to task
             CompletableFuture<Void>()
         })
@@ -120,13 +122,63 @@ class TestCalibrationLogging {
         app.openArena()
         AppFixture.putOnTheProjector(app)
         awaitTrue { timers.any { it.first == CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED } }
+        now.set(60_000)
         timers.filter { it.first == CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED }.forEach { it.second.run() }
 
         app.startCalibration()
+        now.set(61_500)
         app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
 
         val success = messages().single { it.startsWith("Calibration succeeded") }
-        assertFalse(success.contains("since the pattern first showed"), success)
+        assertTrue(success.endsWith("1500 ms since it started, 1500 ms since the pattern first showed"), success)
+    }
+
+    // Plan 9's hardware check: after an arena reopen the log said "2217 ms since it started, 7261 ms since the
+    // pattern first showed". The arena had filled the projector's screen about 5 s before its calibration started;
+    // the pattern showed only then (spec §8 Revision 5, decision 4).
+    @Test
+    fun thePatternTimeCountsFromWhenThePatternShowedNotFromWhenTheArenaFilledTheScreen() {
+        val now = AtomicLong(0)
+        app.close()
+        app = AppFixture.appWithCamera(checkClock = now::get, patternSettleMillis = 300)
+        app.setRememberCalibration(true)
+        app.openStartCamera()
+        app.openArena()
+        AppFixture.putOnTheProjector(app)
+
+        // The arena filled the screen at 0; the calibration starts, and the pattern shows, at 5000
+        Thread.sleep(100)
+        now.set(5000)
+        awaitTrue { app.calibration.value?.state?.value?.message == Message.AUTO_CALIBRATING }
+        now.set(7000)
+        app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        val success = messages().single { it.startsWith("Calibration succeeded") }
+        assertTrue(success.endsWith("2000 ms since it started, 2000 ms since the pattern first showed"), success)
+    }
+
+    @Test
+    fun anArenaClosedMidCalibrationLeavesNoTimesForTheNextOne() {
+        val now = AtomicLong(0)
+        app.close()
+        app = AppFixture.appWithCamera(checkClock = now::get)
+        app.setRememberCalibration(true)
+        app.openStartCamera()
+        app.openArena()
+        AppFixture.putOnTheProjector(app)
+        awaitTrue { app.calibration.value?.state?.value?.message == Message.AUTO_CALIBRATING }
+        now.set(1000)
+        app.closeArena()
+
+        now.set(10_000)
+        app.openArena()
+        AppFixture.putOnTheProjector(app)
+        awaitTrue { app.calibration.value?.state?.value?.message == Message.AUTO_CALIBRATING }
+        now.set(12_000)
+        app.calibration.value!!.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+
+        val success = messages().single { it.startsWith("Calibration succeeded") }
+        assertTrue(success.endsWith("2000 ms since it started, 2000 ms since the pattern first showed"), success)
     }
 
     // So the log tells a calibration the owner cancelled from one that ended by itself (Plan 8's replug: a success

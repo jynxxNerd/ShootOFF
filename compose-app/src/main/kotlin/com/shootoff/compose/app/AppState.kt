@@ -209,10 +209,11 @@ class AppState(
     private var currentCalibration: SavedCalibration? = null
     private var fullScreenWatch: Job? = null
 
-    // When the arena last filled the projector's screen (watchArenaForPattern), by checkClock: roughly when
-    // the pattern first showed, for the elapsed time in the success log (spec §8 Revision 3, decision 11)
+    // When the calibration now running first showed its pattern, by checkClock, for the elapsed time in the success
+    // log (spec §8 Revision 3, decision 11). Not when the arena filled the projector's screen: after a reopen the
+    // calibration started about 5 s after that (spec §8 Revision 5, decision 4)
     @Volatile
-    private var arenaFilledAt: Long? = null
+    private var patternShownAt: Long? = null
 
     // When the calibration now running (or the one that just ended) started, by checkClock, for the same log
     @Volatile
@@ -679,6 +680,7 @@ class AppState(
         currentCalibration = null
         // For calibration the camera going is the arena going: calibration ends, and both projections go
         calibrationState.value?.arenaClosing()
+        forgetCalibrationTimes()
         fullScreenWatch?.cancel()
         calibrationState.value = null
         calibratedAtState.value = null
@@ -768,7 +770,7 @@ class AppState(
                 logger.info("The pattern wasn't found in {} s: calibration ended", CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED / 1000)
                 checkState.value = CheckState.NotFound
                 calibrationStartedAt = null
-                arenaFilledAt = null
+                patternShownAt = null
             }
         }
     }
@@ -809,10 +811,7 @@ class AppState(
             combine(arena.fullScreen, arena.size) { fullScreen, size -> fullScreen && fills(size, screen) }
                 .distinctUntilChanged()
                 .collectLatest { onTheProjector ->
-                    if (onTheProjector) {
-                        arenaFilledAt = checkClock()
-                        delay(patternSettleMillis)
-                    }
+                    if (onTheProjector) delay(patternSettleMillis)
                     uiThread(Runnable {
                         if (arenaState.value !== arena || !checkState.value.showsPattern) return@Runnable
                         if (!onTheProjector) {
@@ -953,6 +952,7 @@ class AppState(
         stopCheckQuietly()
         currentCalibration = null
         calibrationState.value?.arenaClosing()
+        forgetCalibrationTimes()
         fullScreenWatch?.cancel()
         calibrationState.value = null
         // The arena goes first, so no projector drill can start on it from here on (newHost finds none);
@@ -964,6 +964,12 @@ class AppState(
         placementState.value = null
         promptSkippedState.value = false
         arena.targets.set.targets.forEach { arena.targets.remove(it.id) }
+    }
+
+    // A calibration that ended abruptly (the arena closing, the camera lost) leaves no times behind for the next one
+    private fun forgetCalibrationTimes() {
+        calibrationStartedAt = null
+        patternShownAt = null
     }
 
     /**
@@ -980,8 +986,7 @@ class AppState(
             logger.info("The owner is attending the automatic calibration")
         } else {
             calibrationStartedAt = checkClock()
-            // When the arena reached the projector says nothing about a calibration the owner starts later
-            arenaFilledAt = null
+            patternShownAt = null
         }
         // A check under way stops first, putting the arena's background back before calibration saves it
         stopCheckQuietly()
@@ -999,14 +1004,18 @@ class AppState(
     override fun calibrationCancelled() {
         logger.info("Calibration cancelled, {} ms after it started", calibrationStartedAt?.let { checkClock() - it })
         calibrationStartedAt = null
-        arenaFilledAt = null
+        patternShownAt = null
+    }
+
+    override fun patternShown() {
+        if (patternShownAt == null) patternShownAt = checkClock()
     }
 
     override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>, byCamera: Boolean) {
         val now = wallClock()
         val nowClock = checkClock()
         val sinceStart = calibrationStartedAt?.let { nowClock - it }
-        val sincePattern = arenaFilledAt?.let { nowClock - it }
+        val sincePattern = patternShownAt?.let { nowClock - it }
         logger.info(
             "Calibration succeeded: found by {}, bounds {}, {} ms since it started{}",
             if (byCamera) "the camera" else "the manual box",
@@ -1015,7 +1024,7 @@ class AppState(
             sincePattern?.let { ", $it ms since the pattern first showed" } ?: "",
         )
         calibrationStartedAt = null
-        arenaFilledAt = null
+        patternShownAt = null
         calibratedAtState.value = now
         // The user stays where they are (Setup, usually) and is told it worked; they go back to Range when
         // they choose (spec §8 Revision 2, decision 1)

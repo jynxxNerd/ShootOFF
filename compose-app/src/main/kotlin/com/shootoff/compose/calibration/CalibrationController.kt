@@ -69,6 +69,9 @@ interface CalibrationViews {
 
     /** The owner cancelled a calibration (Setup's Cancel, or the feed's), which left everything as it was. */
     fun calibrationCancelled() {}
+
+    /** The pattern shows on the arena, and the camera looks for it: each time it (re)starts looking. */
+    fun patternShown() {}
 }
 
 /**
@@ -312,6 +315,7 @@ class CalibrationController(
     override fun calibrationStarted() {
         arena.cover(true)
         arena.setCalibrationLabelVisible(false)
+        views.patternShown()
     }
 
     override fun saveArenaBackground() {
