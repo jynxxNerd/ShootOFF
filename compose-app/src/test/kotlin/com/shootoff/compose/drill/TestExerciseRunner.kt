@@ -11,6 +11,7 @@ import com.shootoff.compose.shots.RegionCommandRunner
 import com.shootoff.compose.shots.ShotReceiver
 import com.shootoff.compose.shots.ShotTimerModel
 import com.shootoff.compose.targets.ManualClock
+import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
 import com.shootoff.exercise.Exercise
@@ -19,6 +20,9 @@ import com.shootoff.geom.Size
 import com.shootoff.plugins.ExerciseMetadata
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.targets.model.Hit
+import com.shootoff.targets.model.RectangleRegion
+import com.shootoff.targets.model.ResourceResolver
+import com.shootoff.targets.model.TargetDefinition
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -63,6 +67,22 @@ class TestExerciseRunner {
         override fun stop() {
             heard += "stop"
         }
+    }
+
+    /** A projector drill that puts a target of its own on the arena */
+    class TargetDrill : Exercise {
+        override fun metadata() = ExerciseMetadata("Target drill", "1.0", "ShootOFF tests", "Adds a target", true)
+
+        override fun start(host: ExerciseHost) {
+            host.addTarget("box.target", 300.0, 200.0)
+            heard += "start"
+        }
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {}
+
+        override fun stop() {}
     }
 
     private val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
@@ -170,6 +190,27 @@ class TestExerciseRunner {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (drill.buttons.value.size != 1 && System.nanoTime() < deadline) Thread.sleep(5)
         assertEquals(listOf("Pause"), drill.buttons.value.map { it.label })
+    }
+
+    // Spec §5: what an exercise adds is its own, and goes when it stops; the shooter's targets stay
+    @Test
+    fun aDrillsTargetsAreTheExercisesAndGoWhenItStopsWhileTheShootersStay(@TempDir temp: Path) {
+        Files.writeString(temp.resolve("box.target"), "<target><rectangle x=\"0\" y=\"0\" width=\"10\" height=\"10\" fill=\"red\"/></target>")
+        resources = URLClassLoader(arrayOf(temp.toUri().toURL()), null)
+        val shooters = arena.targets.add(
+            TargetDefinition(Optional.empty(), mapOf(), listOf(RectangleRegion(0, 0.0, 0.0, 10.0, 10.0, "red", mapOf()))),
+            ResourceResolver.files(),
+        )
+
+        runner.start(V2ExerciseEntry(TargetDrill::class.java, TargetDrill().metadata()))
+        awaitHeard("start")
+        val added = arena.targets.set.targets.single { it.id != shooters.id }
+        assertEquals(TargetOwner.EXERCISE, arena.targets.owner(added.id))
+
+        runner.stop()
+
+        assertEquals(listOf(shooters.id), arena.targets.set.targets.map { it.id })
+        assertEquals(TargetOwner.USER, arena.targets.owner(shooters.id))
     }
 
     @Test

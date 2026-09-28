@@ -19,6 +19,7 @@
 package com.shootoff.compose.targets
 
 import com.shootoff.geom.Point
+import com.shootoff.geom.Rect
 import com.shootoff.targets.model.Placement
 import com.shootoff.targets.model.PlacedTarget
 import com.shootoff.targets.model.ResourceResolver
@@ -32,9 +33,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
 
 /**
+ * Who put a target on its surface. The shooter's targets are theirs to move, resize, remove and save; an
+ * exercise's are shown but left alone, and go when the exercise stops.
+ */
+enum class TargetOwner { USER, EXERCISE }
+
+/**
  * A target as the views draw it: a snapshot of its placed target.
  *
  * @param origin where the target's (0, 0) is on the surface
+ * @param bounds the target's bounds on the surface
  */
 data class DrawnTarget(
     val id: TargetId,
@@ -42,6 +50,8 @@ data class DrawnTarget(
     val placement: Placement,
     val origin: Point,
     val regionVisible: List<Boolean>,
+    val owner: TargetOwner,
+    val bounds: Rect,
 )
 
 /**
@@ -52,6 +62,10 @@ data class DrawnTarget(
 class SurfaceTargets(val set: TargetSet = TargetSet(), clock: AnimationClock = AnimationClock.background) {
     val animations = RegionAnimations(set, clock)
     private val images = ConcurrentHashMap<TargetId, Map<Int, RegionImage>>()
+    private val owners = ConcurrentHashMap<TargetId, TargetOwner>()
+
+    // Who is adding the target [add] is adding on this thread: the set tells its listeners before it returns
+    private val adding = ThreadLocal<TargetOwner>()
     private val drawnState = MutableStateFlow<List<DrawnTarget>>(emptyList())
 
     /** The targets, bottom to top, as the views draw them */
@@ -59,10 +73,15 @@ class SurfaceTargets(val set: TargetSet = TargetSet(), clock: AnimationClock = A
 
     init {
         set.addListener(object : TargetSetListener {
-            override fun targetAdded(target: PlacedTarget) = publish()
+            // This listener is the set's first, so every other one already knows the new target's owner
+            override fun targetAdded(target: PlacedTarget) {
+                owners[target.id] = adding.get() ?: TargetOwner.EXERCISE
+                publish()
+            }
 
             override fun targetRemoved(target: PlacedTarget) {
                 images.remove(target.id)
+                owners.remove(target.id)
                 animations.unregister(target.id)
                 publish()
             }
@@ -73,10 +92,22 @@ class SurfaceTargets(val set: TargetSet = TargetSet(), clock: AnimationClock = A
 
     /**
      * Adds a target on top, with its images read through [resolver] (the exercise's jar for "@" paths).
+     *
+     * @param owner who added it: the exercise host passes [TargetOwner.EXERCISE]
      */
-    fun add(definition: TargetDefinition, resolver: ResourceResolver, placement: Placement = Placement.ORIGIN): PlacedTarget {
+    fun add(
+        definition: TargetDefinition,
+        resolver: ResourceResolver,
+        placement: Placement = Placement.ORIGIN,
+        owner: TargetOwner = TargetOwner.USER,
+    ): PlacedTarget {
         val loaded = RegionImages.load(definition, resolver)
-        val target = set.add(definition, placement)
+        adding.set(owner)
+        val target = try {
+            set.add(definition, placement)
+        } finally {
+            adding.remove()
+        }
         images[target.id] = loaded
         animations.register(target.id, loaded)
         publish()
@@ -84,6 +115,15 @@ class SurfaceTargets(val set: TargetSet = TargetSet(), clock: AnimationClock = A
     }
 
     fun remove(id: TargetId) = set.remove(id)
+
+    /**
+     * Who added the target, known to the set's listeners from [TargetSetListener.targetAdded] on; null once it
+     * has left the surface. A target added to [set] directly counts as an exercise's: nothing grabs or saves it.
+     */
+    fun owner(id: TargetId): TargetOwner? = owners[id]
+
+    /** The targets [owner] added, bottom to top */
+    fun targetsOf(owner: TargetOwner): List<PlacedTarget> = set.targets.filter { owners[it.id] == owner }
 
     fun image(id: TargetId, region: Int): RegionImage? = images[id]?.get(region)
 
@@ -99,6 +139,8 @@ class SurfaceTargets(val set: TargetSet = TargetSet(), clock: AnimationClock = A
                 target.placement,
                 target.localToParent(0.0, 0.0),
                 target.definition.regions().indices.map { target.isRegionVisible(it) },
+                owners[target.id] ?: TargetOwner.EXERCISE,
+                target.bounds,
             )
         }
     }

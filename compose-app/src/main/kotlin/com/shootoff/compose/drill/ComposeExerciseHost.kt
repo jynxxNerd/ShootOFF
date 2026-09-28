@@ -22,6 +22,7 @@ import com.shootoff.camera.Shot
 import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.shots.Marker
 import com.shootoff.compose.shots.ShotTimerModel
+import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.config.Settings
 import com.shootoff.exercise.ButtonHandle
 import com.shootoff.exercise.Cancellable
@@ -236,7 +237,8 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
         if (support.isStopped) return Optional.empty()
 
         val (definition, resolver) = loadTarget(targetFile) ?: return Optional.empty()
-        val target = targets.add(definition, resolver, Placement(x, y, 1.0, 1.0, true))
+        // The exercise's own: the shooter can't grab it on the Targets screen, and it is never saved
+        val target = targets.add(definition, resolver, Placement(x, y, 1.0, 1.0, true), TargetOwner.EXERCISE)
         context.surface.placeNewTarget(target)
 
         if (support.track(target.id)) return Optional.of(Handle(target))

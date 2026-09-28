@@ -1,12 +1,15 @@
 package com.shootoff.compose.targets
 
 import com.shootoff.geom.Point
+import com.shootoff.geom.Rect
 import com.shootoff.targets.model.ImageRegion
+import com.shootoff.targets.model.PlacedTarget
 import com.shootoff.targets.model.Placement
 import com.shootoff.targets.model.RectangleRegion
 import com.shootoff.targets.model.ResourceResolver
 import com.shootoff.targets.model.TargetDefinition
 import com.shootoff.targets.model.TargetDefinitions
+import com.shootoff.targets.model.TargetSetListener
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -47,6 +50,50 @@ class TestSurfaceTargets {
 
         targets.remove(target.id)
         assertEquals(emptyList<DrawnTarget>(), targets.drawn.value)
+    }
+
+    @Test
+    fun aTargetIsTheShootersUnlessAnExerciseAddedIt() {
+        val shooters = targets.add(box(), ResourceResolver.files())
+        val exercises = targets.add(box(), ResourceResolver.files(), Placement(50.0, 0.0, 1.0, 1.0, true), TargetOwner.EXERCISE)
+
+        assertEquals(TargetOwner.USER, targets.owner(shooters.id))
+        assertEquals(TargetOwner.EXERCISE, targets.owner(exercises.id))
+        assertEquals(listOf(TargetOwner.USER, TargetOwner.EXERCISE), targets.drawn.value.map { it.owner })
+        assertEquals(listOf(shooters.id), targets.targetsOf(TargetOwner.USER).map { it.id })
+        assertEquals(listOf(exercises.id), targets.targetsOf(TargetOwner.EXERCISE).map { it.id })
+
+        targets.remove(exercises.id)
+        assertNull(targets.owner(exercises.id))
+    }
+
+    // The layout's memory hears of each new target and must know whether it is the shooter's
+    @Test
+    fun theSetsListenersKnowANewTargetsOwnerAsTheyHearOfIt() {
+        val heard = mutableListOf<TargetOwner?>()
+        targets.set.addListener(object : TargetSetListener {
+            override fun targetAdded(target: PlacedTarget) {
+                heard += targets.owner(target.id)
+            }
+
+            override fun targetRemoved(target: PlacedTarget) {}
+
+            override fun targetChanged(target: PlacedTarget) {}
+        })
+
+        targets.add(box(), ResourceResolver.files())
+        targets.add(box(), ResourceResolver.files(), owner = TargetOwner.EXERCISE)
+
+        assertEquals(listOf(TargetOwner.USER, TargetOwner.EXERCISE), heard)
+    }
+
+    @Test
+    fun theSnapshotCarriesEachTargetsBoundsOnTheSurface() {
+        val target = targets.add(box(), ResourceResolver.files(), Placement(5.0, 6.0, 2.0, 1.0, true))
+
+        // Scaled about its center (5, 10): 20 wide from x = 0
+        assertEquals(Rect(0.0, 6.0, 20.0, 20.0), targets.drawn.value.single().bounds)
+        assertEquals(target.bounds, targets.drawn.value.single().bounds)
     }
 
     @Test
