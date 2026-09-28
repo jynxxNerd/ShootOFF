@@ -195,6 +195,15 @@ class AppState(
     private var currentCalibration: SavedCalibration? = null
     private var fullScreenWatch: Job? = null
 
+    // When the arena last filled the projector's screen (watchArenaForPattern), by checkClock: roughly when
+    // the pattern first showed, for the elapsed time in the success log (spec §8 Revision 3, decision 11)
+    @Volatile
+    private var arenaFilledAt: Long? = null
+
+    // When the calibration now running (or the one that just ended) started, by checkClock, for the same log
+    @Volatile
+    private var calibrationStartedAt: Long? = null
+
     /** The open arena, or null */
     val arena: StateFlow<ArenaModel?> = arenaState.asStateFlow()
 
@@ -531,7 +540,7 @@ class AppState(
             // An uncalibrated arena is calibrated (or its remembered box checked) now that there is a camera
             // (spec §8 Revision 3); without the option, Setup's Calibrate step is next
             if (settings.rememberCalibration() && arena.projection.value == null && !checkState.value.showsPattern) {
-                calibrateOrCheck(arena)
+                calibrateOrCheck(arena, "the camera came back")
             }
         }
         return true
@@ -677,20 +686,22 @@ class AppState(
         arenaState.value = arena
 
         cameraState.value?.let { makeCalibratable(arena, it) }
-        if (settings.rememberCalibration()) calibrateOrCheck(arena)
+        if (settings.rememberCalibration()) calibrateOrCheck(arena, "the arena opened")
     }
 
     // With the option on, what an uncalibrated arena does (spec §8 Revision 3): a remembered manual box is
     // checked, since only the owner can place one; otherwise the arena is calibrated afresh, as Calibrate does
-    private fun calibrateOrCheck(arena: ArenaModel) {
-        if (settings.savedCalibration.map { it.manual }.orElse(false)) checkRemembered(arena) else calibrateOnTheProjector(arena)
+    //
+    // @param reason why, for the "Calibrating automatically" log line (spec §8 Revision 3, decision 11)
+    private fun calibrateOrCheck(arena: ArenaModel, reason: String) {
+        if (settings.savedCalibration.map { it.manual }.orElse(false)) checkRemembered(arena) else calibrateOnTheProjector(arena, reason)
     }
 
     // Starts an unattended calibration once the arena is on the projector (watchArenaForPattern). Without a
     // camera, publish() comes back here once one opens; without a projector screen the arena is a window,
     // which auto-calibration can't use, so nothing starts. If the pattern isn't found, it ends quietly: no
     // manual box, and Setup and the chip say so.
-    private fun calibrateOnTheProjector(arena: ArenaModel) {
+    private fun calibrateOnTheProjector(arena: ArenaModel, reason: String) {
         if (calibrationState.value == null || placementState.value?.screen == null) return
         checkState.value = CheckState.WaitingToCalibrate
         watchArenaForPattern(arena) {
@@ -699,7 +710,12 @@ class AppState(
             checkState.value = CheckState.Idle
             arena.showGrid(false)
             calibrationCompleteState.value = null
-            calibrationState.value?.startUnattended { checkState.value = CheckState.NotFound }
+            logger.info("Calibrating automatically: {}", reason)
+            calibrationStartedAt = checkClock()
+            calibrationState.value?.startUnattended {
+                logger.info("The pattern wasn't found in {} s: calibration ended", CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED / 1000)
+                checkState.value = CheckState.NotFound
+            }
         }
     }
 
@@ -739,7 +755,10 @@ class AppState(
             combine(arena.fullScreen, arena.size) { fullScreen, size -> fullScreen && fills(size, screen) }
                 .distinctUntilChanged()
                 .collectLatest { onTheProjector ->
-                    if (onTheProjector) delay(patternSettleMillis)
+                    if (onTheProjector) {
+                        arenaFilledAt = checkClock()
+                        delay(patternSettleMillis)
+                    }
                     uiThread(Runnable {
                         if (arenaState.value !== arena || !checkState.value.showsPattern) return@Runnable
                         if (!onTheProjector) {
@@ -903,6 +922,11 @@ class AppState(
      */
     fun startCalibration(): Boolean {
         val controller = calibrationState.value ?: return false
+        if (controller.flow.isCalibrating && controller.flow.isUnattended()) {
+            logger.info("The owner is attending the automatic calibration")
+        } else {
+            calibrationStartedAt = checkClock()
+        }
         // A check under way stops first, putting the arena's background back before calibration saves it
         stopCheckQuietly()
         arenaState.value?.showGrid(false)
@@ -918,6 +942,18 @@ class AppState(
 
     override fun calibrationSucceeded(cameraBounds: Rect, paper: Optional<Size>, byCamera: Boolean) {
         val now = wallClock()
+        val nowClock = checkClock()
+        val sinceStart = calibrationStartedAt?.let { nowClock - it }
+        val sincePattern = arenaFilledAt?.let { nowClock - it }
+        logger.info(
+            "Calibration succeeded: found by {}, bounds {}, {} ms since it started{}",
+            if (byCamera) "the camera" else "the manual box",
+            cameraBounds,
+            sinceStart,
+            sincePattern?.let { ", $it ms since the pattern first showed" } ?: "",
+        )
+        calibrationStartedAt = null
+        arenaFilledAt = null
         calibratedAtState.value = now
         // The user stays where they are (Setup, usually) and is told it worked; they go back to Range when
         // they choose (spec §8 Revision 2, decision 1)

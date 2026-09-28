@@ -221,6 +221,13 @@ public final class CalibrationFlow {
 	}
 
 	/**
+	 * @return true while calibrating unattended ({@link #startUnattended}), not yet attended ({@link #attend})
+	 */
+	public boolean isUnattended() {
+		return unattendedTimeout.isPresent();
+	}
+
+	/**
 	 * Starts calibrating.
 	 */
 	public void start() {
