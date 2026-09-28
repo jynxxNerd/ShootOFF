@@ -359,3 +359,46 @@ Criterion 7 now reads: "With 'Calibrate automatically when the arena opens' on, 
 #### Delivery
 
 **Plan 8** implements this revision on `compose-ui`. The owner then repeats the parts of the hardware check it touches, together with what is left of Plan 7's Task 10.
+
+### Revision 4 (2026-09-27): hardening after the Plan 8 hardware check
+
+Plan 8's hardware re-check passed: the automatic calibration found the pattern at launch, after a relaunch and after a replug, and the grid lined up. It also found five weaknesses, all in calibration and the camera. The owner approved fixing each of them here. Plan 8's ledger (`.superpowers/sdd/2026-09-27-compose-trial-plan-8-calibrate-at-startup/progress.md`, its "Task 6" lines) and the run log (`build/plan8-compose-run.log`) have the evidence.
+
+1. **Cancel puts the camera back exactly as it was.**
+   - *The bug.* Cancelling a recalibration made over a good automatic calibration left the grid crooked. Cancel put back only the projection's rectangle (Plan 6's ruling 8). Starting calibration had also thrown away the camera's perspective warp, the paper size that auto-calibration found, and the exposure the exposure step had set, and Cancel didn't restore them.
+   - *The fix.* As calibration starts, the camera's whole calibration is saved: the projection, the perspective warp with its paper size, and the exposure. Cancel puts all of it back, and so does an automatic calibration that ends because the pattern wasn't found. The arena and the camera end exactly as they were before calibration started.
+   - *Why.* A Cancel is the owner saying "leave it as it was". A good calibration must survive one.
+2. **The exposure step waits for the white screen before measuring.**
+   - *The bug.* The exposure step asks the arena for a white screen, then takes its baseline brightness 100 ms later. On the C270 and projector the white often hadn't reached the camera by then: the baseline was 33–92 where the white measures about 130, and one log line shows the white arriving mid-step ("mean originally 91.7 … lowest 126.7"). So the step mostly ended "Failed to adjust exposure", and the exposure wasn't lowered.
+   - *The fix.* After asking for white, the step waits until the camera's frame is clearly brighter than the blank arena and has stopped getting brighter, for at most 2 seconds, and only then takes its baseline. If the frame never brightens in that time, it measures anyway, as before. The step stays in `core`, so the JavaFX app gets the same fix.
+   - *Also.* Calibration's time limit no longer ends a calibration whose pattern the camera has already found. The steps after it, now a little longer, get up to 5 seconds more. Before, a pattern found in the last seconds before the limit was thrown away (a Plan 8 review finding).
+3. **The frame rate stays up while the camera looks for the pattern.**
+   - *The bug.* In a dark scene (the projector's lens covered, or right after a replug), the C270 dropped to 3.8–4.9 FPS ("Current webcam FPS is 4.9 … too low"). One replug's automatic calibration then ran for about 30 seconds before the pattern was found. `exposure_dynamic_framerate` was already 0: at the covered launch the camera reported an exposure of 1002 (100 ms, three frame periods) with that control off. The C270's auto exposure lengthens the exposure past the frame period anyway, and the frame rate follows.
+   - *The fix.* While auto-calibration looks for the pattern, a Linux (V4L2) camera's exposure is held to at most one frame period (1/FPS). If the camera's auto exposure goes longer, it is switched to manual exposure at that limit until calibration ends; then auto exposure comes back, unless the exposure step has set its own exposure. `exposure_dynamic_framerate` is set to 0 again after every switch between manual and auto exposure, in case the camera turns it back on.
+   - *Logged.* A few seconds after every camera open, and when the frame-rate warning fires, the frame rate, the exposure, the exposure mode and `exposure_dynamic_framerate` are logged at INFO. The next hardware check can then tell a dark scene from a slow start.
+   - *Why this way.* Under auto exposure V4L2 won't take an exposure limit, so manual exposure is the only way to hold one. The limit applies only when the camera would go longer than a frame period. In the owner's normal light the camera sits at about one frame period already (an exposure of 336), so nothing changes there.
+4. **A camera that fails to reopen right after it appears is retried.**
+   - *The bug.* On one replug the reopen failed ("Cannot open the webcam … /dev/video0"): the device node appeared a moment before the camera could be opened. The reconnect tries a camera once each time it appears (Revision 2, decision 6), so it gave up until the next replug.
+   - *The fix.* A camera that has just appeared is tried up to three times, about a second apart. Only the last failure is shown to the owner; the earlier ones are logged. After three failures it isn't tried again until it is unplugged and plugged in again, so a camera another program holds still never produces an error every two seconds.
+5. **An unattended calibration waits 60 seconds, not 30.**
+   - *Why.* A camera just plugged in resets its controls, and in Plan 7's check it took 10–15 seconds to settle. Decision 4's retries can add a couple of seconds more before the camera is even open. In this check, one replug's automatic calibration had run for about 28 seconds without finding the pattern. Decision 3 keeps the search at full speed but doesn't make the camera settle faster. A longer wait costs nothing when no one is there: the calibration ends as soon as it finds the pattern, and Cancel ends it at any time. The only cost is that with the projector covered the pattern shows for 60 seconds before the quiet end.
+   - *Why one limit.* A launch just after the camera was plugged in has the same settling as a reconnect, so a separate limit for reconnects would miss half the cases.
+   - This replaces Revision 3's 30 seconds (decision 3). An attended calibration still falls back to the manual box after 12 seconds.
+
+Plan 9 also fixes three smaller things from the same check:
+- the manual box's handles, which moved about a tenth as far as the mouse;
+- the not-ready card's wording when the pattern wasn't found ("Calibrate — the pattern wasn't found. Press Set up to calibrate.");
+- two log details: a stale "since the pattern first showed" time after a timeout, and the automatic calibration's reason when the camera merely opened after the arena.
+
+#### Success criteria (revision 4)
+
+Adds:
+
+15. Cancelling a recalibration made over a good calibration leaves Show grid lined up as before.
+16. On the C270, the exposure step logs "Exposure lowered", from a baseline of about the white's brightness.
+17. With the projector's lens covered, the frame rate stays near the camera's 30 FPS while the pattern is looked for.
+18. After a replug, the camera reopens by itself even if the first try fails, and the arena recalibrates.
+
+#### Delivery
+
+**Plan 9** implements this revision on `compose-ui`. The owner then repeats a short hardware check of each item.
