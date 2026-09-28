@@ -54,9 +54,10 @@ fun ShootOffApp(app: AppState) {
                     Destination.RANGE -> RangeScreen(app)
                     Destination.SETUP -> SetupScreen(app)
                     Destination.DRILLS -> DrillsScreen(app)
+                    Destination.TARGETS -> TargetsScreen(app)
                     Destination.SETTINGS -> SettingsScreen(app)
                     // Disabled on the rail
-                    Destination.TARGETS, Destination.SESSIONS -> RangeScreen(app)
+                    Destination.SESSIONS -> RangeScreen(app)
                 }
             }
         }

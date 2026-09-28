@@ -152,3 +152,35 @@ fun AlignmentGrid(size: GeomSize, transform: SurfaceTransform) {
 fun ArenaView(arena: ArenaModel, modifier: Modifier = Modifier, overlay: @Composable (SurfaceTransform) -> Unit = {}) {
     ArenaCanvas(arena, modifier.testTag("arena-view"), overlay)
 }
+
+/**
+ * The Targets screen's view of the arena, open or not: the arena's area with the background the projector
+ * shows once nothing covers it ([arena]'s exercise background if one is up, else the shooter's), every
+ * target, then [overlay] in arena coordinates. Unlike [ArenaCanvas] it shows the targets while calibration's
+ * pattern covers the arena, so the shooter can go on placing them.
+ */
+@Composable
+fun ArenaLayoutView(layout: ArenaLayout, arena: ArenaModel?, modifier: Modifier = Modifier, overlay: @Composable (SurfaceTransform) -> Unit = {}) {
+    val size by layout.size.collectAsState()
+    val shooters by layout.background.collectAsState()
+    val exercises = arena?.background?.collectAsState()?.value
+    val covered = arena?.covered?.collectAsState()?.value == true
+
+    BoxWithConstraints(modifier.background(Color.Black)) {
+        val transform = SurfaceTransform.fit(size, constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
+        Canvas(Modifier.fillMaxSize().testTag("layout-canvas")) {
+            val topLeft = transform.toView(0.0, 0.0)
+            val areaSize = Size((size.width * transform.scale).toFloat(), (size.height * transform.scale).toFloat())
+            drawRect(ARENA_GRAY, topLeft, areaSize)
+            // Under the pattern, the background the arena goes back to
+            val image = (exercises.takeUnless { covered } ?: shooters)?.image ?: return@Canvas
+            drawImage(
+                image,
+                dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
+                dstSize = IntSize(areaSize.width.roundToInt(), areaSize.height.roundToInt()),
+            )
+        }
+        TargetLayer(layout.targets, transform)
+        overlay(transform)
+    }
+}

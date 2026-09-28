@@ -46,14 +46,13 @@ import androidx.compose.ui.unit.sp
 import com.shootoff.compose.theme.Range
 
 /**
- * The places the rail leads to, in the rail's order (spec §8). Targets and Sessions are in the JavaFX app
- * for now.
+ * The places the rail leads to, in the rail's order (spec §8). Sessions is in the JavaFX app for now.
  */
 enum class Destination(val label: String, val icon: ImageVector, val enabled: Boolean) {
     RANGE("Range", Icons.Filled.Home, true),
     SETUP("Setup", Icons.Filled.Build, true),
     DRILLS("Drills", Icons.Filled.PlayArrow, true),
-    TARGETS("Targets", Icons.Filled.Place, false),
+    TARGETS("Targets", Icons.Filled.Place, true),
     SESSIONS("Sessions", Icons.AutoMirrored.Filled.List, false),
     SETTINGS("Settings", Icons.Filled.Settings, true),
 }
@@ -92,9 +91,9 @@ fun AppRail(
             )
         }
         Spacer(Modifier.height(16.dp))
-        // Targets and Sessions are greyed out; say why
+        // Sessions is greyed out; say why
         Text(
-            "Targets and Sessions: ${DISABLED_HINT.replaceFirstChar { it.lowercase() }}",
+            "Sessions: ${DISABLED_HINT.replaceFirstChar { it.lowercase() }}",
             color = colors.muted,
             fontSize = 10.sp,
             lineHeight = 12.sp,

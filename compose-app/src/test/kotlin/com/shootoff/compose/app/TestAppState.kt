@@ -168,11 +168,12 @@ class TestAppState {
     }
 
     @Test
-    fun targetsAndSessionsCantBeNavigatedTo() {
+    fun targetsCanBeNavigatedToButSessionsCant() {
         app.navigate(Destination.TARGETS)
-        app.navigate(Destination.SESSIONS)
+        assertEquals(Destination.TARGETS, app.destination.value)
 
-        assertEquals(Destination.RANGE, app.destination.value)
+        app.navigate(Destination.SESSIONS)
+        assertEquals(Destination.TARGETS, app.destination.value)
     }
 
     @Test

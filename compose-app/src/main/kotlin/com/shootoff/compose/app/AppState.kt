@@ -177,6 +177,9 @@ class AppState(
     /** The shooter's arena targets and background, which every arena window this session draws */
     val arenaLayout = ArenaLayout(clock)
 
+    /** The Targets screen's state */
+    val targetsModel = TargetsModel(arenaLayout)
+
     private val arenaState = MutableStateFlow<ArenaModel?>(null)
     private val placementState = MutableStateFlow<ArenaPlacement?>(null)
     private val calibrationState = MutableStateFlow<CalibrationController?>(null)

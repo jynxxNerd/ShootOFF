@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -19,14 +20,15 @@ class TestAppRail {
     val compose = createComposeRule()
 
     @Test
-    fun targetsAndSessionsAreShownButDisabled() {
+    fun sessionsIsShownButDisabled() {
         compose.setContent { RangeTheme(dark = true) { AppRail(Destination.RANGE, {}) } }
 
         compose.onNodeWithTag("rail-RANGE").assertIsEnabled().assertIsSelected()
         compose.onNodeWithTag("rail-DRILLS").assertIsEnabled()
         compose.onNodeWithTag("rail-SETTINGS").assertIsEnabled()
-        compose.onNodeWithTag("rail-TARGETS").assertIsNotEnabled()
+        compose.onNodeWithTag("rail-TARGETS").assertIsEnabled()
         compose.onNodeWithTag("rail-SESSIONS").assertIsNotEnabled()
+        compose.onNodeWithTag("rail-hint").assertTextEquals("Sessions: in the JavaFX app for now")
     }
 
     @Test
