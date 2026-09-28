@@ -38,14 +38,20 @@ public class XMLCourseWriter implements CourseVisitor {
 
 	@Override
 	public void visitBackground(String url, boolean isResource) {
-		xmlBody.append(String.format("\t<background url=\"%s\" isResource=\"%b\" />%n", url, isResource));
+		xmlBody.append(String.format("\t<background url=\"%s\" isResource=\"%b\" />%n", escape(url), isResource));
 	}
 
 	@Override
 	public void visitTarget(File targetFile, double x, double y, double width, double height) {
 		xmlBody.append(
 				String.format(Locale.US, "\t<target file=\"%s\" x=\"%f\" y=\"%f\" width=\"%f\" height=\"%f\" />%n",
-						targetFile.getPath(), x, y, width, height));
+						escape(targetFile.getPath()), x, y, width, height));
+	}
+
+	// An attribute value as XML: a path or URL with &, <, > or a quote in it would otherwise make the whole
+	// course unreadable
+	private static String escape(String value) {
+		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
 	}
 
 	@Override

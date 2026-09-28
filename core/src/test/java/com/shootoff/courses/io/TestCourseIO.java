@@ -46,6 +46,23 @@ public class TestCourseIO {
 		if (!tempXMLCourse.delete()) System.err.println("Failed to delete " + tempXMLCourse.getPath());
 	}
 
+	// A background the owner picked from a folder named "Range & Bay" made the whole course unreadable
+	@Test
+	public void aPathOrUrlWithXmlSpecialCharactersRoundTrips() throws IOException {
+		final Course special = new Course(Optional.of(new CourseBackground("file:/tmp/Range%20&%20\"Bay\"/<a>.png", false)),
+				List.of(new CourseTarget(new File("targets/A & \"B\" <c>.target"), 10, 100, 10, 1)),
+				Optional.of(new Size(1280, 720)));
+		final File file = File.createTempFile("special", ".course");
+		file.deleteOnExit();
+
+		CourseIO.saveCourse(special, file);
+		final Optional<Course> loaded = CourseIO.loadCourse(file);
+
+		assertTrue(loaded.isPresent());
+		assertEquals(special.getBackground(), loaded.get().getBackground());
+		assertEquals(special.getTargets(), loaded.get().getTargets());
+	}
+
 	@Test
 	public void testCourseDoesntExist() {
 		assertEquals(Optional.empty(), CourseIO.loadCourse(new File("does_not_exist.course")));
