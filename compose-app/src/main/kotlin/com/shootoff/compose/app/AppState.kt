@@ -121,6 +121,8 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param patternSettleMillis how long the arena must have filled the projector's screen before a check shows
  *   the pattern, or an automatic calibration starts
  * @param calibrationTimers runs calibration's and the check's timers (auto-calibration's timeout among them)
+ * @param arenaFiles where the Targets screen finds targets and courses, and the arena's layout is remembered
+ * @param imagePicker asks the shooter for a background image file
  */
 class AppState(
     val settings: Settings,
@@ -139,6 +141,8 @@ class AppState(
     private val reconnectRetryMillis: Long = RECONNECT_RETRY_MILLIS,
     private val patternSettleMillis: Long = PATTERN_SETTLE_MILLIS,
     private val calibrationTimers: CalibrationFlow.Scheduler = TIMER_POOL,
+    arenaFiles: ArenaFiles = ArenaFiles.scratch(),
+    imagePicker: ImagePicker = ImagePicker { null },
 ) : CalibrationViews {
     companion object {
         /** How long the arena settles on the projector before a pattern shows for a check, or calibration starts */
@@ -178,7 +182,7 @@ class AppState(
     val arenaLayout = ArenaLayout(clock)
 
     /** The Targets screen's state */
-    val targetsModel = TargetsModel(arenaLayout)
+    val targetsModel = TargetsModel(arenaLayout, feedTargets, displaySize, arenaFiles, imagePicker, scope, io)
 
     private val arenaState = MutableStateFlow<ArenaModel?>(null)
     private val placementState = MutableStateFlow<ArenaPlacement?>(null)
