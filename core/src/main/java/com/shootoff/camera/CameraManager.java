@@ -798,6 +798,11 @@ public class CameraManager
 		isAutoCalibrating.set(true);
 		cameraAutoCalibrated = false;
 
+		// Held from the start of the search, not from its first look, which in a dark scene waits for a frame up to
+		// 2 s away (spec §8 Revision 5, decision 1). And before the exposure step's probe (fireAutoCalibration),
+		// which switches the exposure to manual and back
+		camera.limitExposureToFramePeriod();
+
 		fireAutoCalibration();
 	}
 

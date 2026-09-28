@@ -454,17 +454,39 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	public synchronized boolean limitExposureToFramePeriod() {
 		if (!SystemInfo.isLinux() || !isOpen() || manualExposureActive) return false;
 
-		final double exposure = camera.get(Videoio.CAP_PROP_EXPOSURE);
+		final double exposure = freshExposure();
 		final OptionalDouble limit = exposureLimit(exposure, camera.get(Videoio.CAP_PROP_FPS));
 		if (limit.isEmpty() || !switchToManualExposure()) return false;
 
-		camera.set(Videoio.CAP_PROP_EXPOSURE, limit.getAsDouble());
+		if (!camera.set(Videoio.CAP_PROP_EXPOSURE, limit.getAsDouble())) {
+			logger.warn("{} wouldn't take a manual exposure of {}; auto exposure again", getName(), limit.getAsDouble());
+			resetExposure();
+			return false;
+		}
 		exposureLimited = true;
+		// The camera took a manual exposure, so it can be adjusted: the exposure step's probe (supportsExposureAdjustment),
+		// which would switch the exposure back to auto and so end the hold, isn't needed
+		if (origExposure.isEmpty()) origExposure = Optional.of(exposure);
 
 		logger.info("{} auto exposure was {}, longer than a frame: held at {} by hand while looking for the pattern",
 				getName(), exposure, limit.getAsDouble());
 
 		return true;
+	}
+
+	// The exposure as the camera has it now. The Linux UVC driver caches exposure_time_absolute and asks the camera
+	// again only after a control on the same unit is written, or when the camera reports a change: the C270's auto
+	// exposure read 336 for seconds while it was really 20724 (spec §8 Revision 5, decision 1). Writing
+	// exposure_dynamic_framerate, on the same unit, back with its own value makes the next read ask the camera.
+	private synchronized double freshExposure() {
+		if (SystemInfo.isLinux()) {
+			final OptionalInt dynamicFramerate = V4l2Controls.getControl(device(),
+					V4l2Controls.EXPOSURE_DYNAMIC_FRAMERATE);
+			if (dynamicFramerate.isPresent())
+				V4l2Controls.setControl(device(), V4l2Controls.EXPOSURE_DYNAMIC_FRAMERATE, dynamicFramerate.getAsInt());
+		}
+
+		return camera.get(Videoio.CAP_PROP_EXPOSURE);
 	}
 
 	@Override

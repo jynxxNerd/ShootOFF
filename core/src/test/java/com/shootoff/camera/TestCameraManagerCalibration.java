@@ -75,6 +75,12 @@ class TestCameraManagerCalibration {
 		public void releaseExposureLimit() {
 			exposure.add("limit released");
 		}
+
+		@Override
+		public boolean supportsExposureAdjustment() {
+			exposure.add("probe");
+			return false;
+		}
 	}
 
 	private final ExposureCamera camera = new ExposureCamera();
@@ -177,7 +183,25 @@ class TestCameraManagerCalibration {
 
 		manager.disableAutoCalibration();
 
-		assertEquals(List.of("limit released"), camera.exposure);
+		assertEquals(List.of("limit taken", "probe", "limit released"), camera.exposure);
+	}
+
+	// Plan 9's hardware check: with the lens covered, frames came about 2 s apart and the hold came 6-10 s into the
+	// search. It is taken as the search starts, before any frame (spec §8 Revision 5, decision 1).
+	@Test
+	void theExposureIsHeldAsSoonAsAutoCalibrationStartsBeforeAnyFrame() {
+		manager.enableAutoCalibration(false);
+
+		assertTrue(camera.exposure.contains("limit taken"), camera.exposure.toString());
+	}
+
+	// The exposure step's probe switches the exposure to manual and back to auto, after which the driver's reading
+	// can lag the camera's by seconds: the hold reads the exposure first
+	@Test
+	void theExposureIsHeldBeforeTheExposureStepProbesTheCamera() {
+		manager.enableAutoCalibration(false);
+
+		assertEquals(List.of("limit taken", "probe"), camera.exposure);
 	}
 
 	// disableAutoCalibration (the UI thread) can land between processFrame's isAutoCalibrating check and the
@@ -186,6 +210,7 @@ class TestCameraManagerCalibration {
 	@Test
 	void aLimitTakenAsDisableRunsInTheMiddleOfTheFrameIsStillReleased() throws IOException {
 		manager.enableAutoCalibration(false);
+		camera.exposure.clear();
 		camera.onLimit = manager::disableAutoCalibration;
 
 		manager.processFrame(new Frame(frame(new Rect(100, 80, 420, 296)), 1000), true);
