@@ -48,13 +48,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shootoff.compose.calibration.showsPattern
+import com.shootoff.compose.calibration.text
 import com.shootoff.compose.drill.DrillCard
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.theme.Range
 
 const val SET_UP_FIRST = "Set up the projector first"
 
-/** What the calibration is, or what is missing, on a chip that opens Setup */
+/**
+ * What is missing, or under way, on a chip that opens Setup. Once the range is ready (a camera, the arena
+ * calibrated, nothing under way and nothing to say) the chip goes: the status strip says it already.
+ */
 @Composable
 fun StatusChip(app: AppState, modifier: Modifier = Modifier) {
     val camera by app.camera.collectAsState()
@@ -66,6 +70,7 @@ fun StatusChip(app: AppState, modifier: Modifier = Modifier) {
     val check by app.check.collectAsState()
     val colors = Range.colors
     val ready = camera != null && calibrated && !calibrating
+    if (ready && check.text() == null) return
 
     Surface(
         onClick = { app.navigate(Destination.SETUP) },

@@ -53,17 +53,26 @@ class TestRangeScreen {
     }
 
     @Test
-    fun theChipSaysWhatIsMissingOrWhenItWasCalibratedAndOpensSetup() {
+    fun theChipSaysWhatIsMissingAndOpensSetup() {
         app.openStartCamera()
         showApp()
         compose.onNodeWithTag("status-chip").assert(hasText("No arena"))
 
-        AppFixture.setUpForProjectorDrills(app)
-        compose.waitForIdle()
-        compose.onNodeWithTag("status-chip").assert(hasText("✓ Calibrated", substring = true))
-
         compose.onNodeWithTag("status-chip").performClick()
         assertEquals(Destination.SETUP, app.destination.value)
+    }
+
+    // The owner's ask (Plan 7's hardware check): once all is set up the status strip at the bottom already says
+    // it, so the chip goes; it comes back as soon as something needs attention or is under way
+    @Test
+    fun theChipIsHiddenOnceTheRangeIsReadyAndBackWhileCalibrating() {
+        AppFixture.setUpForProjectorDrills(app)
+        showApp()
+        compose.onNodeWithTag("status-chip").assertDoesNotExist()
+
+        assertTrue(app.startCalibration())
+        compose.waitForIdle()
+        compose.onNodeWithTag("status-chip").assert(hasText("Calibrating…"))
     }
 
     @Test
