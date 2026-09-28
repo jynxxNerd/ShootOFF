@@ -101,8 +101,10 @@ class CalibrationController(
     @Volatile
     private var backgroundSaved = false
 
-    // Bumped whenever the arena closes, so a calibrated() completion queued on the UI thread beforehand
-    // (the camera found the pattern just as the window went away) finds out it is stale and does nothing
+    // Bumped whenever a calibration begins or ends without calibrating (Cancel, the arena closing), so
+    // whatever the camera sent for an earlier one and is still queued on the UI thread (a completion, as the
+    // camera found the pattern just as the window went away; a background) finds out it is stale and does
+    // nothing
     @Volatile
     private var generation = 0
 
@@ -156,6 +158,8 @@ class CalibrationController(
     }
 
     private fun beginSession() {
+        // Whatever the camera still sends for an earlier calibration (a background, a success) is stale now
+        generation++
         boundsBefore = camera.projectionBounds.orElse(null)
         foundPaper = Optional.empty()
         foundByCamera = false
@@ -259,8 +263,21 @@ class CalibrationController(
         )
     }
 
-    /** Auto-calibration's exposure step shows a white screen, then none */
-    override fun setArenaBackground(resourceFilename: String?) = arena.showResource(resourceFilename)
+    /**
+     * Auto-calibration's steps set the arena's background from the camera's thread (the exposure step shows a
+     * white screen; the steps before it blank the arena). The camera can be in the middle of a frame when
+     * calibration ends, so this reaches the arena on the UI thread and only while that same calibration still
+     * runs: a request landing after Cancel, the arena closing or a success has put the arena back is dropped,
+     * and never leaves the projector white (the owner's white arena, Plan 7's hardware check).
+     */
+    override fun setArenaBackground(resourceFilename: String?) {
+        val expectedGeneration = generation
+        uiThread(
+            Runnable {
+                if (generation == expectedGeneration && flow.isCalibrating) arena.showResource(resourceFilename)
+            },
+        )
+    }
 
     // ---- The flow (CalibrationFlow.View)
 

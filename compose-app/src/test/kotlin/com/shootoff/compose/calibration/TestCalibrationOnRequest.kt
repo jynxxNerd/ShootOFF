@@ -114,6 +114,66 @@ class TestCalibrationOnRequest {
         assertFalse(fixture.events.any { it.startsWith("succeeded") })
     }
 
+    // The owner's white arena (Plan 7's hardware check): auto-calibration's steps set the arena's background
+    // from the camera's thread (the exposure step shows white.png). One that lands after Cancel has put the
+    // arena back must not show; the arena must be exactly as it was before calibration started.
+    @Test
+    fun aWhiteScreenTheCameraAsksForAsCancelLandsNeverShows() {
+        val background = ArenaBackground(ImageBitmap(4, 4), "backgrounds/blackBG.png")
+        arena.setBackground(background)
+        arena.setFullScreen(true)
+        controller.start()
+
+        // The camera's thread was already in the exposure step's first frame when Cancel was pressed
+        controller.cancel()
+        controller.setArenaBackground("white.png")
+
+        assertSame(background, arena.background.value)
+    }
+
+    @Test
+    fun cancelDuringTheExposureStepPutsTheBackgroundBackNotWhite() {
+        val background = ArenaBackground(ImageBitmap(4, 4), "backgrounds/blackBG.png")
+        arena.setBackground(background)
+        arena.setFullScreen(true)
+        controller.start()
+        // The pattern was found; the paper step blanks the arena, then the exposure step shows white
+        controller.setArenaBackground(null)
+        controller.setArenaBackground("white.png")
+        assertEquals("white.png", arena.background.value!!.name)
+
+        controller.cancel()
+
+        assertSame(background, arena.background.value)
+        assertFalse(arena.covered.value)
+    }
+
+    @Test
+    fun cancelOnTheManualBoxAfterTheExposureStepStartedPutsTheBackgroundBack() {
+        arena.setFullScreen(true)
+        controller.start()
+        controller.setArenaBackground("white.png")
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+        assertNotNull(controller.state.value.box)
+
+        controller.cancel()
+
+        assertEquals(null, arena.background.value)
+        assertTrue(arena.needsCalibrationLabel.value)
+    }
+
+    @Test
+    fun aBackgroundTheCameraAsksForAfterASuccessNeverShows() {
+        arena.setFullScreen(true)
+        controller.start()
+        controller.calibrate(Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), false, 0)
+        assertEquals(null, arena.background.value)
+
+        controller.setArenaBackground("white.png")
+
+        assertEquals(null, arena.background.value)
+    }
+
     @Test
     fun cancellingOnAnUncalibratedArenaBringsBackItsLabel() {
         arena.setFullScreen(true)
