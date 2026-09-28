@@ -264,6 +264,20 @@ public final class CalibrationFlow {
 	}
 
 	/**
+	 * The owner started calibrating (F6, or Calibrate on Setup) while an unattended calibration
+	 * ({@link #startUnattended}) is already running: turns it into an attended one, from here on, as if
+	 * {@link #start()} had begun it. The normal timeout ({@link #AUTO_CALIBRATION_TIMEOUT}) now leads to
+	 * the manual box, in place of the longer unattended one that would otherwise cancel calibration
+	 * quietly. Does nothing while calibrating attended already, or not calibrating at all.
+	 */
+	public void attend() {
+		if (!isCalibrating.get() || unattendedTimeout.isEmpty()) return;
+
+		unattendedTimeout = Optional.empty();
+		if (isShowingPattern.get()) launchAutoCalibrationTimer();
+	}
+
+	/**
 	 * Ends calibrating: with the manual box's bounds if it is showing, otherwise with the bounds found
 	 * so far (possibly none).
 	 */

@@ -4,9 +4,9 @@ import com.shootoff.calibration.CalibrationCheck
 import com.shootoff.calibration.CalibrationCheck.Reason
 import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.calibration.CalibrationFlow.Message
-import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.calibration.savedCalibrationMismatch
+import com.shootoff.compose.shell.Destination
 import com.shootoff.config.SavedCalibration
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings

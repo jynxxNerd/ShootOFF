@@ -66,6 +66,28 @@ class TestCalibrationOnRequest {
         assertFalse(fixture.events.any { it.startsWith("succeeded") })
     }
 
+    // Task 3 review fix round 1: F6, or Calibrate on Setup, while an unattended calibration is already
+    // running (the owner showed up) must not be a no-op that lets it end quietly after
+    // AUTO_CALIBRATION_TIMEOUT_UNATTENDED: it should turn into an attended one, whose normal (shorter)
+    // timeout opens the manual box instead.
+    @Test
+    fun startingWhileAnUnattendedCalibrationRunsAttendsItSoTheNormalTimeoutOpensTheBoxInstead() {
+        var notFound = 0
+        arena.setFullScreen(true)
+
+        controller.startUnattended { notFound++ }
+        assertEquals(Message.AUTO_CALIBRATING, controller.state.value.message)
+
+        controller.start()
+        assertTrue(controller.state.value.calibrating)
+
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT)
+
+        assertEquals(Message.MANUAL_REQUEST, controller.state.value.message)
+        assertNotNull(controller.state.value.box)
+        assertEquals(0, notFound)
+    }
+
     @Test
     fun cancelLeavesTheArenaAndTheCameraAsTheyWereAndRestartsNothing() {
         val restarts = mutableListOf<String>()

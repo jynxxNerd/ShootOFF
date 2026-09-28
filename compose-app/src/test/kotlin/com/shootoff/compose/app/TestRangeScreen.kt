@@ -10,8 +10,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.camera.shot.ShotColor
+import com.shootoff.compose.calibration.CheckState
 import com.shootoff.compose.shell.Destination
 import com.shootoff.compose.theme.RangeTheme
+import com.shootoff.config.SavedCalibration
+import com.shootoff.config.ScratchConfig
+import com.shootoff.config.Settings
+import com.shootoff.geom.Rect
+import com.shootoff.geom.Size
+import java.util.Optional
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -24,7 +31,7 @@ class TestRangeScreen {
     @get:Rule
     val compose = createComposeRule()
 
-    private val app = AppFixture.appWithCamera()
+    private var app = AppFixture.appWithCamera()
 
     @After
     fun close() = app.close()
@@ -110,6 +117,7 @@ class TestRangeScreen {
     fun theResumeButtonIsDisabledWhileAPatternShows() {
         AppFixture.setUpForProjectorDrills(app)
         assertTrue(app.startDrill(AppFixture.pausingDrill))
+        awaitTrue { app.drill.buttons.value.any { it.label == "Pause" } }
         assertTrue(app.perform(Shortcut.PAUSE_DRILL))
         showApp()
         compose.onNodeWithTag("drill-button-Resume").assertIsEnabled()
@@ -119,6 +127,46 @@ class TestRangeScreen {
         compose.waitForIdle()
 
         assertTrue(app.calibration.value!!.state.value.calibrating)
+        compose.onNodeWithTag("drill-button-Resume").assertIsNotEnabled()
+    }
+
+    // Task 3 review ruling: RangeControls' pauseEnabled = !calibrating && !check.showsPattern also guards
+    // the drill card's Resume while a check's or an automatic calibration's pattern shows, not just while
+    // calibrating; the test above only drives the calibrating half of that.
+    @Test
+    fun theResumeButtonIsDisabledWhileAnAutomaticCalibrationWaitsForTheProjector() {
+        app.openStartCamera()
+        assertTrue(app.startDrill(AppFixture.pausingFeedDrill))
+        awaitTrue { app.drill.buttons.value.any { it.label == "Pause" } }
+        assertTrue(app.perform(Shortcut.PAUSE_DRILL))
+
+        app.setRememberCalibration(true)
+        app.openArena()
+        assertEquals(CheckState.WaitingToCalibrate, app.check.value)
+        showApp()
+
+        compose.onNodeWithTag("drill-button-Resume").assertIsNotEnabled()
+    }
+
+    @Test
+    fun theResumeButtonIsDisabledWhileTheSavedCalibrationIsBeingChecked() {
+        app.close()
+        val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
+        settings.setRememberCalibration(true)
+        settings.setSavedCalibration(
+            SavedCalibration("Test camera", Size(640.0, 480.0), Size(1280.0, 720.0), Rect(100.0, 80.0, 400.0, 300.0), Optional.empty(), true),
+        )
+        app = AppFixture.appWithCamera(settings)
+        app.openStartCamera()
+        assertTrue(app.startDrill(AppFixture.pausingFeedDrill))
+        awaitTrue { app.drill.buttons.value.any { it.label == "Pause" } }
+        assertTrue(app.perform(Shortcut.PAUSE_DRILL))
+
+        app.openArena()
+        AppFixture.putOnTheProjector(app)
+        awaitTrue { app.check.value == CheckState.Checking }
+        showApp()
+
         compose.onNodeWithTag("drill-button-Resume").assertIsNotEnabled()
     }
 
@@ -138,5 +186,11 @@ class TestRangeScreen {
 
         compose.onNodeWithTag("prompt-setup").performClick()
         assertEquals(Destination.SETUP, app.destination.value)
+    }
+
+    private fun awaitTrue(condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + 5000
+        while (!condition() && System.currentTimeMillis() < deadline) Thread.sleep(5)
+        assertTrue(condition())
     }
 }

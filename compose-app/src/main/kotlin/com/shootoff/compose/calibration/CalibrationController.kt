@@ -110,7 +110,8 @@ class CalibrationController(
     @Volatile
     private var boundsBefore: Rect? = null
 
-    // Whether a calibration the user started is under way, so only its end is reported as a success
+    // Whether a calibration - asked for, or started by itself as the arena opened - is under way, so only
+    // its end is reported as a success (not a remembered one merely being applied)
     @Volatile
     private var session = false
 
@@ -127,10 +128,15 @@ class CalibrationController(
     /**
      * Starts calibrating because the user asked (Calibrate on Setup, or F6). The flow is told whether the
      * arena is full screen as it starts, so a start on an arena that is already full screen looks for the
-     * pattern at once and its timeout reaches the manual box.
+     * pattern at once and its timeout reaches the manual box. Asked for while an unattended calibration
+     * (spec §8 Revision 3) is already running, it turns that run into an attended one instead (the owner
+     * is here now): [CalibrationFlow.attend].
      */
     fun start() {
-        if (flow.isCalibrating) return
+        if (flow.isCalibrating) {
+            flow.attend()
+            return
+        }
         beginSession()
         flow.setFullScreen(arena.fullScreen.value)
     }

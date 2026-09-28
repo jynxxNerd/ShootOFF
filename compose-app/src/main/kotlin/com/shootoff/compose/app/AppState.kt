@@ -326,7 +326,9 @@ class AppState(
      * What the app does as it starts (spec §8 rule 1, as revised): the camera it starts with is found and
      * opened in the background; the arena opens on the projector, if a projector screen is found from where
      * the main window really lands, once [mainWindowPlaced] reports that (its corner isn't known yet here:
-     * review fix to spec §8 Revision 2, decision 4). Nothing calibrates.
+     * review fix to spec §8 Revision 2, decision 4). Nothing calibrates by itself here: with "Calibrate
+     * automatically when the arena opens" on, that waits for the arena to actually reach the projector
+     * (spec §8 Revision 3), same as [openArena] leaves it for any other opening of the arena.
      */
     fun launch() {
         openArenaAtLaunch = true
@@ -892,8 +894,10 @@ class AppState(
     }
 
     /**
-     * Starts calibrating the open arena with the open camera: the only way calibration ever starts
-     * (Calibrate on Setup, or F6).
+     * Starts calibrating the open arena with the open camera because the owner asked (Calibrate on Setup,
+     * or F6) — the arena can also calibrate itself as it opens, with "Calibrate automatically when the
+     * arena opens" on (spec §8 Revision 3). Asked for while that automatic run is still waiting to find the
+     * pattern, it turns it into an attended one instead of letting it end quietly.
      *
      * @return false if there is no arena, or no camera, to calibrate
      */
