@@ -116,13 +116,15 @@ class CourseLoader(private val home: File) {
      *
      * @return false if it couldn't be written
      */
-    fun save(course: Course, file: File): Boolean {
+    fun save(course: Course, file: File, write: (Course, File) -> Unit = CourseIO::saveCourse): Boolean {
         // Hidden, and still ending in "course", which CourseIO insists on
         val part = File(file.absoluteFile.parentFile, ".${file.name}")
         part.delete()
-        CourseIO.saveCourse(course, part)
-        if (!part.isFile || part.length() == 0L) {
+        write(course, part)
+        // CourseIO swallows write errors, so a partial file is only caught by reading it back
+        if (!part.isFile || !CourseIO.loadCourse(part).isPresent) {
             logger.error("Couldn't write the course {}", file)
+            part.delete()
             return false
         }
         return try {
@@ -165,12 +167,13 @@ class CourseLoader(private val home: File) {
         set.resize(id, newWidth, newHeight)
     }
 
-    private fun resolve(file: File): File = if (file.isAbsolute) file else File(home, file.path)
+    // A course saved on Windows names its targets with backslashes
+    private fun resolve(file: File): File = if (file.isAbsolute) file else File(home, file.path.replace('\\', '/'))
 
     // Relative to ShootOFF's folder when inside it, as the JavaFX app saved them
     private fun relative(file: File): File {
         val path = file.absoluteFile.toPath().normalize()
         val base = home.absoluteFile.toPath().normalize()
-        return if (path.startsWith(base)) base.relativize(path).toFile() else path.toFile()
+        return if (path.startsWith(base)) File(base.relativize(path).toFile().invariantSeparatorsPath) else path.toFile()
     }
 }

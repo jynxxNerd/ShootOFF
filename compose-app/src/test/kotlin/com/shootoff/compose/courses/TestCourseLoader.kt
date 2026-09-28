@@ -14,7 +14,6 @@ import com.shootoff.targets.model.ResourceResolver
 import com.shootoff.targets.model.TargetDefinitions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -186,9 +185,39 @@ class TestCourseLoader {
         file.writeText("old")
 
         assertFalse(loader.save(loader.course(layout), temp.resolve("no_such_folder/mine.course").toFile()))
+        // The part file's own name is taken by a folder, so it can't be written beside the old file
+        val blocker = File(temp.toFile(), ".mine.course")
+        File(blocker, "inside").mkdirs()
+        assertFalse(loader.save(loader.course(layout), file))
         assertEquals("old", file.readText())
+        blocker.deleteRecursively()
         assertTrue(loader.save(loader.course(layout), file))
         assertTrue(CourseIO.loadCourse(file).isPresent)
-        assertFalse(File(temp.toFile(), ".mine.course").exists())
+        assertFalse(blocker.exists())
+    }
+
+    @Test
+    fun aWriteThatStopsPartwayLeavesTheOldFileWholeAndNoTempBehind(@TempDir temp: Path) {
+        add("targets/Reset.target", 10.0, 10.0)
+        val file = temp.resolve("mine.course").toFile()
+        file.writeText("old")
+
+        val saved = loader.save(loader.course(layout), file) { _, part ->
+            part.writeText("<?xml version=\"1.0\"?><course><target file=\"targets/IPSC.target\"")
+        }
+
+        assertFalse(saved)
+        assertEquals("old", file.readText())
+        assertEquals(listOf("mine.course"), temp.toFile().list()!!.toList())
+    }
+
+    @Test
+    fun aCourseWrittenOnWindowsFindsItsTargets() {
+        val course = Course(Optional.empty(), listOf(CourseTarget(File("targets\\IPSC.target"), 0.0, 0.0, 90.0, 114.0)), Optional.empty())
+
+        val applied = loader.apply(course, layout)
+
+        assertEquals(emptyList<String>(), applied.missing)
+        assertEquals(1, shooters().size)
     }
 }
