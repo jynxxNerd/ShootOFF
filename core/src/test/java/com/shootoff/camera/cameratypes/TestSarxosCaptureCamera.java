@@ -136,4 +136,17 @@ public class TestSarxosCaptureCamera {
 		assertEquals("exposure 333 (manual), exposure_dynamic_framerate unknown",
 				SarxosCaptureCamera.describeExposure(333, 1, OptionalInt.empty()));
 	}
+
+	// Plan 9's hardware check: the line said 30.0 FPS, the estimate's starting value, while the covered C270 gave a
+	// frame every 2 s. It counts the frames since the camera opened instead (spec §8 Revision 5, decision 4).
+	@Test
+	public void testTheFrameRateIsMeasuredFromTheFramesSinceTheCameraOpened() {
+		assertEquals("30.0 FPS measured (90 frames in 3000 ms)", SarxosCaptureCamera.describeFrameRate(90, 3000));
+		assertEquals("0.7 FPS measured (2 frames in 3000 ms)", SarxosCaptureCamera.describeFrameRate(2, 3000));
+	}
+
+	@Test
+	public void testNoTimeSinceOpeningIsNoFrameRate() {
+		assertEquals("0.0 FPS measured (0 frames in 0 ms)", SarxosCaptureCamera.describeFrameRate(0, 0));
+	}
 }

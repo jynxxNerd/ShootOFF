@@ -22,6 +22,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -69,6 +70,9 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private final AtomicBoolean closing = new AtomicBoolean(false);
 	// Cancelled on close() so a close and reopen within CAPTURE_STATE_LOG_DELAY doesn't log early or twice
 	private ScheduledFuture<?> captureStateLogFuture;
+	// When the camera last opened, and its frame count then, for the frame rate logged CAPTURE_STATE_LOG_DELAY later
+	private volatile long openedAt = 0;
+	private volatile int framesAtOpen = 0;
 
 	// setViewSize is called before open() by CameraManager/CheckableImageListCell, and
 	// VideoCapture.set ignores every property on an unopened capture, so the requested size is
@@ -162,6 +166,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			CameraFactory.openCamerasAdd(this);
 
 			// What the frame rate and the exposure settle into (spec §8 Revision 4, decision 3)
+			openedAt = System.currentTimeMillis();
+			framesAtOpen = getFrameCount();
 			captureStateLogFuture = TimerPool.schedule(this::logCaptureState, CAPTURE_STATE_LOG_DELAY);
 		}
 
@@ -176,8 +182,16 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private void logCaptureState() {
 		if (!isOpen() || closing.get()) return;
 
-		logger.info("{} {} s after opening: {} FPS, {}", getName(), CAPTURE_STATE_LOG_DELAY / 1000,
-				String.format("%.1f", getFPS()), exposureState());
+		// Counted here rather than getFPS(), which starts at 30 and needs ten frames for its first estimate: a dark
+		// scene gives fewer in 3 s (spec §8 Revision 5, decision 4)
+		logger.info("{} {} s after opening: {}, {}", getName(), CAPTURE_STATE_LOG_DELAY / 1000,
+				describeFrameRate(getFrameCount() - framesAtOpen, System.currentTimeMillis() - openedAt),
+				exposureState());
+	}
+
+	static String describeFrameRate(int frames, long millis) {
+		final double fps = millis > 0 ? frames * 1000.0 / millis : 0;
+		return String.format(Locale.ROOT, "%.1f FPS measured (%d frames in %d ms)", fps, frames, millis);
 	}
 
 	@Override
@@ -188,8 +202,7 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 				? V4l2Controls.getControl(device(), V4l2Controls.EXPOSURE_DYNAMIC_FRAMERATE)
 				: OptionalInt.empty();
 
-		return describeExposure(camera.get(Videoio.CAP_PROP_EXPOSURE), camera.get(Videoio.CAP_PROP_AUTO_EXPOSURE),
-				dynamicFramerate);
+		return describeExposure(freshExposure(), camera.get(Videoio.CAP_PROP_AUTO_EXPOSURE), dynamicFramerate);
 	}
 
 	static String describeExposure(double exposure, double autoExposure, OptionalInt dynamicFramerate) {
