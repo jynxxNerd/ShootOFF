@@ -434,6 +434,18 @@ class TestCalibrationFlow {
 		assertFalse(projectorExerciseRunning, "the drill was stopped, not restarted");
 	}
 
+	// Spec §8 Revision 4, decision 5: a camera just plugged in, or just reopened after a failed try, gets a minute
+	@Test
+	void anUnattendedCalibrationLooksForAMinute() {
+		final CalibrationFlow flow = flow();
+
+		flow.startUnattended(() -> events.add("not found"));
+
+		assertEquals(60_000, CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED);
+		assertEquals(List.of(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED),
+				timers.stream().map(Timer::delayMillis).toList());
+	}
+
 	@Test
 	void anUnattendedCalibrationThatFindsThePatternEndsAsAnyOtherAndTheNextStartIsAttended() {
 		final CalibrationFlow flow = flow();

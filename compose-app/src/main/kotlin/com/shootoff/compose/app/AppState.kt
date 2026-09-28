@@ -69,6 +69,7 @@ import com.shootoff.geom.Size
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.shots.RangeReset
 import com.shootoff.util.TimerPool
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -77,6 +78,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -112,6 +115,7 @@ const val MAX_TRAY_HEIGHT = 480f
  * @param detector finds the calibration pattern in a camera's frames, for the remembered calibration's check
  * @param checkClock the check's time limit runs on it
  * @param reconnectMillis how often a lost camera is looked for, to reopen it when it is plugged back in
+ * @param reconnectRetryMillis how long after a failed reopen of a camera just plugged back in it is tried again
  * @param patternSettleMillis how long the arena must have filled the projector's screen before a check shows
  *   the pattern, or an automatic calibration starts
  * @param calibrationTimers runs calibration's and the check's timers (auto-calibration's timeout among them)
@@ -130,12 +134,22 @@ class AppState(
     private val detector: (CameraManager) -> CalibrationCheck.Detector<BufferedImage> = { PatternDetector(it.camera) },
     private val checkClock: () -> Long = System::currentTimeMillis,
     private val reconnectMillis: Long = 2000,
+    private val reconnectRetryMillis: Long = RECONNECT_RETRY_MILLIS,
     private val patternSettleMillis: Long = PATTERN_SETTLE_MILLIS,
     private val calibrationTimers: CalibrationFlow.Scheduler = TIMER_POOL,
 ) : CalibrationViews {
     companion object {
         /** How long the arena settles on the projector before a pattern shows for a check, or calibration starts */
         const val PATTERN_SETTLE_MILLIS = 500L
+
+        /**
+         * How many times a camera just plugged back in is tried before it waits to be plugged in again: its device
+         * node can appear a moment before it can be opened (spec §8 Revision 4, decision 4)
+         */
+        const val RECONNECT_TRIES = 3
+
+        /** How long after a failed try the next one is */
+        const val RECONNECT_RETRY_MILLIS = 1000L
 
         /** Calibration's timers on the app's shared timer pool */
         val TIMER_POOL = CalibrationFlow.Scheduler { task, delay -> TimerPool.schedule(task, delay) ?: CompletableFuture<Void>() }
@@ -405,9 +419,11 @@ class AppState(
      * [openingCamera] names [camera] while it opens on the I/O dispatcher; then [then] hears on the UI thread
      * whether it opened. One camera opens at a time.
      *
+     * @param reportFailure whether a camera that doesn't open is reported to the user; the reconnect's early
+     *   tries aren't (see [RECONNECT_TRIES])
      * @return false if the pick was ignored, because another camera is still opening
      */
-    fun openCameraInBackground(camera: Camera, then: (Boolean) -> Unit = {}): Boolean {
+    fun openCameraInBackground(camera: Camera, reportFailure: Boolean = true, then: (Boolean) -> Unit = {}): Boolean {
         if (openingState.value != null) return false
         if (cameraState.value?.camera === camera) {
             then(true)
@@ -430,7 +446,7 @@ class AppState(
             if (generation != openGeneration.get()) {
                 discard(opened)
             } else {
-                uiThread(Runnable { then(publish(generation, opened)) })
+                uiThread(Runnable { then(publish(generation, opened, reportFailure)) })
             }
         }
         return true
@@ -502,9 +518,9 @@ class AppState(
         return generation to old?.camera
     }
 
-    // An open finished, on the UI thread: shows its camera, or why it couldn't open, unless a newer open (or
-    // the app closing) has replaced it
-    private fun publish(generation: Int, opened: Opened): Boolean {
+    // An open finished, on the UI thread: shows its camera, or why it couldn't open (if [reportFailure]), unless a
+    // newer open (or the app closing) has replaced it
+    private fun publish(generation: Int, opened: Opened, reportFailure: Boolean = true): Boolean {
         if (generation != openGeneration.get()) {
             if (opened.manager != null) {
                 opened.view.live = false
@@ -515,6 +531,7 @@ class AppState(
         openingState.value = null
         val manager = opened.manager
         if (manager == null) {
+            if (!reportFailure) return false
             val error = opened.error
             if (opened.notConnected) {
                 cameraProblems.showNotConnected(opened.camera)
@@ -565,13 +582,10 @@ class AppState(
     }
 
     // Looks for the lost camera every [reconnectMillis], in the background, and reopens it once it is plugged
-    // back in (spec §8 Revision 2, decision 6). It is tried once each time it appears in the list: a camera
-    // listed but refusing to open isn't retried until it is unplugged and plugged in again. The owner's own
-    // pick, or any camera opening, ends the watch (publish); so does the app closing.
-    //
-    // Matched by name: an exact match first, else once a trailing device path (e.g. " /dev/video0") is
-    // stripped from both sides, since a re-plugged camera can come back under a different device node
-    // (sameCamera; Task 2).
+    // back in (spec §8 Revision 2, decision 6). Each time it appears in the list it is tried up to
+    // [RECONNECT_TRIES] times (reopen); a camera listed but still refusing to open then isn't tried again until it
+    // is unplugged and plugged in again. The owner's own pick, or any camera opening, ends the watch (publish);
+    // so does the app closing.
     private fun watchForReturn(name: String) {
         reconnectWatch?.cancel()
         waitingForState.value = name
@@ -579,26 +593,62 @@ class AppState(
             var listed = false
             while (isActive) {
                 delay(reconnectMillis)
-                val back = try {
-                    cameraSource.cameras().let { found ->
-                        found.firstOrNull { it.name == name } ?: found.firstOrNull { sameCamera(it.name, name) }
-                    }
-                } catch (e: Exception) {
-                    logger.warn("Couldn't list the cameras, looking for {}", name, e)
-                    null
+                val back = findReturned(name)
+                // Listing can take seconds: a watch cancelled meanwhile (a pick, the app closing) reopens nothing
+                ensureActive()
+                listed = when {
+                    back == null -> false
+                    listed -> true
+                    else -> reopen(name, back)
                 }
-                if (back != null && !listed) {
-                    uiThread(Runnable {
-                        // Only while nothing else is open or opening: the owner's pick wins
-                        if (waitingForState.value == name && cameraState.value == null && openingState.value == null) {
-                            logger.info("{} is plugged in again: reopening it", name)
-                            openCameraInBackground(back)
-                        }
-                    })
-                }
-                listed = back != null
             }
         }
+    }
+
+    // The lost camera, if it is listed again. Matched by name: an exact match first, else once a trailing device
+    // path (e.g. " /dev/video0") is stripped from both sides, since a re-plugged camera can come back under a
+    // different device node (sameCamera)
+    private fun findReturned(name: String): Camera? = try {
+        cameraSource.cameras().let { found ->
+            found.firstOrNull { it.name == name } ?: found.firstOrNull { sameCamera(it.name, name) }
+        }
+    } catch (e: Exception) {
+        logger.warn("Couldn't list the cameras, looking for {}", name, e)
+        null
+    }
+
+    // Reopens the lost camera, just listed again as [first]: up to RECONNECT_TRIES times, reconnectRetryMillis
+    // apart, since its device node can appear a moment before it can be opened (spec §8 Revision 4, decision 4).
+    // Only the last failure is reported to the user. It stops once the camera opens, once it is gone from the
+    // list, or once something else is open or opening (the owner's pick wins).
+    //
+    // @return false if it wasn't tried at all (something else was open or opening), so its next listing tries it
+    private suspend fun reopen(name: String, first: Camera): Boolean {
+        var back = first
+        for (attempt in 1..RECONNECT_TRIES) {
+            if (attempt > 1) {
+                delay(reconnectRetryMillis)
+                back = findReturned(name) ?: return true
+                currentCoroutineContext().ensureActive()
+            }
+            val last = attempt == RECONNECT_TRIES
+            val camera = back
+            val opened = CompletableDeferred<Boolean?>()
+            uiThread(Runnable {
+                if (waitingForState.value == name && cameraState.value == null && openingState.value == null) {
+                    logger.info("{} is plugged in again: reopening it (try {} of {})", name, attempt, RECONNECT_TRIES)
+                    if (!openCameraInBackground(camera, reportFailure = last) { opened.complete(it) }) opened.complete(null)
+                } else {
+                    opened.complete(null)
+                }
+            })
+            when (opened.await()) {
+                true -> return true
+                null -> return attempt > 1
+                false -> if (!last) logger.info("{} didn't open yet; trying again in {} ms", name, reconnectRetryMillis)
+            }
+        }
+        return true
     }
 
     private fun stopWatchingForReturn() {

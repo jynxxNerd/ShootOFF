@@ -47,7 +47,7 @@ import com.shootoff.geom.Size;
  * <li><b>Success</b>: the camera reports the pattern's bounds, which become the arena's projection,
  * and calibration ends.</li>
  * <li><b>Timeout</b>: after 12 seconds the user gets a box to drag over the projection by hand
- * (headless: after 45 seconds calibration ends; unattended: after 30 seconds calibration is cancelled,
+ * (headless: after 45 seconds calibration ends; unattended: after 60 seconds calibration is cancelled,
  * see {@link #startUnattended}). A pattern the camera has already found by then gets
  * {@link #PATTERN_FOUND_GRACE} more for the steps after it.</li>
  * <li><b>End</b>: stopping with the box calibrates to it. Then the perspective is worked out, the
@@ -64,8 +64,9 @@ public final class CalibrationFlow {
 	public static final long AUTO_CALIBRATION_TIMEOUT_HEADLESS = 45 * 1000;
 	// A camera just plugged in (or just opened) can take 10-15 seconds to settle its exposure, and until then
 	// the pattern may be washed out: an unattended calibration, with no one to press Calibrate again, waits
-	// that out (spec §8 Revision 3)
-	public static final long AUTO_CALIBRATION_TIMEOUT_UNATTENDED = 30 * 1000;
+	// that out with room to spare, since a longer wait costs nothing when no one is there (spec §8 Revision 3,
+	// and Revision 4, decision 5)
+	public static final long AUTO_CALIBRATION_TIMEOUT_UNATTENDED = 60 * 1000;
 	// A pattern the camera found just before the time limit: the steps after it (the paper, the exposure) get this
 	// much longer to finish before the limit applies (spec §8 Revision 4, decision 2)
 	public static final long PATTERN_FOUND_GRACE = 5 * 1000;

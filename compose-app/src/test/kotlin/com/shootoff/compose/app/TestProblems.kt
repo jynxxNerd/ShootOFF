@@ -1,6 +1,10 @@
 package com.shootoff.compose.app
 
 import androidx.compose.ui.graphics.ImageBitmap
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger as LogbackLogger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.shootoff.calibration.CalibrationFlow.Message
 import com.shootoff.camera.MockCamera
 import com.shootoff.camera.cameratypes.Camera
@@ -27,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Path
 import java.util.Optional
@@ -467,7 +472,30 @@ class TestProblems {
     }
 
     private fun reconnectingApp(source: CameraSource) =
-        AppState(Settings(ScratchConfig.emptyFile().path, arrayOf()), ExerciseCatalog(), source, { AppFixture.ownerScreens }, ManualClock(), { it.run() }, reconnectMillis = 20)
+        AppState(
+            Settings(ScratchConfig.emptyFile().path, arrayOf()),
+            ExerciseCatalog(),
+            source,
+            { AppFixture.ownerScreens },
+            ManualClock(),
+            { it.run() },
+            reconnectMillis = 20,
+            reconnectRetryMillis = 20,
+        )
+
+    // The ERROR lines AppState logs while [block] runs
+    private fun errorsLoggedDuring(block: () -> Unit): List<String> {
+        val appender = ListAppender<ILoggingEvent>()
+        appender.start()
+        val logger = LoggerFactory.getLogger(AppState::class.java) as LogbackLogger
+        logger.addAppender(appender)
+        try {
+            block()
+        } finally {
+            logger.detachAppender(appender)
+        }
+        return appender.list.filter { it.level == Level.ERROR }.map { it.formattedMessage }
+    }
 
     @Test
     fun aLostCameraReopensByItselfWhenItIsPluggedBackIn() {
@@ -520,7 +548,7 @@ class TestProblems {
     }
 
     @Test
-    fun aCameraThatIsListedButWontOpenIsTriedOnceUntilItIsPluggedInAgain() {
+    fun aCameraThatIsListedButWontOpenIsTriedThreeTimesUntilItIsPluggedInAgain() {
         val source = Pluggable(AppFixture.TestCamera("HD Webcam C270"))
         val app = reconnectingApp(source)
         try {
@@ -537,13 +565,96 @@ class TestProblems {
                     return false
                 }
             }
-            source.plugged.clear()
-            source.plugged.add(locked)
 
-            awaitTrue { locked.opens.get() == 1 }
-            Thread.sleep(200)
-            assertEquals(1, locked.opens.get())
+            val errors = errorsLoggedDuring {
+                source.plugged.clear()
+                source.plugged.add(locked)
+
+                awaitTrue { locked.opens.get() == AppState.RECONNECT_TRIES }
+                Thread.sleep(200)
+            }
+
+            assertEquals(AppState.RECONNECT_TRIES, locked.opens.get())
             assertEquals("HD Webcam C270", app.waitingFor.value)
+            // Only the last try is reported, so the owner sees one error, not one every try
+            assertEquals(listOf("Cannot open the webcam HD Webcam C270"), errors)
+        } finally {
+            app.close()
+        }
+    }
+
+    // The owner's replug (Plan 8's hardware check): the device node appeared a moment before the camera could be
+    // opened, and the one try failed, leaving the camera closed until the next replug
+    @Test
+    fun aCameraThatFailsToReopenJustAfterItAppearsIsTriedAgainAndOpens() {
+        val source = Pluggable(AppFixture.TestCamera("UVC Camera (046d:0825) /dev/video0"))
+        val app = reconnectingApp(source)
+        try {
+            app.openStartCamera()
+            app.openArena()
+            app.cameraProblems.showMissingCameraError(app.camera.value!!.camera)
+            val notReadyYet = object : AppFixture.TestCamera("UVC Camera (046d:0825) /dev/video0") {
+                val opens = AtomicInteger()
+
+                @Volatile
+                private var opened = false
+
+                override fun isOpen() = opened
+
+                override fun open(): Boolean {
+                    opened = opens.incrementAndGet() > 1
+                    return opened
+                }
+            }
+
+            val errors = errorsLoggedDuring {
+                source.plugged.clear()
+                source.plugged.add(notReadyYet)
+
+                awaitTrue { app.camera.value != null }
+            }
+
+            assertSame(notReadyYet, app.camera.value!!.camera)
+            assertEquals(2, notReadyYet.opens.get())
+            assertNull(app.waitingFor.value)
+            assertNull(app.cameraProblem.value)
+            assertEquals(emptyList<String>(), errors)
+        } finally {
+            app.close()
+        }
+    }
+
+    // Plan 7's deferred minor: a reappearance was used up even when the reopen was declined because another
+    // camera was opening; it must still be tried once that other open is over
+    @Test
+    fun aCameraThatAppearsWhileAnotherIsOpeningIsTriedOnceThatOpenFails() {
+        val lost = AppFixture.TestCamera("HD Webcam C270")
+        val source = Pluggable(lost)
+        val app = reconnectingApp(source)
+        try {
+            app.openStartCamera()
+            app.cameraProblems.showMissingCameraError(lost)
+            source.plugged.clear()
+            // The owner picks a camera that takes a while to open, and then fails
+            val slow = object : AppFixture.TestCamera("Other camera") {
+                val release = CountDownLatch(1)
+
+                override fun isOpen() = false
+
+                override fun open(): Boolean {
+                    release.await(5, TimeUnit.SECONDS)
+                    return false
+                }
+            }
+            app.openCameraInBackground(slow)
+            source.plugged.add(AppFixture.TestCamera("HD Webcam C270"))
+            Thread.sleep(200)
+            assertNull(app.camera.value)
+
+            slow.release.countDown()
+
+            awaitTrue { app.camera.value != null }
+            assertEquals("HD Webcam C270", app.camera.value!!.camera.name)
         } finally {
             app.close()
         }
