@@ -114,6 +114,47 @@ class TestCalibrationOnRequest {
         assertFalse(fixture.events.any { it.startsWith("succeeded") })
     }
 
+    // The owner's crooked grid (Plan 8's hardware check): Cancel over a good auto-calibration put back only the
+    // projection's rectangle, not the perspective warp that starting calibration threw away
+    @Test
+    fun cancellingARecalibrationPutsTheCamerasWholeCalibrationBack() {
+        fixture.camera.bounds = Rect(100.0, 80.0, 400.0, 300.0)
+        fixture.camera.warp = "the good calibration's warp"
+        arena.setFullScreen(true)
+
+        controller.start()
+        assertEquals(null, fixture.camera.warp)
+
+        controller.cancel()
+
+        assertEquals("the good calibration's warp", fixture.camera.warp)
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), fixture.camera.bounds)
+    }
+
+    @Test
+    fun anUnattendedCalibrationThatDoesntFindThePatternPutsTheCamerasWholeCalibrationBack() {
+        fixture.camera.bounds = Rect(100.0, 80.0, 400.0, 300.0)
+        fixture.camera.warp = "the good calibration's warp"
+        arena.setFullScreen(true)
+
+        controller.startUnattended {}
+        fixture.fire(CalibrationFlow.AUTO_CALIBRATION_TIMEOUT_UNATTENDED)
+
+        assertEquals("the good calibration's warp", fixture.camera.warp)
+        assertEquals(Rect(100.0, 80.0, 400.0, 300.0), fixture.camera.bounds)
+    }
+
+    // Once auto-calibration is off, so no frame still being processed can change what was put back
+    @Test
+    fun theCameraIsRestoredOnlyAfterItStoppedLookingForThePattern() {
+        arena.setFullScreen(true)
+        controller.start()
+
+        controller.cancel()
+
+        assertTrue(fixture.events.indexOf("auto off") < fixture.events.indexOf("camera restored"))
+    }
+
     // The owner's white arena (Plan 7's hardware check): auto-calibration's steps set the arena's background
     // from the camera's thread (the exposure step shows white.png). One that lands after Cancel has put the
     // arena back must not show; the arena must be exactly as it was before calibration started.

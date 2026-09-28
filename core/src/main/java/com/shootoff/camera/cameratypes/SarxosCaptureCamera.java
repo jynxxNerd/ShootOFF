@@ -23,6 +23,7 @@ import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -438,6 +439,16 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			if (logger.isInfoEnabled())
 				logger.info("{} restored auto exposure mode to {}", getName(), autoExposure);
 		}
+	}
+
+	@Override
+	public synchronized OptionalDouble manualExposure() {
+		return manualExposureActive ? OptionalDouble.of(camera.get(Videoio.CAP_PROP_EXPOSURE)) : OptionalDouble.empty();
+	}
+
+	@Override
+	public synchronized void restoreManualExposure(double exposure) {
+		if (switchToManualExposure()) camera.set(Videoio.CAP_PROP_EXPOSURE, exposure);
 	}
 
 	@Override

@@ -21,6 +21,7 @@ package com.shootoff.camera.cameratypes;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.util.OptionalDouble;
 
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -73,6 +74,18 @@ public interface Camera extends Runnable, Closeable {
 	boolean decreaseExposure();
 
 	void resetExposure();
+
+	/**
+	 * @return the exposure set by hand (the exposure step's), or empty while the camera exposes automatically
+	 */
+	default OptionalDouble manualExposure() {
+		return OptionalDouble.empty();
+	}
+
+	/**
+	 * Sets the exposure by hand to <tt>exposure</tt>, as {@link #manualExposure()} reported it.
+	 */
+	default void restoreManualExposure(double exposure) {}
 
 	static BufferedImage matToBufferedImage(Mat matBGR) {
 		final BufferedImage image = new BufferedImage(matBGR.width(), matBGR.height(), BufferedImage.TYPE_3BYTE_BGR);

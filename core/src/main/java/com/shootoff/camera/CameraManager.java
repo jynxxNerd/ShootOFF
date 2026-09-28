@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -116,9 +117,11 @@ public class CameraManager
 
 	private boolean showedFPSWarning = false;
 
-	protected AutoCalibrationManager acm = null;
+	// A new one for each calibration (enableAutoCalibration), so the one that found the current warp is kept
+	// whole for saveCalibration while the next one looks; read on the camera's thread
+	protected volatile AutoCalibrationManager acm = null;
 	private final AtomicBoolean isAutoCalibrating = new AtomicBoolean(false);
-	protected boolean cameraAutoCalibrated = false;
+	protected volatile boolean cameraAutoCalibrated = false;
 
 	protected final DeduplicationProcessor deduplicationProcessor = new DeduplicationProcessor(this);
 
@@ -626,6 +629,11 @@ public class CameraManager
 			return currentFrame.getOriginalBufferedImage();
 		}
 
+		// Each read once, the flag first: Cancel can put an earlier warp back (restoreCalibration, which sets the
+		// manager before the flag) while this frame is processed
+		final boolean cameraAutoCalibrated = this.cameraAutoCalibrated;
+		final AutoCalibrationManager acm = this.acm;
+
 		Mat submatFrameBGR = null;
 
 		Rect projectionBounds;
@@ -775,7 +783,9 @@ public class CameraManager
 	}
 
 	public void enableAutoCalibration(boolean calculateFrameDelay) {
-		if (acm == null) acm = new AutoCalibrationManager(this, camera, calculateFrameDelay);
+		// A fresh one: the last one's warp stays whole in whatever saveCalibration saved, and a frame it is still
+		// processing can't change a warp restoreCalibration put back
+		acm = new AutoCalibrationManager(this, camera, calculateFrameDelay);
 		isAutoCalibrating.set(true);
 		cameraAutoCalibrated = false;
 
@@ -784,6 +794,30 @@ public class CameraManager
 
 	public void disableAutoCalibration() {
 		isAutoCalibrating.set(false);
+	}
+
+	// What saveCalibration saves: the auto-calibration manager holds the perspective warp and the paper size
+	private record SavedCalibration(Optional<Rect> projectionBounds, boolean autoCalibrated, AutoCalibrationManager acm,
+			OptionalDouble manualExposure) implements CalibrationCamera.Saved {}
+
+	@Override
+	public CalibrationCamera.Saved saveCalibration() {
+		return new SavedCalibration(projectionBounds, cameraAutoCalibrated, acm, camera.manualExposure());
+	}
+
+	@Override
+	public void restoreCalibration(CalibrationCamera.Saved saved) {
+		final SavedCalibration calibration = (SavedCalibration) saved;
+		// The warp before the flag, so a frame that sees the flag finds the warp
+		acm = calibration.acm();
+		cameraAutoCalibrated = calibration.autoCalibrated();
+		setProjectionBounds(calibration.projectionBounds().orElse(null));
+
+		if (calibration.manualExposure().isPresent()) {
+			camera.restoreManualExposure(calibration.manualExposure().getAsDouble());
+		} else {
+			camera.resetExposure();
+		}
 	}
 
 	@Override
@@ -843,6 +877,7 @@ public class CameraManager
 	}
 
 	public Point undistortCoords(int x, int y) {
+		final AutoCalibrationManager acm = this.acm;
 		if (acm == null) return new Point(x, y);
 		return acm.undistortCoords(x, y);
 	}

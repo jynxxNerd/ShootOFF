@@ -108,9 +108,10 @@ class CalibrationController(
     @Volatile
     private var generation = 0
 
-    // The camera's projection when calibration started, which Cancel puts back
+    // The camera's whole calibration when calibration started (its projection, perspective warp, paper size and
+    // exposure), which Cancel puts back (spec §8 Revision 4, decision 1)
     @Volatile
-    private var boundsBefore: Rect? = null
+    private var cameraBefore: CalibrationCamera.Saved? = null
 
     // Whether a calibration - asked for, or started by itself as the arena opened - is under way, so only
     // its end is reported as a success (not a remembered one merely being applied)
@@ -160,7 +161,7 @@ class CalibrationController(
     private fun beginSession() {
         // Whatever the camera still sends for an earlier calibration (a background, a success) is stale now
         generation++
-        boundsBefore = camera.projectionBounds.orElse(null)
+        cameraBefore = camera.saveCalibration()
         foundPaper = Optional.empty()
         foundByCamera = false
         session = true
@@ -168,7 +169,8 @@ class CalibrationController(
 
     /**
      * Cancel: calibration ends and the arena and the camera are left as they were before it started (the
-     * background, targets, shots and the projection). A drill it stopped stays stopped.
+     * background, targets and shots; the camera's projection, perspective warp and exposure). A drill it
+     * stopped stays stopped.
      */
     fun cancel() {
         if (!flow.isCalibrating) return
@@ -177,12 +179,14 @@ class CalibrationController(
     }
 
     // Calibration ended without calibrating (Cancel, or an unattended one that didn't find the pattern): the
-    // arena and the camera as they were before it started
+    // arena and the camera as they were before it started. The flow has already stopped the camera looking
+    // for the pattern, so no frame still being processed changes what is put back.
     private fun putBack() {
         generation++
         session = false
         putArenaBack()
-        camera.setProjectionBounds(boundsBefore)
+        cameraBefore?.let(camera::restoreCalibration)
+        cameraBefore = null
         uiState.update { CalibrationUi() }
     }
 

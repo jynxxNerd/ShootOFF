@@ -29,6 +29,10 @@ class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }
     inner class FakeCamera : CalibrationCamera {
         var bounds: Rect? = null
 
+        // What auto-calibration found beyond the bounds (in CameraManager: the perspective warp and paper size);
+        // starting to look for the pattern throws it away
+        var warp: String? = null
+
         override fun getName() = "C270"
 
         override fun getFeedWidth() = 640
@@ -51,6 +55,7 @@ class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }
 
         override fun enableAutoCalibration(calculateFrameDelay: Boolean) {
             events += "auto on"
+            warp = null
         }
 
         override fun disableAutoCalibration() {
@@ -60,7 +65,18 @@ class CalibrationFixture(private val uiThread: (Runnable) -> Unit = { it.run() }
         override fun setCropFeedToProjection(cropFeed: Boolean) {}
 
         override fun setLimitDetectProjection(limitDetection: Boolean) {}
+
+        override fun saveCalibration(): CalibrationCamera.Saved = Saved(bounds, warp)
+
+        override fun restoreCalibration(saved: CalibrationCamera.Saved) {
+            saved as Saved
+            events += "camera restored"
+            bounds = saved.bounds
+            warp = saved.warp
+        }
     }
+
+    data class Saved(val bounds: Rect?, val warp: String?) : CalibrationCamera.Saved
 
     val camera = FakeCamera()
 

@@ -91,6 +91,16 @@ class TestCalibrationFlow {
 		public void setLimitDetectProjection(boolean limitDetection) {
 			events.add("camera limits detection " + limitDetection);
 		}
+
+		@Override
+		public CalibrationCamera.Saved saveCalibration() {
+			return new CalibrationCamera.Saved() {};
+		}
+
+		@Override
+		public void restoreCalibration(CalibrationCamera.Saved saved) {
+			events.add("camera restored");
+		}
 	}
 
 	private final class FakeView implements CalibrationFlow.View {

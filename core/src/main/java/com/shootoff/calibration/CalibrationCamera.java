@@ -62,4 +62,22 @@ public interface CalibrationCamera {
 	void setCropFeedToProjection(boolean cropFeed);
 
 	void setLimitDetectProjection(boolean limitDetection);
+
+	/**
+	 * What calibrating changes on a camera, as {@link #saveCalibration()} saved it.
+	 */
+	interface Saved {}
+
+	/**
+	 * Saves what calibrating changes on this camera, for {@link #restoreCalibration} to put back: the
+	 * projection, the perspective warp and paper size auto-calibration found, and the exposure. Taken before
+	 * calibration starts (spec §8 Revision 4, decision 1).
+	 */
+	Saved saveCalibration();
+
+	/**
+	 * Puts back what {@link #saveCalibration()} saved, after a calibration that ended without calibrating
+	 * (Cancel, or the pattern not found). Call it once auto-calibration is off.
+	 */
+	void restoreCalibration(Saved saved);
 }
