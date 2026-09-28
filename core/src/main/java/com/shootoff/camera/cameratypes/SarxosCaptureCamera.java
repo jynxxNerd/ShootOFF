@@ -43,12 +43,21 @@ import com.shootoff.camera.shotdetection.JavaShotDetector;
 import com.shootoff.camera.shotdetection.NativeShotDetector;
 import com.shootoff.camera.shotdetection.ShotDetector;
 import com.shootoff.util.SystemInfo;
+import com.shootoff.util.TimerPool;
 
 public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private static final Logger logger = LoggerFactory.getLogger(SarxosCaptureCamera.class);
 
 	// V4L2's CAP_PROP_AUTO_EXPOSURE: 1 = manual, 3 = aperture priority (auto).
 	private static final double V4L2_MANUAL_EXPOSURE = 1;
+
+	// V4L2's CAP_PROP_EXPOSURE is exposure_time_absolute, in units of 100 µs
+	private static final double V4L2_EXPOSURE_UNITS_PER_SECOND = 10_000;
+	// An exposure this much longer than a frame still keeps the frame rate: the owner's C270 sits at 336 in
+	// normal light, a hair over the 333 of a frame at 30 FPS
+	private static final double EXPOSURE_LIMIT_SLACK = 1.1;
+	// How long after opening the frame rate and exposure are logged, once the camera has settled into them
+	static final long CAPTURE_STATE_LOG_DELAY = 3000;
 
 	private int cameraIndex = -1;
 	private final VideoCapture camera;
@@ -142,16 +151,60 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			// whatever size was requested now that the capture is actually open.
 			if (requestedViewSize.isPresent()) applyViewSize(camera, requestedViewSize.get());
 
-			// OpenCV opens camera index N as /dev/videoN
-			if (SystemInfo.isLinux()) disableDynamicFramerate("/dev/video" + cameraIndex);
+			if (SystemInfo.isLinux()) disableDynamicFramerate(device());
 
 			// Logged after resolution is applied so this reports what's actually negotiated.
 			logCaptureSettings(camera);
 
 			CameraFactory.openCamerasAdd(this);
+
+			// What the frame rate and the exposure settle into (spec §8 Revision 4, decision 3)
+			TimerPool.schedule(this::logCaptureState, CAPTURE_STATE_LOG_DELAY);
 		}
 
 		return open;
+	}
+
+	// OpenCV opens camera index N as /dev/videoN
+	private String device() {
+		return "/dev/video" + cameraIndex;
+	}
+
+	private void logCaptureState() {
+		if (!isOpen() || closing.get()) return;
+
+		logger.info("{} {} s after opening: {} FPS, {}", getName(), CAPTURE_STATE_LOG_DELAY / 1000,
+				String.format("%.1f", getFPS()), exposureState());
+	}
+
+	@Override
+	public synchronized String exposureState() {
+		if (!isOpen()) return "";
+
+		final OptionalInt dynamicFramerate = SystemInfo.isLinux()
+				? V4l2Controls.getControl(device(), V4l2Controls.EXPOSURE_DYNAMIC_FRAMERATE)
+				: OptionalInt.empty();
+
+		return describeExposure(camera.get(Videoio.CAP_PROP_EXPOSURE), camera.get(Videoio.CAP_PROP_AUTO_EXPOSURE),
+				dynamicFramerate);
+	}
+
+	static String describeExposure(double exposure, double autoExposure, OptionalInt dynamicFramerate) {
+		final String mode = autoExposure == V4L2_MANUAL_EXPOSURE ? "manual"
+				: "auto, mode " + Math.round(autoExposure);
+		return "exposure " + Math.round(exposure) + " (" + mode + "), exposure_dynamic_framerate "
+				+ (dynamicFramerate.isPresent() ? String.valueOf(dynamicFramerate.getAsInt()) : "unknown");
+	}
+
+	/**
+	 * @return one frame period at <tt>fps</tt> (30 if unknown), in V4L2's exposure units, if <tt>exposure</tt>
+	 *         is longer than that (give or take {@link #EXPOSURE_LIMIT_SLACK}); otherwise empty
+	 */
+	static OptionalDouble exposureLimit(double exposure, double fps) {
+		final double framesPerSecond = fps > 0 ? fps : DEFAULT_FPS;
+		final double framePeriod = Math.floor(V4L2_EXPOSURE_UNITS_PER_SECOND / framesPerSecond);
+
+		return exposure > framePeriod * EXPOSURE_LIMIT_SLACK ? OptionalDouble.of(framePeriod) : OptionalDouble.empty();
 	}
 
 	/**
@@ -342,6 +395,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 	private Optional<Double> origExposure = Optional.empty();
 	private Optional<Double> origAutoExposure = Optional.empty();
 	private boolean manualExposureActive = false;
+	// Whether manual exposure is on only to hold the exposure to a frame (limitExposureToFramePeriod)
+	private boolean exposureLimited = false;
 
 	@Override
 	public synchronized boolean supportsExposureAdjustment() {
@@ -385,13 +440,41 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 			logger.info("{} switched to manual exposure (was auto={}) to allow exposure adjustment", getName(),
 					autoExposure);
 
+		// Some cameras may turn dynamic frame rate back on as the exposure mode changes
+		disableDynamicFramerate(device());
+
 		return true;
+	}
+
+	@Override
+	public synchronized boolean limitExposureToFramePeriod() {
+		if (!SystemInfo.isLinux() || !isOpen() || manualExposureActive) return false;
+
+		final double exposure = camera.get(Videoio.CAP_PROP_EXPOSURE);
+		final OptionalDouble limit = exposureLimit(exposure, camera.get(Videoio.CAP_PROP_FPS));
+		if (limit.isEmpty() || !switchToManualExposure()) return false;
+
+		camera.set(Videoio.CAP_PROP_EXPOSURE, limit.getAsDouble());
+		exposureLimited = true;
+
+		logger.info("{} auto exposure was {}, longer than a frame: held at {} by hand while looking for the pattern",
+				getName(), exposure, limit.getAsDouble());
+
+		return true;
+	}
+
+	@Override
+	public synchronized void releaseExposureLimit() {
+		if (exposureLimited) resetExposure();
 	}
 
 	@Override
 	public synchronized boolean decreaseExposure() {
 		// V4L2 must be in manual exposure mode before CAP_PROP_EXPOSURE writes are honored.
 		if (!switchToManualExposure()) return false;
+
+		// The exposure step sets its own exposure from here on: releasing the frame limit leaves it alone
+		exposureLimited = false;
 
 		// Logic:
 		// If camera exposure is positive, decrease towards zero
@@ -431,6 +514,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 		// Set exposure while still in manual mode -- V4L2 rejects it once auto mode is restored.
 		if (origExposure.isPresent()) camera.set(Videoio.CAP_PROP_EXPOSURE, origExposure.get());
 
+		exposureLimited = false;
+
 		if (manualExposureActive && origAutoExposure.isPresent()) {
 			final double autoExposure = origAutoExposure.get();
 			camera.set(Videoio.CAP_PROP_AUTO_EXPOSURE, autoExposure);
@@ -438,6 +523,8 @@ public class SarxosCaptureCamera extends CalculatedFPSCamera {
 
 			if (logger.isInfoEnabled())
 				logger.info("{} restored auto exposure mode to {}", getName(), autoExposure);
+
+			if (SystemInfo.isLinux()) disableDynamicFramerate(device());
 		}
 	}
 

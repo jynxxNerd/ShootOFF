@@ -719,6 +719,9 @@ public class CameraManager
 		if (cameraFPS < MIN_SHOT_DETECTION_FPS && !showedFPSWarning) {
 			logger.warn("[{}] Current webcam FPS is {}, which is too low for reliable shot detection", camera.getName(),
 					getFPS());
+			// A dark scene (a long exposure) or a slow start? (spec §8 Revision 4, decision 3)
+			final String exposure = camera.exposureState();
+			if (!exposure.isEmpty()) logger.info("[{}] {}", camera.getName(), exposure);
 			if (cameraErrorView.isPresent()) cameraErrorView.get().showFPSWarning(camera, getFPS());
 			showedFPSWarning = true;
 		}
@@ -797,6 +800,8 @@ public class CameraManager
 
 	public void disableAutoCalibration() {
 		isAutoCalibrating.set(false);
+		// Whatever ended it (the pattern found, Cancel, the time limit), the search's frame-rate limit ends too
+		camera.releaseExposureLimit();
 	}
 
 	@Override

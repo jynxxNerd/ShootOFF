@@ -87,6 +87,30 @@ public interface Camera extends Runnable, Closeable {
 	 */
 	default void restoreManualExposure(double exposure) {}
 
+	/**
+	 * While auto-calibration looks for the pattern: if automatic exposure has made the exposure longer than a
+	 * frame, which lowers the frame rate in a dark scene, holds it to one frame by hand until
+	 * {@link #releaseExposureLimit()}.
+	 *
+	 * @return true if the exposure is held now
+	 */
+	default boolean limitExposureToFramePeriod() {
+		return false;
+	}
+
+	/**
+	 * Ends {@link #limitExposureToFramePeriod()}: automatic exposure again, unless the exposure step has set an
+	 * exposure of its own since.
+	 */
+	default void releaseExposureLimit() {}
+
+	/**
+	 * @return the exposure's settings, for the log; empty if the camera can't say
+	 */
+	default String exposureState() {
+		return "";
+	}
+
 	static BufferedImage matToBufferedImage(Mat matBGR) {
 		final BufferedImage image = new BufferedImage(matBGR.width(), matBGR.height(), BufferedImage.TYPE_3BYTE_BGR);
 		final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();

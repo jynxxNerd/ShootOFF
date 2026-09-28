@@ -61,6 +61,11 @@ class TestCameraManagerCalibration {
 			exposure.add("auto");
 			manual = OptionalDouble.empty();
 		}
+
+		@Override
+		public void releaseExposureLimit() {
+			exposure.add("limit released");
+		}
 	}
 
 	private final ExposureCamera camera = new ExposureCamera();
@@ -154,6 +159,16 @@ class TestCameraManagerCalibration {
 
 		manager.disableAutoCalibration();
 		assertFalse(manager.isPatternFound());
+	}
+
+	// The exposure held to a frame period while looking for the pattern ends with the looking, whatever ends it
+	@Test
+	void theExposureLimitEndsWhenAutoCalibrationStops() {
+		manager.enableAutoCalibration(false);
+
+		manager.disableAutoCalibration();
+
+		assertEquals(List.of("limit released"), camera.exposure);
 	}
 
 	@Test

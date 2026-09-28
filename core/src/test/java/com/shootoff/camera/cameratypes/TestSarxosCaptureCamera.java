@@ -5,6 +5,8 @@ import static org.junit.Assert.assertFalse;
 
 import java.awt.Dimension;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.opencv.opencv_java;
@@ -98,5 +100,40 @@ public class TestSarxosCaptureCamera {
 	@Test
 	public void testDisablingDynamicFramerateOnMissingDeviceReportsNoChange() {
 		assertFalse(SarxosCaptureCamera.disableDynamicFramerate("/nonexistent/video99"));
+	}
+
+	// The owner's C270 with its lens covered: auto exposure at 1002 (100 ms) at 30 FPS
+	@Test
+	public void testAnExposureLongerThanAFramePeriodIsHeldToOne() {
+		assertEquals(OptionalDouble.of(333), SarxosCaptureCamera.exposureLimit(1002, 30));
+	}
+
+	// The owner's C270 in normal light sits at 336, a hair over the 333 of a frame at 30 FPS: left alone
+	@Test
+	public void testAnExposureAboutAFramePeriodIsLeftAlone() {
+		assertEquals(OptionalDouble.empty(), SarxosCaptureCamera.exposureLimit(336, 30));
+		assertEquals(OptionalDouble.empty(), SarxosCaptureCamera.exposureLimit(120, 30));
+	}
+
+	@Test
+	public void testAnUnknownFrameRateIsTakenAsThirty() {
+		assertEquals(OptionalDouble.of(333), SarxosCaptureCamera.exposureLimit(700, 0));
+	}
+
+	@Test
+	public void testAnUnopenedCamerasExposureIsNeverHeld() {
+		final SarxosCaptureCamera camera = new SarxosCaptureCamera("Test Camera", 7);
+
+		assertFalse(camera.limitExposureToFramePeriod());
+		camera.releaseExposureLimit();
+		assertEquals("", camera.exposureState());
+	}
+
+	@Test
+	public void testTheExposureStateSaysTheExposureItsModeAndTheDynamicFramerate() {
+		assertEquals("exposure 1002 (auto, mode 3), exposure_dynamic_framerate 0",
+				SarxosCaptureCamera.describeExposure(1002, 3, OptionalInt.of(0)));
+		assertEquals("exposure 333 (manual), exposure_dynamic_framerate unknown",
+				SarxosCaptureCamera.describeExposure(333, 1, OptionalInt.empty()));
 	}
 }

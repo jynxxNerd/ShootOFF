@@ -230,6 +230,10 @@ public class AutoCalibrationManager {
 
 			lastFrameCheck = frame.getTimestamp();
 
+			// A dark scene lengthens automatic exposure and drops the frame rate, slowing the search (spec §8
+			// Revision 4, decision 3); held to a frame until auto-calibration stops (CameraManager)
+			camera.limitExposureToFramePeriod();
+
 			Imgproc.equalizeHist(frame.getOriginalMat(), frame.getOriginalMat());
 
 			final List<MatOfPoint2f> listPatterns = findPatterns(frame.getOriginalMat(), true);
