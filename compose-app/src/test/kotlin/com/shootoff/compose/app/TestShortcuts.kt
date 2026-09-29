@@ -6,6 +6,7 @@ import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.camera.shot.ShotColor
 import com.shootoff.compose.drill.DrillButton
 import com.shootoff.compose.shell.Destination
+import com.shootoff.compose.targets.ManualClock
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -40,6 +41,23 @@ class TestShortcuts {
 
         assertTrue(app.timer.rows.value.isEmpty())
         assertTrue(app.feedMarkers.markers.value.isEmpty())
+    }
+
+    @Test
+    fun f5ResetsAndStandsFallenTargetsBackUp() {
+        val clock = ManualClock()
+        val app = AppFixture.appWithCamera(clock = clock)
+        try {
+            app.openStartCamera()
+            app.openArena()
+            val key = AppFixture.fallenPopper(app.arenaLayout.targets, clock)
+
+            assertTrue(app.handleKey(Key.F5, KeyEventType.KeyDown))
+
+            assertTrue(app.arenaLayout.targets.animations.isOnFirstFrame(key))
+        } finally {
+            app.close()
+        }
     }
 
     @Test

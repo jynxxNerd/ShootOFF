@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.pressKey
 import com.shootoff.compose.shell.Destination
+import com.shootoff.compose.targets.ManualClock
 import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.compose.theme.RangeTheme
 import com.shootoff.courses.io.CourseIO
@@ -36,13 +37,17 @@ class TestTargetsToolbar {
     @get:Rule
     val compose = createComposeRule()
 
-    private val app = AppFixture.app()
+    private val clock = ManualClock()
+    private val app = AppFixture.appWithCamera(clock = clock)
     private val model = app.targetsModel
     private val layout = app.arenaLayout
 
     @Before
     fun show() {
         layout.setSize(Size(1280.0, 720.0))
+        // A reset goes through the cameras and the open arena
+        app.openStartCamera()
+        app.openArena()
         app.navigate(Destination.TARGETS)
         compose.setContent { RangeTheme(dark = true) { ShootOffApp(app) } }
     }
@@ -211,5 +216,24 @@ class TestTargetsToolbar {
         compose.onNodeWithTag("clear").performClick()
         compose.waitUntilExactlyOneExists(hasTestTag("cleared"), 5000)
         assertEquals(before, compose.onNodeWithTag("targets-arena").getUnclippedBoundsInRoot())
+    }
+
+    @Test
+    fun resetStandsAFallenTargetBackUpOnTheArena() {
+        val key = AppFixture.fallenPopper(layout.targets, clock)
+
+        compose.onNodeWithTag("targets-reset").performClick()
+
+        assertTrue(layout.targets.animations.isOnFirstFrame(key))
+    }
+
+    @Test
+    fun resetIsOnTheCameraSurfaceToo() {
+        val key = AppFixture.fallenPopper(app.feedTargets, clock)
+        compose.onNodeWithTag("surface-CAMERA").performClick()
+
+        compose.onNodeWithTag("targets-reset").performClick()
+
+        assertTrue(app.feedTargets.animations.isOnFirstFrame(key))
     }
 }

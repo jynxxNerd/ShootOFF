@@ -5,7 +5,13 @@ import com.shootoff.calibration.CalibrationFlow
 import com.shootoff.camera.MockCamera
 import com.shootoff.camera.Shot
 import com.shootoff.camera.cameratypes.CameraEventListener
+import com.shootoff.compose.targets.AnimationClock
 import com.shootoff.compose.targets.ManualClock
+import com.shootoff.compose.targets.RegionKey
+import com.shootoff.compose.targets.SurfaceTargets
+import com.shootoff.targets.model.ResourceResolver
+import com.shootoff.targets.model.TargetDefinitions
+import java.nio.file.Paths
 import com.shootoff.config.ScratchConfig
 import com.shootoff.config.Settings
 import com.shootoff.exercise.ButtonHandle
@@ -146,6 +152,7 @@ object AppFixture {
         wallClock: () -> LocalTime = LocalTime::now,
         patternSettleMillis: Long = 0,
         calibrationTimers: CalibrationFlow.Scheduler = AppState.TIMER_POOL,
+        clock: AnimationClock = ManualClock(),
     ): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
@@ -156,7 +163,7 @@ object AppFixture {
             catalog,
             oneCamera(),
             { screens },
-            ManualClock(),
+            clock,
             { it.run() },
             background,
             wallClock = wallClock,
@@ -189,7 +196,17 @@ object AppFixture {
         arena.setFullScreen(true)
     }
 
-    fun app(screens: List<Rect> = ownerScreens): AppState {
+    /** Puts a Pepper_Popper on [targets] and plays its animation through, as a hit does: it lies fallen. */
+    fun fallenPopper(targets: SurfaceTargets, clock: ManualClock): RegionKey {
+        val popper = targets.add(TargetDefinitions.load(Paths.get("targets/Pepper_Popper.target")), ResourceResolver.files())
+        val key = RegionKey(popper.id, 0)
+        targets.animations.play(key)
+        clock.runAll()
+        check(!targets.animations.isOnFirstFrame(key))
+        return key
+    }
+
+    fun app(screens: List<Rect> = ownerScreens, clock: AnimationClock = ManualClock()): AppState {
         val catalog = ExerciseCatalog()
         catalog.registerProjectorExercise(projectorDrill)
         catalog.registerExercise(feedDrill)
@@ -198,7 +215,7 @@ object AppFixture {
             catalog,
             CameraSource.None,
             { screens },
-            ManualClock(),
+            clock,
             { it.run() },
         )
     }

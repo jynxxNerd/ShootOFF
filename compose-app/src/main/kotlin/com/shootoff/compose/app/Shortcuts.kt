@@ -31,6 +31,7 @@ import com.shootoff.compose.shell.Destination
 enum class Shortcut(val key: Key, val label: String) {
     PAUSE_DRILL(Key.F3, "Pause or resume the drill"),
     CLEAR_SHOTS(Key.F4, "Clear the shots"),
+    RESET(Key.F5, "Reset the range"),
     CALIBRATE(Key.F6, "Open Setup and start calibrating"),
     ;
 
@@ -57,6 +58,7 @@ fun AppState.perform(shortcut: Shortcut): Boolean {
             pause.onClick()
         }
         Shortcut.CLEAR_SHOTS -> clearShots()
+        Shortcut.RESET -> reset()
         Shortcut.CALIBRATE -> {
             navigate(Destination.SETUP)
             return startCalibration()

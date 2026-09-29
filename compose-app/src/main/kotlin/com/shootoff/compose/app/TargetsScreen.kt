@@ -129,6 +129,7 @@ fun TargetsScreen(app: AppState, modifier: Modifier = Modifier) {
                 FilledTonalButton(onClick = { panel = Panel.SAVE_COURSE }, modifier = Modifier.testTag("save-course")) { Text("Save course…") }
             }
             OutlinedButton(onClick = model::clear, modifier = Modifier.testTag("clear")) { Text("Clear") }
+            OutlinedButton(onClick = app::reset, modifier = Modifier.testTag("targets-reset")) { Text("Reset") }
         }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Surface(shape = RoundedCornerShape(16.dp), color = colors.feedEdge, modifier = Modifier.weight(1f).fillMaxHeight()) {

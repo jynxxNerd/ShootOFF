@@ -19,6 +19,7 @@ import com.shootoff.config.Settings
 import com.shootoff.geom.Rect
 import com.shootoff.geom.Size
 import java.util.Optional
+import com.shootoff.compose.targets.ManualClock
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -31,7 +32,8 @@ class TestRangeScreen {
     @get:Rule
     val compose = createComposeRule()
 
-    private var app = AppFixture.appWithCamera()
+    private val clock = ManualClock()
+    private var app = AppFixture.appWithCamera(clock = clock)
 
     @After
     fun close() = app.close()
@@ -50,6 +52,17 @@ class TestRangeScreen {
         compose.onNodeWithTag("arena-view").assertDoesNotExist()
         compose.onNodeWithTag("reset").assertDoesNotExist()
         compose.onNodeWithTag("open-arena").assertDoesNotExist()
+    }
+
+    @Test
+    fun resetStandsFallenTargetsBackUp() {
+        app.openStartCamera()
+        showApp()
+        val key = AppFixture.fallenPopper(app.feedTargets, clock)
+
+        compose.onNodeWithTag("range-reset").assertExists().performClick()
+
+        assertTrue(app.feedTargets.animations.isOnFirstFrame(key))
     }
 
     @Test

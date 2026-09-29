@@ -145,6 +145,7 @@ private fun FeedArea(app: AppState, modifier: Modifier) {
             ) {
                 StatusChip(app)
                 FilledTonalButton(onClick = app::clearShots, modifier = Modifier.testTag("clear-shots")) { Text("Clear shots") }
+                FilledTonalButton(onClick = app::reset, modifier = Modifier.testTag("range-reset")) { Text("Reset") }
             }
             DrillControls(app, Modifier.align(Alignment.TopEnd).padding(10.dp))
             Column(Modifier.align(Alignment.TopCenter).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
