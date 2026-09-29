@@ -1166,14 +1166,20 @@ class AppState(
         return true
     }
 
-    // For a running projector drill only (a camera drill is left to detachCamera's own pauseDrill() call):
-    // pauses it if it has a Pause button, or stops it instead, since nothing else can hold it off the arena
+    // For a running projector drill (a camera drill is left to detachCamera's own pauseDrill() call, and to a
+    // pause here when it runs everywhere): pauses it if it has a Pause button, or stops it instead, since nothing
+    // else can hold it off the arena
     // while the arena isn't available to it (calibrating, or, per spec §8 Revision 2 decision 7, the camera
     // gone). Returns what starts it again, for calibration to use afterwards; empty when nothing was stopped.
     private fun pauseOrStopProjectorDrill(): Optional<Runnable> {
         val running = runner.running.value
         return when {
-            running == null || !running.host.isProjector -> Optional.empty()
+            running == null -> Optional.empty()
+            // A camera drill that runs everywhere uses the arena's targets too: it pauses if it can, and runs on if not
+            !running.host.isProjector -> {
+                if (running.host.runsEverywhere) pauseDrill()
+                Optional.empty()
+            }
             pauseDrill() -> Optional.empty()
             else -> runner.stopProjectorExercise()
         }
@@ -1181,7 +1187,8 @@ class AppState(
 
     // What calibration does to the running drill (spec §8 Revision 2, decision 2): a projector drill is paused,
     // and stays paused afterwards, never restarted; one with no Pause button is stopped and started afresh
-    // as calibration ends, as before. A camera drill doesn't use the arena and is left alone.
+    // as calibration ends, as before. A camera drill runs everywhere (exercise port spec §5), on the arena's
+    // targets too: it is paused if it has a Pause button, and otherwise left alone.
     private val drillForCalibration = CalibrationFlow.Exercises { pauseOrStopProjectorDrill() }
 
     // The camera as calibration and the check see it: when they turn shot detection back on as they end, it
@@ -1221,7 +1228,8 @@ class AppState(
         val surface = if (entry.isProjectorOnly) {
             ArenaHostSurface(arenaState.value ?: return null)
         } else {
-            FeedHostSurface(feedTargets, displaySize)
+            // Exercise port spec §5: a camera exercise runs everywhere, on the shooter's arena targets too
+            FeedHostSurface(feedTargets, displaySize, arenaLayout.targets)
         }
         return ComposeExerciseHost(
             exercise,

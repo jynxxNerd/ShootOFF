@@ -28,9 +28,19 @@ import com.shootoff.targets.model.PlacedTarget
  * The surface an exercise runs on, as its host uses it: the projector arena, or a camera feed.
  */
 interface HostSurface {
+    /** Where the exercise's own targets go */
     val targets: SurfaceTargets
 
     val isProjector: Boolean
+
+    /**
+     * The targets the exercise sees and hears about: its surface's, and for a camera exercise that runs
+     * everywhere, the arena's too
+     */
+    val seenTargets: List<SurfaceTargets> get() = listOf(targets)
+
+    /** Whether the exercise takes shots on the arena (in arena coordinates) */
+    val takesArenaShots: Boolean get() = isProjector
 
     fun size(): Size
 
@@ -57,9 +67,22 @@ class ArenaHostSurface(private val arena: ArenaModel) : HostSurface {
     override fun placeNewTarget(target: PlacedTarget) = arena.placeNewTarget(target)
 }
 
-/** A camera feed: its targets on the feed's canvas, which is the display size */
-class FeedHostSurface(override val targets: SurfaceTargets, private val displaySize: Size) : HostSurface {
+/**
+ * A camera feed: its targets on the feed's canvas, which is the display size.
+ *
+ * @param arenaTargets for an exercise that runs everywhere (exercise port spec §5): the shooter's arena
+ *   targets, which the exercise sees beside the feed's, and whose shots it takes too
+ */
+class FeedHostSurface(
+    override val targets: SurfaceTargets,
+    private val displaySize: Size,
+    private val arenaTargets: SurfaceTargets? = null,
+) : HostSurface {
     override val isProjector: Boolean get() = false
+
+    override val seenTargets: List<SurfaceTargets> get() = listOfNotNull(targets, arenaTargets)
+
+    override val takesArenaShots: Boolean get() = arenaTargets != null
 
     override fun size(): Size = displaySize
 }

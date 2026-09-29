@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
@@ -37,13 +38,15 @@ import kotlin.math.roundToInt
 /**
  * The running exercise's texts and markers on its surface, at the surface's scale: a text's top left
  * is at its (x, y), in its font size and colors.
+ *
+ * @param showMarkers false to draw the texts only
  */
 @Composable
-fun ExerciseOverlay(drill: DrillState, transform: SurfaceTransform, modifier: Modifier = Modifier) {
+fun ExerciseOverlay(drill: DrillState, transform: SurfaceTransform, modifier: Modifier = Modifier, showMarkers: Boolean = true) {
     val texts by drill.texts.collectAsState()
     val density = LocalDensity.current
     Box(modifier.fillMaxSize()) {
-        MarkerLayer(drill.markers, transform)
+        if (showMarkers) MarkerLayer(drill.markers, transform)
         for (text in texts) {
             val topLeft = transform.toView(text.x, text.y)
             Text(
@@ -59,3 +62,41 @@ fun ExerciseOverlay(drill: DrillState, transform: SurfaceTransform, modifier: Mo
         }
     }
 }
+
+/**
+ * What the running exercise draws on the arena. A projector exercise: its texts and markers. A camera
+ * exercise that runs everywhere (exercise port spec §5): its texts, at the same (x, y) as on the camera
+ * feed, and its banner message at the top left, white, as the JavaFX app showed it; its markers stay on the
+ * camera feed, whose coordinates they are in.
+ */
+@Composable
+fun ArenaExerciseOverlay(drill: DrillState, projector: Boolean, everywhere: Boolean, transform: SurfaceTransform) {
+    when {
+        projector -> ExerciseOverlay(drill, transform)
+        everywhere -> {
+            ExerciseOverlay(drill, transform, showMarkers = false)
+            ArenaMessage(drill, transform)
+        }
+    }
+}
+
+@Composable
+private fun ArenaMessage(drill: DrillState, transform: SurfaceTransform) {
+    val message by drill.message.collectAsState()
+    val density = LocalDensity.current
+    val shown = message?.takeIf { it.isNotEmpty() } ?: return
+    val topLeft = transform.toView(MESSAGE_INSET, MESSAGE_INSET)
+    Text(
+        shown,
+        color = Color.White,
+        fontSize = with(density) { (MESSAGE_FONT_SIZE * transform.scale).toFloat().toSp() },
+        lineHeight = with(density) { (MESSAGE_FONT_SIZE * transform.scale * 1.2).toFloat().toSp() },
+        modifier = Modifier
+            .offset { IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()) }
+            .testTag("arena-exercise-message"),
+    )
+}
+
+// In arena coordinates
+private const val MESSAGE_INSET = 10.0
+private const val MESSAGE_FONT_SIZE = 24.0

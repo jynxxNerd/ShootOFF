@@ -72,6 +72,20 @@ class TestAppState {
         }
     }
 
+    // Exercise port spec §5: a camera drill sees the shooter's arena targets beside the camera feed's
+    @Test
+    fun aCameraDrillRunsEverywhere() {
+        val box = TargetDefinition(Optional.empty(), mapOf(), listOf(RectangleRegion(0, 0.0, 0.0, 10.0, 10.0, "red", mapOf())))
+        val onFeed = app.feedTargets.add(box, ResourceResolver.files())
+        val onArena = app.arenaLayout.targets.add(box, ResourceResolver.files())
+        assertTrue(app.startDrill(AppFixture.feedDrill))
+
+        val host = app.runner.running.value!!.host
+
+        assertTrue(host.runsEverywhere)
+        assertEquals(listOf(onFeed.id, onArena.id), host.targets().map { it.id() })
+    }
+
     // Spec §6: editing works with the arena closed, and the next window shows the layout
     @Test
     fun theShootersTargetsAndBackgroundOutliveTheArenaWindowButAnExercisesTargetsDont() {

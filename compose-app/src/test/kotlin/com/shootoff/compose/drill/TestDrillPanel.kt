@@ -3,6 +3,9 @@ package com.shootoff.compose.drill
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -142,6 +145,31 @@ class TestDrillPanel {
         compose.onNodeWithTag("delay-max").performKeyInput { pressKey(Key.Enter) }
 
         assertEquals(listOf("par 1.9", "delay 4-6"), heard)
+    }
+
+    // Exercise port spec §5: a camera drill's texts and banner show on the arena too; a projector drill's banner doesn't
+    @Test
+    fun theArenaShowsAnEverywhereDrillsTextsAndBanner() {
+        drill.addText(DrillText(7, "Score: 0", 100.0, 50.0, TextStyle(40.0, "white", "transparent")))
+        drill.setMessage("red score: 10")
+        var projector by mutableStateOf(false)
+        var everywhere by mutableStateOf(true)
+        show {
+            Box(Modifier.size(640.dp, 360.dp)) {
+                ArenaExerciseOverlay(drill, projector, everywhere, SurfaceTransform.fit(Size(1280.0, 720.0), 640f, 360f))
+            }
+        }
+
+        compose.onNodeWithTag("exercise-text-7").assertLeftPositionInRootIsEqualTo(50.dp).assertTopPositionInRootIsEqualTo(25.dp)
+        compose.onNodeWithTag("arena-exercise-message").assertTextEquals("red score: 10")
+
+        projector = true
+        everywhere = false
+        compose.onNodeWithTag("exercise-text-7").assertExists()
+        compose.onNodeWithTag("arena-exercise-message").assertDoesNotExist()
+
+        projector = false
+        compose.onNodeWithTag("exercise-text-7").assertDoesNotExist()
     }
 
     @Test

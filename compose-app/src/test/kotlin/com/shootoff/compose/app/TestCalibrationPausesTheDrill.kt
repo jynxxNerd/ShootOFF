@@ -157,6 +157,30 @@ class TestCalibrationPausesTheDrill {
         assertEquals("Resume", pauseLabel())
     }
 
+    // Exercise port spec §5: a camera drill runs on the arena's targets too, so calibration pauses it if it can
+    @Test
+    fun f6PausesACameraDrillWithAPauseButtonAndLeavesOneWithoutRunning() {
+        AppFixture.setUpForProjectorDrills(app)
+        assertTrue(app.startDrill(AppFixture.pausingFeedDrill))
+        awaitTrue { pauseLabel() == "Pause" }
+        val pausable = app.runner.running.value!!.host
+
+        app.handleKey(Key.F6, KeyEventType.KeyDown)
+
+        awaitTrue { pauseLabel() == "Resume" }
+        assertSame(pausable, app.runner.running.value!!.host)
+        calibrateWithTheCamera()
+        assertEquals("Resume", pauseLabel())
+
+        assertTrue(app.startDrill(AppFixture.feedDrill))
+        val unpausable = app.runner.running.value!!.host
+        app.handleKey(Key.F6, KeyEventType.KeyDown)
+        calibrateWithTheCamera()
+
+        assertSame(unpausable, app.runner.running.value!!.host)
+        assertFalse(unpausable.isStopped)
+    }
+
     private fun awaitTrue(condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + 5000
         while (!condition() && System.currentTimeMillis() < deadline) Thread.sleep(5)

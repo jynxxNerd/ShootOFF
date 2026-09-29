@@ -22,6 +22,7 @@ import com.shootoff.camera.Shot
 import com.shootoff.compose.arena.ArenaBackground
 import com.shootoff.compose.shots.Marker
 import com.shootoff.compose.shots.ShotTimerModel
+import com.shootoff.compose.targets.SurfaceTargets
 import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.config.Settings
 import com.shootoff.exercise.ButtonHandle
@@ -102,6 +103,7 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
     private val support = ExerciseHostSupport<TargetId>(exercise, context.resources)
     private val drill = context.drill
     private val targets = context.surface.targets
+    private val seenTargets = context.surface.seenTargets
     private val nextId = AtomicLong()
 
     // Guarded by lock: what this host added to the shared state, removed on stop
@@ -116,7 +118,7 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
     private var showsMessage = false
     private val savedBackground = SavedBackground<ArenaBackground>()
 
-    // The exercise hears about targets joining and leaving its surface
+    // The exercise hears about targets joining and leaving the surfaces it sees
     private val targetListener = object : TargetSetListener {
         override fun targetAdded(target: PlacedTarget) = targetsChanged()
 
@@ -128,11 +130,17 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
     /** Whether the exercise has paused shot detection (a paused drill does) */
     val shotDetectionPaused: Boolean get() = support.isShotDetectionPaused
 
+    /** Whether the exercise takes arena shots: a projector exercise, or a camera exercise that runs everywhere */
+    val takesArenaShots: Boolean get() = context.surface.takesArenaShots
+
+    /** A camera exercise that runs everywhere: on the camera feed and on the arena's targets */
+    val runsEverywhere: Boolean get() = takesArenaShots && !isProjector
+
     // ---- Lifecycle, driven by the ExerciseRunner
 
     fun start() {
         drill.setName(name)
-        targets.set.addListener(targetListener)
+        seenTargets.forEach { it.set.addListener(targetListener) }
         support.run(guarded { exercise.start(this) })
     }
 
@@ -149,7 +157,7 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
      */
     fun stop() {
         val stopped = support.stop().orElse(null) ?: return
-        targets.set.removeListener(targetListener)
+        seenTargets.forEach { it.set.removeListener(targetListener) }
 
         for (target in stopped.addedTargets()) targets.remove(target)
         if (stopped.restartDetection()) context.setDetecting(true)
@@ -243,7 +251,7 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
         val target = targets.add(definition, resolver, Placement(x, y, 1.0, 1.0, true), TargetOwner.EXERCISE)
         context.surface.placeNewTarget(target)
 
-        if (support.track(target.id)) return Optional.of(Handle(target))
+        if (support.track(target.id)) return Optional.of(Handle(target, targets))
 
         // Stopped while loading
         targets.remove(target.id)
@@ -272,20 +280,22 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
         }
     }
 
-    override fun targets(): List<TargetHandle> = targets.set.targets.map { Handle(it) }
+    /** The camera feed's targets, then (for an exercise that runs everywhere) the arena's */
+    override fun targets(): List<TargetHandle> = seenTargets.flatMap { surface -> surface.set.targets.map { Handle(it, surface) } }
 
-    private inner class Handle(private val target: PlacedTarget) : TargetHandle {
+    // A target on one of the surfaces the exercise sees
+    private inner class Handle(private val target: PlacedTarget, private val surface: SurfaceTargets) : TargetHandle {
         override fun id(): TargetId = target.id
 
-        override fun move(x: Double, y: Double) = targets.set.move(target.id, x, y)
+        override fun move(x: Double, y: Double) = surface.set.move(target.id, x, y)
 
-        override fun resize(width: Double, height: Double) = targets.set.resize(target.id, width, height)
+        override fun resize(width: Double, height: Double) = surface.set.resize(target.id, width, height)
 
-        override fun setVisible(visible: Boolean) = targets.set.setVisible(target.id, visible)
+        override fun setVisible(visible: Boolean) = surface.set.setVisible(target.id, visible)
 
         override fun remove() {
             support.untrack(target.id)
-            targets.remove(target.id)
+            surface.remove(target.id)
         }
 
         override fun position(): Point = target.position

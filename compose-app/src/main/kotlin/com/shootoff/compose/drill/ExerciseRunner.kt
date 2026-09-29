@@ -35,7 +35,9 @@ class Running(val entry: V2ExerciseEntry, val host: ComposeExerciseHost)
 
 /**
  * The Compose app's current exercise: at most one runs. Starting one stops the one before. Shots reach
- * it by surface: arena shots only a projector exercise, camera shots only a camera exercise. Calibration
+ * it by surface: a projector exercise takes arena shots only; a camera exercise takes camera shots, and
+ * arena shots too when it runs everywhere (exercise port spec §5). A camera shot that the pipeline passes
+ * on to the arena arrives once, as an arena shot. Calibration
  * pauses a projector exercise (see AppState.pauseDrill); one with no Pause button is stopped through
  * [stopProjectorExercise] and started afresh afterwards.
  *
@@ -121,7 +123,8 @@ class ExerciseRunner(
 
     override fun deliver(shot: Shot, hit: Hit?, arenaShot: Boolean): Boolean {
         val host = runningState.value?.host ?: return false
-        if (host.isProjector != arenaShot) return true
+        val takes = if (arenaShot) host.takesArenaShots else !host.isProjector
+        if (!takes) return true
         host.deliverShot(shot, hit)
         return true
     }

@@ -47,7 +47,7 @@ import com.shootoff.compose.app.ShootOffApp
 import com.shootoff.compose.app.UiErrors
 import com.shootoff.compose.app.WindowRole
 import com.shootoff.compose.arena.ArenaWindow
-import com.shootoff.compose.drill.ExerciseOverlay
+import com.shootoff.compose.drill.ArenaExerciseOverlay
 import com.shootoff.compose.theme.RangeTheme
 import com.shootoff.config.Settings
 import com.shootoff.geom.Point
@@ -156,7 +156,8 @@ fun main() {
                 // this window loses only its chrome (position, full-screen), never the arena itself
                 key(arenaGeneration) {
                     ArenaWindow(shownArena, shownPlacement, onCloseRequest = app::closeArena, onKey = { app.handleKey(it.key, it.type) }) { transform ->
-                        if (running?.host?.isProjector == true) ExerciseOverlay(app.drill, transform)
+                        val host = running?.host
+                        if (host != null) ArenaExerciseOverlay(app.drill, host.isProjector, host.runsEverywhere, transform)
                     }
                 }
             }

@@ -10,8 +10,12 @@ import com.shootoff.geom.Size
 import com.shootoff.targets.model.Hit
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** A camera feed and the arena wired as the Compose app wires them, with a recording exercise. */
-class SurfaceFixture {
+/**
+ * A camera feed and the arena wired as the Compose app wires them, with a recording exercise.
+ *
+ * @param exercise also hears every shot delivered, as the app's exercise runner does
+ */
+class SurfaceFixture(private val exercise: ShotReceiver? = null) {
     data class Delivered(val shot: Shot, val hit: Hit?, val arenaShot: Boolean)
 
     val settings = Settings(ScratchConfig.emptyFile().path, arrayOf())
@@ -44,7 +48,7 @@ class SurfaceFixture {
 
     private val receiver: ShotReceiver = ShotReceiver { shot, hit, arenaShot ->
         delivered += Delivered(shot, hit, arenaShot)
-        true
+        exercise?.deliver(shot, hit, arenaShot) ?: true
     }
 
     private val feedCommands: RegionCommandRunner = RegionCommandRunner(feed.targets, settings, { resets += "reset" }, { null })
