@@ -70,3 +70,22 @@ Since the Compose trial's Revision 1 there is no in-app arena view, so there is 
 - The session viewer and the Sessions screen.
 - Saving camera-feed layouts; multiple-camera layouts.
 - Rotating targets and editing a target's regions (the old target editor).
+
+## 9. Revision 1 (2026-09-29, after the owner's hardware check)
+
+The owner's check found that a camera-feed target over a real target never registers a hit once the projector arena is calibrated, in the Compose app and in the JavaFX app alike: a shot inside the calibrated projection always goes to the arena, and with "Only detect shots in projector bounds" (the default, and the owner's setting) the camera doesn't look outside the projection at all. Camera targets were only usable without a calibrated projector. The owner chose to make them work alongside the projector.
+
+**Shot routing on a camera feed, once the arena is calibrated:**
+1. A shot that lands on a camera-feed target (topmost visible region, as hit-testing does today) is that target's: it is hit-tested, runs its region commands (sounds included), gets its shot timer row and marker, and reaches a running exercise as a feed shot — wherever it is, inside the projected area or not.
+2. Otherwise, a shot inside the projected area goes to the arena, as today.
+3. Otherwise (outside the projected area, on no camera target): with "Only detect shots in projector bounds" it is dropped entirely — no marker, no timer row, no miss, no session event, exactly as if it had not been detected; with "Detect shots everywhere" it is a feed shot as today. "Crop feed to projector" is unchanged (the feed shows only the projection, so camera targets can only be inside it).
+
+**Detection:** while the camera feed has at least one target, the camera looks at the whole frame even with "Only detect shots in projector bounds", so that rule 3 can drop what lands elsewhere; with no camera targets it limits detection to the projection as today. Shot coordinates stay in the feed's full-frame coordinates either way.
+
+**Scope:** the routing lives in `core` (`ShotPipeline`, `CameraManager`), which the JavaFX app shares; the JavaFX app gains the same behaviour. Without a calibrated arena nothing changes.
+
+**Also in this revision (from the same check):**
+- Shift+Up makes the selected target taller and Shift+Down shorter (Shift+Right wider and Shift+Left narrower, unchanged).
+- The Compose app's log shows the layout memory's info lines (restored, and why a remembered target or background was left out): `com.shootoff.compose.courses` at INFO in `compose-app/src/main/resources/logback.xml`.
+
+**Testing:** core tests for each routing rule (camera target inside the projection, outside it with each calibration option, a miss outside with "only in bounds" leaving no trace, a camera target overlapped by an arena target); a CameraManager test that detection covers the whole frame while the feed has targets and the projection otherwise; the owner's check: a camera target over a real target beside the screen and one over the projected area both register, with sound where the target has one, and the frame rate stays usable.
