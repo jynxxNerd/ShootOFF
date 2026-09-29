@@ -87,6 +87,23 @@ public interface ExerciseHost {
 	void addNumberSetting(String label, double initial, double min, double max, double step, DoubleConsumer onChange);
 
 	/**
+	 * Adds a yes/no setting (a check box) to the exercise pane. <tt>onChange</tt> hears every value the
+	 * user sets.
+	 */
+	void addYesNoSetting(String label, boolean initial, Consumer<Boolean> onChange);
+
+	/**
+	 * Adds a setting with a fixed list of choices (a drop-down) to the exercise pane. <tt>onChange</tt>
+	 * hears every choice the user makes.
+	 *
+	 * @param initial
+	 *            one of <tt>choices</tt>
+	 * @throws IllegalArgumentException
+	 *             if <tt>initial</tt> isn't one of <tt>choices</tt>
+	 */
+	void addChoiceSetting(String label, List<String> choices, String initial, Consumer<String> onChange);
+
+	/**
 	 * Adds a column to the shot timer.
 	 */
 	void addColumn(String name);

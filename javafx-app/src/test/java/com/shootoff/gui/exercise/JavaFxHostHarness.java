@@ -48,6 +48,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.TableView;
@@ -281,15 +283,37 @@ final class JavaFxHostHarness implements ExerciseHostContract.Harness {
 	@SuppressWarnings("unchecked")
 	public void changeSetting(String label, double value) throws Exception {
 		onFx(() -> {
-			for (final Node pane : container.getChildren()) {
-				if (pane instanceof HBox box && box.getChildren().get(0) instanceof Label name
-						&& label.equals(name.getText())) {
-					((Spinner<Double>) box.getChildren().get(1)).getValueFactory().setValue(value);
-					return null;
-				}
-			}
-			throw new AssertionError("No setting " + label);
+			((Spinner<Double>) settingControl(label)).getValueFactory().setValue(value);
+			return null;
 		});
+	}
+
+	@Override
+	public void changeYesNoSetting(String label, boolean value) throws Exception {
+		onFx(() -> {
+			((CheckBox) settingControl(label)).setSelected(value);
+			return null;
+		});
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public void chooseSetting(String label, String choice) throws Exception {
+		onFx(() -> {
+			((ComboBox<String>) settingControl(label)).setValue(choice);
+			return null;
+		});
+	}
+
+	// The control beside the setting's label; on the JavaFX thread
+	private Node settingControl(String label) {
+		for (final Node pane : container.getChildren()) {
+			if (pane instanceof HBox box && box.getChildren().get(0) instanceof Label name
+					&& label.equals(name.getText())) {
+				return box.getChildren().get(1);
+			}
+		}
+		throw new AssertionError("No setting " + label);
 	}
 
 	private TimingControlsPane timingControls() {

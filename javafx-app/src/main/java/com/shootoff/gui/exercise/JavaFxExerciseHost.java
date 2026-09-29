@@ -75,11 +75,14 @@ import com.shootoff.targets.model.TargetId;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.TableColumn;
@@ -505,11 +508,47 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 				if (newValue != null) support.run(() -> onChange.accept(newValue));
 			});
 
-			final HBox pane = new HBox(10, new Label(label), spinner);
-			pane.setAlignment(Pos.CENTER_LEFT);
-			context.view().getTrainingExerciseContainer().getChildren().add(pane);
-			panes.add(pane);
+			addSettingPane(label, spinner);
 		});
+	}
+
+	@Override
+	public void addYesNoSetting(String label, boolean initial, Consumer<Boolean> onChange) {
+		fx(() -> {
+			final CheckBox checkBox = new CheckBox();
+			checkBox.setSelected(initial);
+			checkBox.selectedProperty().addListener((observable, oldValue, newValue) -> {
+				support.run(() -> onChange.accept(newValue));
+			});
+
+			addSettingPane(label, checkBox);
+		});
+	}
+
+	@Override
+	public void addChoiceSetting(String label, List<String> choices, String initial, Consumer<String> onChange) {
+		if (!choices.contains(initial)) {
+			throw new IllegalArgumentException(label + ": " + initial + " isn't one of " + choices);
+		}
+		final List<String> items = List.copyOf(choices);
+
+		fx(() -> {
+			final ComboBox<String> comboBox = new ComboBox<>(FXCollections.observableArrayList(items));
+			comboBox.setValue(initial);
+			comboBox.valueProperty().addListener((observable, oldValue, newValue) -> {
+				if (newValue != null) support.run(() -> onChange.accept(newValue));
+			});
+
+			addSettingPane(label, comboBox);
+		});
+	}
+
+	// A setting's label and control, in the exercise pane
+	private void addSettingPane(String label, Node control) {
+		final HBox pane = new HBox(10, new Label(label), control);
+		pane.setAlignment(Pos.CENTER_LEFT);
+		context.view().getTrainingExerciseContainer().getChildren().add(pane);
+		panes.add(pane);
 	}
 
 	// ---- Shot timer

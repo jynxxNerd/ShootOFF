@@ -34,15 +34,38 @@ const val PAUSE_LABEL = "Pause"
 /** … and this while it is paused */
 const val RESUME_LABEL = "Resume"
 
+/** One of the running exercise's settings, in the drill panel */
+sealed interface DrillSetting {
+    val id: Long
+    val label: String
+}
+
 data class NumberSetting(
-    val id: Long,
-    val label: String,
+    override val id: Long,
+    override val label: String,
     val value: Double,
     val min: Double,
     val max: Double,
     val step: Double,
     val onChange: (Double) -> Unit,
-)
+) : DrillSetting
+
+/** A check box */
+data class YesNoSetting(
+    override val id: Long,
+    override val label: String,
+    val value: Boolean,
+    val onChange: (Boolean) -> Unit,
+) : DrillSetting
+
+/** A drop-down of [choices] */
+data class ChoiceSetting(
+    override val id: Long,
+    override val label: String,
+    val choices: List<String>,
+    val value: String,
+    val onChange: (String) -> Unit,
+) : DrillSetting
 
 /** A text the exercise shows on its surface, in the surface's coordinates */
 data class DrillText(val id: Long, val text: String, val x: Double, val y: Double, val style: TextStyle)
@@ -70,7 +93,7 @@ data class TimingControls(
 class DrillState {
     private val nameState = MutableStateFlow<String?>(null)
     private val buttonState = MutableStateFlow<List<DrillButton>>(emptyList())
-    private val settingState = MutableStateFlow<List<NumberSetting>>(emptyList())
+    private val settingState = MutableStateFlow<List<DrillSetting>>(emptyList())
     private val textState = MutableStateFlow<List<DrillText>>(emptyList())
     private val timingState = MutableStateFlow<TimingControls?>(null)
     private val messageState = MutableStateFlow<String?>(null)
@@ -78,7 +101,7 @@ class DrillState {
     /** The running exercise's name, while one runs */
     val name: StateFlow<String?> = nameState.asStateFlow()
     val buttons: StateFlow<List<DrillButton>> = buttonState.asStateFlow()
-    val settings: StateFlow<List<NumberSetting>> = settingState.asStateFlow()
+    val settings: StateFlow<List<DrillSetting>> = settingState.asStateFlow()
     val texts: StateFlow<List<DrillText>> = textState.asStateFlow()
     val timing: StateFlow<TimingControls?> = timingState.asStateFlow()
 
@@ -98,13 +121,21 @@ class DrillState {
 
     fun removeButton(id: Long) = buttonState.update { buttons -> buttons.filterNot { it.id == id } }
 
-    fun addSetting(setting: NumberSetting) = settingState.update { it + setting }
+    fun addSetting(setting: DrillSetting) = settingState.update { it + setting }
 
     fun removeSetting(id: Long) = settingState.update { settings -> settings.filterNot { it.id == id } }
 
-    /** The user set a setting's value */
-    fun setSettingValue(id: Long, value: Double) =
-        settingState.update { settings -> settings.map { if (it.id == id) it.copy(value = value) else it } }
+    /** The user set a number setting's value */
+    fun setSettingValue(id: Long, value: Double) = updateSetting(id) { if (it is NumberSetting) it.copy(value = value) else it }
+
+    /** The user ticked or cleared a yes/no setting */
+    fun setSettingValue(id: Long, value: Boolean) = updateSetting(id) { if (it is YesNoSetting) it.copy(value = value) else it }
+
+    /** The user picked one of a choice setting's choices */
+    fun setSettingChoice(id: Long, choice: String) = updateSetting(id) { if (it is ChoiceSetting) it.copy(value = choice) else it }
+
+    private fun updateSetting(id: Long, change: (DrillSetting) -> DrillSetting) =
+        settingState.update { settings -> settings.map { if (it.id == id) change(it) else it } }
 
     fun addText(text: DrillText) = textState.update { it + text }
 

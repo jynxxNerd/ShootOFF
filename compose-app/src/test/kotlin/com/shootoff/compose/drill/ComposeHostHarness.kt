@@ -114,10 +114,14 @@ class ComposeHostHarness private constructor(
         button.onClick()
     }
 
-    override fun changeSetting(label: String, value: Double) {
-        val setting = drill.settings.value.firstOrNull { it.label == label } ?: throw AssertionError("No setting $label")
-        setting.onChange(value)
-    }
+    override fun changeSetting(label: String, value: Double) = setting<NumberSetting>(label).onChange(value)
+
+    override fun changeYesNoSetting(label: String, value: Boolean) = setting<YesNoSetting>(label).onChange(value)
+
+    override fun chooseSetting(label: String, choice: String) = setting<ChoiceSetting>(label).onChange(choice)
+
+    private inline fun <reified S : DrillSetting> setting(label: String): S =
+        drill.settings.value.filterIsInstance<S>().firstOrNull { it.label == label } ?: throw AssertionError("No setting $label")
 
     override fun userSetsParTime(seconds: Double) {
         val timing = drill.timing.value ?: throw AssertionError("No timing controls")
@@ -134,7 +138,13 @@ class ComposeHostHarness private constructor(
         surface.targets.drawn.value.map { it.id to it.placement },
         drill.name.value,
         drill.buttons.value.map { it.label },
-        drill.settings.value.map { it.label to it.value },
+        drill.settings.value.map {
+            it.label to when (it) {
+                is NumberSetting -> it.value
+                is YesNoSetting -> it.value
+                is ChoiceSetting -> it.value
+            }
+        },
         drill.texts.value,
         drill.timing.value?.let { Triple(it.showsParTime, it.parTime, it.delay) },
         drill.message.value,

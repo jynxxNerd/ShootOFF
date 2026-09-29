@@ -362,6 +362,33 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
         }
     }
 
+    override fun addYesNoSetting(label: String, initial: Boolean, onChange: Consumer<Boolean>) {
+        val id = nextId.incrementAndGet()
+        ui {
+            drill.addSetting(
+                YesNoSetting(id, label, initial) { value ->
+                    drill.setSettingValue(id, value)
+                    support.run(guarded { onChange.accept(value) })
+                },
+            )
+            settings += id
+        }
+    }
+
+    override fun addChoiceSetting(label: String, choices: List<String>, initial: String, onChange: Consumer<String>) {
+        require(initial in choices) { "$label: $initial isn't one of $choices" }
+        val id = nextId.incrementAndGet()
+        ui {
+            drill.addSetting(
+                ChoiceSetting(id, label, choices.toList(), initial) { choice ->
+                    drill.setSettingChoice(id, choice)
+                    support.run(guarded { onChange.accept(choice) })
+                },
+            )
+            settings += id
+        }
+    }
+
     // ---- Shot timer
 
     override fun addColumn(name: String) = ui {

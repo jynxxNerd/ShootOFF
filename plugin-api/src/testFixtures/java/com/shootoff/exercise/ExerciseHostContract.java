@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -83,6 +84,12 @@ public abstract class ExerciseHostContract {
 
 		/** The user sets the exercise's number setting with this label. */
 		void changeSetting(String label, double value) throws Exception;
+
+		/** The user ticks or clears the exercise's yes/no setting with this label. */
+		void changeYesNoSetting(String label, boolean value) throws Exception;
+
+		/** The user picks a choice of the exercise's choice setting with this label. */
+		void chooseSetting(String label, String choice) throws Exception;
 
 		/** The user types a par time into the shared control. */
 		void userSetsParTime(double seconds) throws Exception;
@@ -249,6 +256,35 @@ public abstract class ExerciseHostContract {
 	}
 
 	@Test
+	void yesNoAndChoiceSettingsHearTheUsersChangesOnTheExercisesThread() throws Exception {
+		final List<String> heard = new CopyOnWriteArrayList<>();
+		drill.onStart = host -> {
+			host.addYesNoSetting("Remove hit targets", false, value -> {
+				heard.add("remove " + value);
+				drill.record("yes/no");
+			});
+			host.addChoiceSetting("Speed", List.of("1", "5", "10"), "5", choice -> {
+				heard.add("speed " + choice);
+				drill.record("choice");
+			});
+		};
+		final Harness h = harness();
+		h.start();
+		awaitEvent("start");
+		h.awaitUi();
+
+		h.changeYesNoSetting("Remove hit targets", true);
+		h.chooseSetting("Speed", "10");
+		awaitEvent("yes/no");
+		awaitEvent("choice");
+
+		assertEquals(List.of("remove true", "speed 10"), heard);
+		assertEquals(Set.of(EXERCISE_THREAD), Set.copyOf(drill.threads.values()));
+		assertThrows(IllegalArgumentException.class,
+				() -> h.host().addChoiceSetting("Count", List.of("1", "2"), "5", choice -> {}));
+	}
+
+	@Test
 	void stopRunsTheExercisesStopExactlyOnceFromAnyThread() throws Exception {
 		final Harness h = harness();
 		h.start();
@@ -275,6 +311,8 @@ public abstract class ExerciseHostContract {
 			host.showMessage("Make ready");
 			host.addButton("Pause", () -> {});
 			host.addNumberSetting("Rounds", 10, 1, 100, 1, value -> {});
+			host.addYesNoSetting("Remove hit targets", true, value -> {});
+			host.addChoiceSetting("Speed", List.of("1", "2"), "1", choice -> {});
 			host.addColumn("Score");
 			host.showShotMarker(20, 20, new ShotStyle(ShotColor.RED));
 			host.onParTimeChanged(seconds -> {});

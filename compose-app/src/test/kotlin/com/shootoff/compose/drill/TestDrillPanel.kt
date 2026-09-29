@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
@@ -108,6 +109,27 @@ class TestDrillPanel {
 
         assertEquals(listOf("rounds 11.0", "rounds 15.0"), heard)
         compose.onNodeWithTag("setting-Rounds").assertTextEquals("15")
+    }
+
+    @Test
+    fun yesNoAndChoiceSettingsReachTheExercise() {
+        drill.addSetting(YesNoSetting(1, "Remove hit targets", false) { value ->
+            heard += "remove $value"
+            drill.setSettingValue(1, value)
+        })
+        drill.addSetting(ChoiceSetting(2, "Speed", listOf("1", "5", "10"), "5") { choice ->
+            heard += "speed $choice"
+            drill.setSettingChoice(2, choice)
+        })
+        show { DrillSettings(drill) }
+
+        compose.onNodeWithTag("setting-Remove hit targets").performClick()
+        compose.onNodeWithTag("setting-Speed").performClick()
+        compose.onNodeWithTag("setting-Speed-10").performClick()
+
+        assertEquals(listOf("remove true", "speed 10"), heard)
+        compose.onNodeWithTag("setting-Remove hit targets").assertIsOn()
+        compose.onNodeWithTag("setting-Speed").assertTextEquals("10")
     }
 
     @Test

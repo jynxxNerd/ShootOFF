@@ -19,11 +19,16 @@
 package com.shootoff.compose.drill
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,8 +55,9 @@ import com.shootoff.compose.theme.Range
 import java.util.Locale
 
 /**
- * The running drill's settings: its number settings, and the shared par time and start delay while it
- * listens to them. A typed value counts once the user presses Enter or leaves the field; − and + step it.
+ * The running drill's settings: its number, yes/no and choice settings, and the shared par time and start
+ * delay while it listens to them. A typed value counts once the user presses Enter or leaves the field; −
+ * and + step it.
  */
 @Composable
 fun DrillSettings(drill: DrillState, modifier: Modifier = Modifier) {
@@ -60,8 +66,12 @@ fun DrillSettings(drill: DrillState, modifier: Modifier = Modifier) {
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (setting in settings) {
-            NumberField(setting.label, setting.value, setting.min, setting.max, setting.step, "setting-${setting.label}") {
-                setting.onChange(it)
+            when (setting) {
+                is NumberSetting -> NumberField(setting.label, setting.value, setting.min, setting.max, setting.step, "setting-${setting.label}") {
+                    setting.onChange(it)
+                }
+                is YesNoSetting -> YesNoField(setting)
+                is ChoiceSetting -> ChoiceField(setting)
             }
         }
         timing?.let { controls ->
@@ -122,6 +132,44 @@ private fun NumberField(
                 },
         )
         TextButton(onClick = { stepped(value + step).takeIf { it <= max }?.let(onCommit) }, modifier = Modifier.testTag("$tag-up")) { Text("+") }
+    }
+}
+
+@Composable
+private fun YesNoField(setting: YesNoSetting) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(setting.label, color = Range.colors.mutedStrong, modifier = Modifier.width(120.dp))
+        Checkbox(
+            checked = setting.value,
+            onCheckedChange = { setting.onChange(it) },
+            modifier = Modifier.testTag("setting-${setting.label}"),
+        )
+    }
+}
+
+@Composable
+private fun ChoiceField(setting: ChoiceSetting) {
+    var open by remember { mutableStateOf(false) }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(setting.label, color = Range.colors.mutedStrong, modifier = Modifier.width(120.dp))
+        Box {
+            OutlinedButton(onClick = { open = true }, modifier = Modifier.testTag("setting-${setting.label}")) {
+                Text(setting.value, style = NumberStyle)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                for (choice in setting.choices) {
+                    DropdownMenuItem(
+                        text = { Text(choice) },
+                        onClick = {
+                            open = false
+                            if (choice != setting.value) setting.onChange(choice)
+                        },
+                        modifier = Modifier.testTag("setting-${setting.label}-$choice"),
+                    )
+                }
+            }
+        }
     }
 }
 

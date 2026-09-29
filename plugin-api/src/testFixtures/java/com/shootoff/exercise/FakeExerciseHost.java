@@ -40,8 +40,8 @@ import com.shootoff.targets.model.TargetSet;
  * <li>{@link #shoot(ShotColor, double, double)} fires a shot, hit-tested against the exercise's
  * visible targets;</li>
  * <li>{@link #advance} moves the manual clock and runs the tasks that fall due;</li>
- * <li>{@link #click}, {@link #changeSetting}, {@link #changeParTime} and {@link #changeDelayedStart}
- * use the controls.</li>
+ * <li>{@link #click}, {@link #changeSetting(String, double)}, {@link #changeSetting(String, boolean)},
+ * {@link #chooseSetting}, {@link #changeParTime} and {@link #changeDelayedStart} use the controls.</li>
  * </ul>
  * Everything runs on the calling thread, which plays the exercise thread.
  */
@@ -71,7 +71,8 @@ public class FakeExerciseHost implements ExerciseHost {
 	private final TargetSet targetSet = new TargetSet();
 	private final List<FakeText> texts = new ArrayList<>();
 	private final List<FakeButton> buttons = new ArrayList<>();
-	private final Map<String, FakeSetting> settings = new LinkedHashMap<>();
+	// A FakeSetting, FakeYesNoSetting or FakeChoiceSetting by its label
+	private final Map<String, Object> settings = new LinkedHashMap<>();
 	private final List<String> columns = new ArrayList<>();
 	private final List<FakeRow> rows = new ArrayList<>();
 	private final List<FakeMarker> markers = new ArrayList<>();
@@ -223,8 +224,7 @@ public class FakeExerciseHost implements ExerciseHost {
 	}
 
 	public void changeSetting(String label, double value) {
-		final FakeSetting setting = settings.get(label);
-		if (setting == null) throw new IllegalStateException("No setting labeled " + label);
+		final FakeSetting setting = setting(label, FakeSetting.class);
 		if (value < setting.min || value > setting.max) {
 			throw new IllegalArgumentException(String.format("%s must be between %s and %s, not %s", label,
 					setting.min, setting.max, value));
@@ -232,6 +232,38 @@ public class FakeExerciseHost implements ExerciseHost {
 
 		setting.value = value;
 		setting.onChange.accept(value);
+	}
+
+	/**
+	 * The user ticks or clears a yes/no setting.
+	 */
+	public void changeSetting(String label, boolean value) {
+		final FakeYesNoSetting setting = setting(label, FakeYesNoSetting.class);
+		setting.value = value;
+		setting.onChange.accept(value);
+	}
+
+	/**
+	 * The user picks one of a choice setting's choices.
+	 */
+	public void chooseSetting(String label, String choice) {
+		final FakeChoiceSetting setting = setting(label, FakeChoiceSetting.class);
+		if (!setting.choices.contains(choice)) {
+			throw new IllegalArgumentException(label + " has no choice " + choice + "; its choices are " + setting.choices);
+		}
+
+		setting.value = choice;
+		setting.onChange.accept(choice);
+	}
+
+	private <S> S setting(String label, Class<S> kind) {
+		final Object setting = settings.get(label);
+		if (setting == null) throw new IllegalStateException("No setting labeled " + label);
+		if (!kind.isInstance(setting)) {
+			throw new IllegalStateException(label + " is a " + setting.getClass().getSimpleName() + ", not a "
+					+ kind.getSimpleName());
+		}
+		return kind.cast(setting);
 	}
 
 	/**
@@ -284,9 +316,19 @@ public class FakeExerciseHost implements ExerciseHost {
 	}
 
 	public double settingValue(String label) {
-		final FakeSetting setting = settings.get(label);
-		if (setting == null) throw new IllegalStateException("No setting labeled " + label);
-		return setting.value;
+		return setting(label, FakeSetting.class).value;
+	}
+
+	public boolean yesNoSettingValue(String label) {
+		return setting(label, FakeYesNoSetting.class).value;
+	}
+
+	public String choiceSettingValue(String label) {
+		return setting(label, FakeChoiceSetting.class).value;
+	}
+
+	public List<String> settingChoices(String label) {
+		return setting(label, FakeChoiceSetting.class).choices;
 	}
 
 	public List<String> columns() {
@@ -442,6 +484,19 @@ public class FakeExerciseHost implements ExerciseHost {
 	public void addNumberSetting(String label, double initial, double min, double max, double step,
 			DoubleConsumer onChange) {
 		if (!stopped) settings.put(label, new FakeSetting(initial, min, max, onChange));
+	}
+
+	@Override
+	public void addYesNoSetting(String label, boolean initial, Consumer<Boolean> onChange) {
+		if (!stopped) settings.put(label, new FakeYesNoSetting(initial, onChange));
+	}
+
+	@Override
+	public void addChoiceSetting(String label, List<String> choices, String initial, Consumer<String> onChange) {
+		if (!choices.contains(initial)) {
+			throw new IllegalArgumentException(label + ": " + initial + " isn't one of " + choices);
+		}
+		if (!stopped) settings.put(label, new FakeChoiceSetting(List.copyOf(choices), initial, onChange));
 	}
 
 	@Override
@@ -665,6 +720,28 @@ public class FakeExerciseHost implements ExerciseHost {
 			this.value = value;
 			this.min = min;
 			this.max = max;
+			this.onChange = onChange;
+		}
+	}
+
+	private static final class FakeYesNoSetting {
+		boolean value;
+		final Consumer<Boolean> onChange;
+
+		FakeYesNoSetting(boolean value, Consumer<Boolean> onChange) {
+			this.value = value;
+			this.onChange = onChange;
+		}
+	}
+
+	private static final class FakeChoiceSetting {
+		final List<String> choices;
+		String value;
+		final Consumer<String> onChange;
+
+		FakeChoiceSetting(List<String> choices, String value, Consumer<String> onChange) {
+			this.choices = choices;
+			this.value = value;
 			this.onChange = onChange;
 		}
 	}

@@ -249,6 +249,28 @@ class TestFakeExerciseHost {
 	}
 
 	@Test
+	void yesNoAndChoiceSettingsAreRecordedAndCallBack() {
+		final List<String> calls = new ArrayList<>();
+		host.addNumberSetting("Rounds", 10, 1, 100, 1, value -> calls.add("rounds " + value));
+		host.addYesNoSetting("Remove hit targets", false, value -> calls.add("remove " + value));
+		host.addChoiceSetting("Speed", List.of("1", "2", "3"), "2", choice -> calls.add("speed " + choice));
+
+		host.changeSetting("Remove hit targets", true);
+		host.chooseSetting("Speed", "3");
+
+		assertEquals(List.of("remove true", "speed 3"), calls);
+		assertEquals(List.of("Rounds", "Remove hit targets", "Speed"), host.settingLabels());
+		assertTrue(host.yesNoSettingValue("Remove hit targets"));
+		assertEquals("3", host.choiceSettingValue("Speed"));
+		assertEquals(List.of("1", "2", "3"), host.settingChoices("Speed"));
+		assertThrows(IllegalArgumentException.class, () -> host.chooseSetting("Speed", "4"));
+		assertThrows(IllegalStateException.class, () -> host.changeSetting("Speed", true));
+		assertThrows(IllegalStateException.class, () -> host.yesNoSettingValue("Rounds"));
+		assertThrows(IllegalArgumentException.class,
+				() -> host.addChoiceSetting("Count", List.of("1", "2"), "5", choice -> {}));
+	}
+
+	@Test
 	void parAndDelayListenersHearOnlyUserChanges() {
 		final List<String> heard = new ArrayList<>();
 		assertEquals(FakeExerciseHost.DEFAULT_PAR_TIME, host.parTime(), 0);
