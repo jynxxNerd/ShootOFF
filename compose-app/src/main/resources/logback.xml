@@ -13,6 +13,8 @@
   <!-- Auto-calibration's exposure step: whether it lowered the exposure or put it back -->
   <logger name="com.shootoff.camera.autocalibration" level="INFO"/>
   <logger name="com.shootoff.compose.app.AppState" level="INFO"/>
+  <!-- The remembered arena layout: restored, and why a target or background was left out -->
+  <logger name="com.shootoff.compose.courses" level="INFO"/>
 
   <root level="warn">
     <appender-ref ref="STDOUT"/>

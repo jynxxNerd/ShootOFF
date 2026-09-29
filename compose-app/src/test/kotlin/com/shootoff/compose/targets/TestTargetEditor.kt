@@ -151,13 +151,13 @@ class TestTargetEditor {
         editor.nudge(Arrow.UP, resize = false)
         assertBounds(Rect(100.0, 100.0, 100.0, 50.0), target)
 
-        // Right and Down grow, Left and Up shrink
+        // Right and Up grow, Left and Down shrink (spec §9, Revision 1)
         editor.nudge(Arrow.RIGHT, resize = true)
         assertBounds(Rect(99.5, 100.0, 101.0, 50.0), target)
-        editor.nudge(Arrow.DOWN, resize = true)
+        editor.nudge(Arrow.UP, resize = true)
         assertBounds(Rect(99.5, 99.5, 101.0, 51.0), target)
         editor.nudge(Arrow.LEFT, resize = true)
-        editor.nudge(Arrow.UP, resize = true)
+        editor.nudge(Arrow.DOWN, resize = true)
         assertBounds(Rect(100.0, 100.0, 100.0, 50.0), target)
     }
 

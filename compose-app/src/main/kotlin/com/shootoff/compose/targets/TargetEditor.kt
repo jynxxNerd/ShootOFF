@@ -169,7 +169,7 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
 
     /**
      * An arrow key: moves the selected target by [STEP], or with [resize] (Shift held) makes it [STEP]
-     * wider (Right) or narrower (Left), taller (Down) or shorter (Up), about its center, as the JavaFX app did.
+     * wider (Right) or narrower (Left), taller (Up) or shorter (Down), about its center (spec §9, Revision 1).
      */
     fun nudge(arrow: Arrow, resize: Boolean) {
         val target = selectedTarget() ?: return
@@ -191,8 +191,8 @@ class TargetEditor(private val targets: SurfaceTargets, private val size: () -> 
         when (arrow) {
             Arrow.LEFT -> width = max(width - STEP, min(MIN_SIZE, width))
             Arrow.RIGHT -> width += STEP
-            Arrow.UP -> height = max(height - STEP, min(MIN_SIZE, height))
-            Arrow.DOWN -> height += STEP
+            Arrow.UP -> height += STEP
+            Arrow.DOWN -> height = max(height - STEP, min(MIN_SIZE, height))
         }
         val center = Point(bounds.minX + bounds.width / 2, bounds.minY + bounds.height / 2)
         place(target, fitted(target, p, Rect(center.x - width / 2, center.y - height / 2, width, height)))

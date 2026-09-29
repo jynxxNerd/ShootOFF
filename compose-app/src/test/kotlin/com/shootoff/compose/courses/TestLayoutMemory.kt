@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.Future
@@ -52,6 +53,13 @@ class TestLayoutMemory {
         Placement(10.0, 20.0, 1.0, 1.0, true),
         owner,
     )
+
+    // Spec §9, Revision 1: the app's log (logback.xml) shows the layout memory's info lines
+    @Test
+    fun theLayoutMemorysInfoLinesShowInTheAppsLog() {
+        assertTrue(LoggerFactory.getLogger(LayoutMemory::class.java).isInfoEnabled)
+        assertTrue(LoggerFactory.getLogger(CourseLoader::class.java).isInfoEnabled)
+    }
 
     @Test
     fun theLayoutIsSavedOnceTheChangesStopNotOncePerChange() {
