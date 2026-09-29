@@ -20,6 +20,7 @@ package com.shootoff.gui.exercise;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import com.shootoff.camera.CamerasSupervisor;
 import com.shootoff.config.Configuration;
@@ -38,11 +39,24 @@ import com.shootoff.plugins.TrainingExerciseView;
  *            the canvases that show {@link JavaFxExerciseHost#showMessage} banners
  * @param resources
  *            the exercise's class loader; for a plugin, its jar's
+ * @param everywhere
+ *            for a camera exercise that runs everywhere (exercise port spec §5): the canvases whose targets
+ *            it sees, as they are when it asks (every camera's, and the arena window's while the arena is
+ *            open). It takes arena shots too.
  */
 public record ExerciseHostContext(Configuration config, CamerasSupervisor cameras, TrainingExerciseView view,
 		CanvasManager canvas, Optional<ProjectorArenaPane> arena, List<CanvasManager> feeds, ClassLoader resources,
-		SoundOutput sounds) {
+		SoundOutput sounds, Optional<Supplier<List<CanvasManager>>> everywhere) {
 	public ExerciseHostContext {
 		feeds = List.copyOf(feeds);
+	}
+
+	/**
+	 * A context for an exercise that sees only its own canvas's targets and shots.
+	 */
+	public ExerciseHostContext(Configuration config, CamerasSupervisor cameras, TrainingExerciseView view,
+			CanvasManager canvas, Optional<ProjectorArenaPane> arena, List<CanvasManager> feeds, ClassLoader resources,
+			SoundOutput sounds) {
+		this(config, cameras, view, canvas, arena, feeds, resources, sounds, Optional.empty());
 	}
 }

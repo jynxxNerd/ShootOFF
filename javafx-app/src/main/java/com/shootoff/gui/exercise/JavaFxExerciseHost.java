@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,11 +158,13 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	}
 
 	/**
-	 * Hands a shot to the exercise: arena shots to a projector exercise, camera shots to a camera
-	 * exercise.
+	 * Hands a shot to the exercise: arena shots to a projector exercise; camera shots to a camera
+	 * exercise, and arena shots too when it runs everywhere (exercise port spec §5). A camera shot the
+	 * pipeline passes on to the arena arrives once, as an arena shot.
 	 */
 	public void deliverShot(Shot shot, Optional<Hit> hit) {
-		if (isProjector() != (shot instanceof ArenaShot)) return;
+		final boolean takes = shot instanceof ArenaShot ? takesArenaShots() : !isProjector();
+		if (!takes) return;
 
 		support.deliverShot(shot, hit);
 	}
@@ -336,11 +339,26 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 		}
 	}
 
+	/**
+	 * @return whether the exercise takes arena shots: a projector exercise, or a camera exercise that runs
+	 *         everywhere
+	 */
+	public boolean takesArenaShots() {
+		return isProjector() || context.everywhere().isPresent();
+	}
+
+	/**
+	 * @return the targets on the exercise's canvas; for a camera exercise that runs everywhere, every
+	 *         camera's and then the arena's
+	 */
 	@Override
 	public List<TargetHandle> targets() {
+		final List<CanvasManager> canvases = context.everywhere().map(Supplier::get).orElse(List.of(context.canvas()));
 		final List<TargetHandle> handles = new ArrayList<>();
-		for (final Target target : new ArrayList<>(context.canvas().getTargets())) {
-			handles.add(new FxTargetHandle((TargetView) target));
+		for (final CanvasManager canvas : canvases) {
+			for (final Target target : new ArrayList<>(canvas.getTargets())) {
+				handles.add(new FxTargetHandle((TargetView) target));
+			}
 		}
 		return handles;
 	}
@@ -665,6 +683,7 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 			for (final CameraView view : context.cameras().getCameraViews()) {
 				if (view instanceof CanvasManager canvas) canvases.add(canvas);
 			}
+			context.everywhere().ifPresent(everywhere -> canvases.addAll(everywhere.get()));
 			canvases.forEach(CanvasManager::reset);
 
 			canvasChildren().removeAll(markers);

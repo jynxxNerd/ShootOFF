@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1028,6 +1029,16 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		}
 	}
 
+	// Every camera's canvas, then the arena window's while the arena is open (not the arena tab's copy)
+	private List<CanvasManager> everywhereCanvases() {
+		final List<CanvasManager> canvases = new ArrayList<>();
+		for (final CameraView view : camerasSupervisor.getCameraViews()) {
+			canvases.add((CanvasManager) view);
+		}
+		if (projectorSlide.getArenaPane() != null) canvases.add(projectorSlide.getArenaPane().getCanvasManager());
+		return canvases;
+	}
+
 	// Starts a fresh instance of a v2 exercise on the arena, or on the first camera's feed
 	private void startHostedExercise(V2ExerciseEntry entry) {
 		final boolean projector = entry.isProjectorOnly();
@@ -1064,9 +1075,14 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 
 		config.setPlugin(pluginEngine.getPlugin(entry.metadata()).orElse(null));
 
+		// Exercise port spec §5: a camera exercise runs everywhere, on every camera's targets and the arena's,
+		// as the v1 exercises did
+		final Optional<Supplier<List<CanvasManager>>> everywhere = projector ? Optional.empty()
+				: Optional.of(this::everywhereCanvases);
+
 		final HostedExercise running = new HostedExercise(entry,
 				new JavaFxExerciseHost(exercise, new ExerciseHostContext(config, camerasSupervisor, this, canvas, arena,
-						feeds, entry.exerciseClass().getClassLoader(), SoundOutput.speakers())));
+						feeds, entry.exerciseClass().getClassLoader(), SoundOutput.speakers(), everywhere)));
 		config.setExercise(running);
 		running.init();
 	}

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -52,6 +53,7 @@ import com.shootoff.exercise.TargetHandle;
 import com.shootoff.exercise.TextHandle;
 import com.shootoff.exercise.TextStyle;
 import com.shootoff.geom.Point;
+import com.shootoff.gui.CanvasManager;
 import com.shootoff.gui.LocatedImage;
 import com.shootoff.gui.MockCanvasManager;
 import com.shootoff.gui.ShotEntry;
@@ -539,6 +541,44 @@ class TestJavaFxExerciseHost {
 		fxSync();
 		assertEquals(List.of(arenaShot), exercise.shots);
 		assertEquals(Optional.empty(), arena.getArenaBackground());
+	}
+
+	// Exercise port spec §5: a camera exercise that runs everywhere sees every canvas's targets and takes
+	// arena shots too; one that doesn't takes camera shots only
+	@Test
+	void cameraHostThatRunsEverywhereSeesEveryCanvasAndTakesArenaShots() throws Exception {
+		final MockCanvasManager arenaCanvas = onFx(() -> new MockCanvasManager(config));
+		onFx(() -> {
+			canvas.addTarget(new File("targets/IPSC.target"), false);
+			arenaCanvas.addTarget(new File("targets/SimpleBullseye_score.target"), false);
+			return null;
+		});
+		final List<CanvasManager> seen = List.of(canvas, arenaCanvas);
+		final JavaFxExerciseHost everywhereHost = new JavaFxExerciseHost(exercise,
+				new ExerciseHostContext(config, cameras, new View(), canvas, Optional.empty(), List.of(canvas), resources,
+						sounds, Optional.of(() -> seen)));
+
+		assertEquals(List.of(canvas.getTargetSet().getTargets().get(0).getId(),
+				arenaCanvas.getTargetSet().getTargets().get(0).getId()),
+				everywhereHost.targets().stream().map(TargetHandle::id).toList());
+		assertEquals(1, host.targets().size());
+
+		everywhereHost.start();
+		final DisplayShot cameraShot = new DisplayShot(ShotColor.RED, 1, 2, 3, 2);
+		final ArenaShot arenaShot = new ArenaShot(new DisplayShot(ShotColor.RED, 4, 5, 6, 2));
+		everywhereHost.deliverShot(cameraShot, Optional.empty());
+		everywhereHost.deliverShot(arenaShot, Optional.empty());
+		waitFor(() -> exercise.shots.size() == 2, "shots " + exercise.shots);
+		everywhereHost.stop();
+		assertEquals(List.of(cameraShot, arenaShot), exercise.shots);
+
+		exercise.shots.clear();
+		host.start();
+		host.deliverShot(arenaShot, Optional.empty());
+		host.deliverShot(cameraShot, Optional.empty());
+		waitFor(() -> exercise.shots.size() == 1, "shots " + exercise.shots);
+		host.stop();
+		assertEquals(List.of(cameraShot), exercise.shots);
 	}
 
 	private static LocatedImage image(String url) throws IOException {
