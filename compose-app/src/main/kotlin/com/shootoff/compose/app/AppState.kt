@@ -1194,7 +1194,12 @@ class AppState(
     }
 
     /** Reset: the cameras, the arena's animations and the shots, then the drill, then a short pause in detection */
-    fun reset() = rangeReset.reset { runner.reset() }
+    fun reset() {
+        // The cameras reset their feeds' and the open arena's targets; these stand up without a camera or arena too
+        arenaLayout.targets.animations.resetAll()
+        feedTargets.animations.resetAll()
+        rangeReset.reset { runner.reset() }
+    }
 
     /** Clears the shot markers and the shot timer */
     fun clearShots() = feedSurface.clear()

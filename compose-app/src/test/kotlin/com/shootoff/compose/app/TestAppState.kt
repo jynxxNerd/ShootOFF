@@ -35,6 +35,24 @@ class TestAppState {
     @AfterEach
     fun close() = app.close()
 
+    // Reset stands fallen targets back up even with no camera and the arena window closed
+    @Test
+    fun resetStandsFallenTargetsBackUpWithNoCameraOrArena() {
+        val clock = ManualClock()
+        val app = AppFixture.app(clock = clock)
+        try {
+            val onArena = AppFixture.fallenPopper(app.arenaLayout.targets, clock)
+            val onFeed = AppFixture.fallenPopper(app.feedTargets, clock)
+
+            app.reset()
+
+            assertTrue(app.arenaLayout.targets.animations.isOnFirstFrame(onArena))
+            assertTrue(app.feedTargets.animations.isOnFirstFrame(onFeed))
+        } finally {
+            app.close()
+        }
+    }
+
     // Spec §6: editing works with the arena closed, and the next window shows the layout
     @Test
     fun theShootersTargetsAndBackgroundOutliveTheArenaWindowButAnExercisesTargetsDont() {
