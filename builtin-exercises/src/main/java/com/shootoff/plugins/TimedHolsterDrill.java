@@ -34,7 +34,7 @@ import com.shootoff.targets.model.Hit;
 /**
  * Ten seconds to get ready, then round after round: "make ready" once, and after a random delay a beep to
  * draw and fire; each shot's Length is its time since the beep. Rounds alternate their shot timer rows'
- * shading. Pause stops the rounds; Resume makes ready again five seconds later. It runs everywhere: on the
+ * shading. Pause stops the rounds; Resume makes ready again a second and a half later. It runs everywhere: on the
  * camera feed's targets and the arena's.
  * <p>
  * Par for Score and Par Random Shot build on it: {@link #doRound} is a round's start, and
@@ -46,7 +46,7 @@ public class TimedHolsterDrill implements Exercise {
 	static final String RESUME = "Resume";
 	static final String CLEAR_SHOTS = "Clear Shots";
 	static final Duration START_DELAY = Duration.ofSeconds(10);
-	static final Duration RESUME_DELAY = Duration.ofSeconds(5);
+	static final Duration RESUME_DELAY = Duration.ofMillis(1500);
 	/** The shared delay controls' values when the drill starts, as the JavaFX app's own controls had them */
 	static final DelayRange DEFAULT_DELAY = new DelayRange(4, 8);
 	static final RowStyle ROUND_SHADING = new RowStyle("lightgray");

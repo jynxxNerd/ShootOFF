@@ -45,7 +45,7 @@ public class ISSFStandardPistol implements Exercise {
 	static final String PAUSE = "Pause";
 	static final String RESUME = "Resume";
 	static final Duration START_DELAY = Duration.ofSeconds(10);
-	static final Duration RESUME_DELAY = Duration.ofSeconds(5);
+	static final Duration RESUME_DELAY = Duration.ofMillis(1500);
 	/** The shared delay controls' values when the event starts, as the JavaFX app's own controls had them */
 	static final DelayRange DEFAULT_DELAY = new DelayRange(4, 8);
 	static final RowStyle SERIES_SHADING = new RowStyle("lightgray");

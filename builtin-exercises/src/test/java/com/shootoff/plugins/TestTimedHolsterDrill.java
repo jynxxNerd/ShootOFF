@@ -126,7 +126,7 @@ class TestTimedHolsterDrill {
 	}
 
 	@Test
-	void pauseStopsTheRoundsAndResumeMakesReadyFiveSecondsLater() {
+	void pauseStopsTheRoundsAndResumeMakesReadyASecondAndAHalfLater() {
 		startDrill();
 		advanceSeconds(11);
 
@@ -138,7 +138,7 @@ class TestTimedHolsterDrill {
 
 		host.click("Resume");
 		assertEquals(List.of("Pause", "Clear Shots"), host.buttonLabels());
-		advanceSeconds(4.9);
+		advanceSeconds(1.4);
 		assertEquals(List.of(MAKE_READY, BEEP), host.sounds());
 		advanceSeconds(0.1);
 		assertEquals(List.of(MAKE_READY, BEEP, MAKE_READY), host.sounds());

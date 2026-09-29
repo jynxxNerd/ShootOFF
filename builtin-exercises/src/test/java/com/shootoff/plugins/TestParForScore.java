@@ -135,7 +135,7 @@ class TestParForScore {
 		assertTrue(host.isShotDetectionPaused());
 
 		host.click("Resume");
-		advanceSeconds(6);
+		advanceSeconds(2.5);
 		assertEquals(List.of(MAKE_READY, BEEP, MAKE_READY, BEEP), host.sounds());
 		assertTrue(shootTheTen(ShotColor.RED));
 		assertEquals("10", lastRow().get("Score"));
