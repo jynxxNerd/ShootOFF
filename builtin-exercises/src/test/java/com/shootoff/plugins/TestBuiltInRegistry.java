@@ -16,9 +16,10 @@ class TestBuiltInRegistry {
 	void theStandardExercisesAreListedInTheTrainingMenusOrder() {
 		final List<V2ExerciseEntry> entries = BuiltInRegistry.entries();
 
-		assertEquals(List.of("Random Shoot", "Shoot for Score"),
-				entries.stream().map(entry -> entry.metadata().getName()).toList());
-		assertEquals(List.of(false, false), entries.stream().map(V2ExerciseEntry::isProjectorOnly).toList());
+		assertEquals(List.of("Random Shoot", "Shoot for Score", "Timed Holster Drill", "PAR Drill with Score",
+				"PAR Drill with a random Subtarget"), entries.stream().map(entry -> entry.metadata().getName()).toList());
+		assertEquals(List.of(false, false, false, false, false),
+				entries.stream().map(V2ExerciseEntry::isProjectorOnly).toList());
 	}
 
 	@Test

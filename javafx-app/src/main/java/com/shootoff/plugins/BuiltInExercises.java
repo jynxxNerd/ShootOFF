@@ -33,8 +33,7 @@ public final class BuiltInExercises {
 
 	public static List<ExerciseEntry> entries() {
 		final List<ExerciseEntry> entries = new ArrayList<>(BuiltInRegistry.entries());
-		entries.addAll(List.of(standard(new ISSFStandardPistol()), standard(new TimedHolsterDrill()),
-				standard(new ParForScore()), standard(new ParRandomShot()), projector(new BouncingTargets()),
+		entries.addAll(List.of(standard(new ISSFStandardPistol()), projector(new BouncingTargets()),
 				projector(new DuelingTree()), projector(new ShootDontShoot()), projector(new SteelChallenge())));
 		return entries;
 	}
