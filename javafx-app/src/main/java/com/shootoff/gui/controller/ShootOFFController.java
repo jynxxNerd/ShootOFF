@@ -192,6 +192,8 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 
 		rangeReset = new RangeReset(camerasSupervisor,
 				() -> projectorSlide.getCalibrationManager().map(CalibrationManager::isCalibrating).orElse(false),
+				() -> config.getExercise().map(e -> e instanceof HostedExercise hosted && hosted.isShotDetectionPaused())
+						.orElse(false),
 				TimerPool::schedule);
 
 		pluginEngine = new PluginEngine(exerciseSlide, ExerciseLoaders.all(), BuiltInExercises.entries());
@@ -1035,7 +1037,8 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		for (final CameraView view : camerasSupervisor.getCameraViews()) {
 			canvases.add((CanvasManager) view);
 		}
-		if (projectorSlide.getArenaPane() != null) canvases.add(projectorSlide.getArenaPane().getCanvasManager());
+		final ProjectorArenaPane arenaPane = projectorSlide.getArenaPane();
+		if (arenaPane != null) canvases.add(arenaPane.getCanvasManager());
 		return canvases;
 	}
 
@@ -1043,7 +1046,9 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 	private void startHostedExercise(V2ExerciseEntry entry) {
 		final boolean projector = entry.isProjectorOnly();
 
-		if (projector && projectorSlide.getArenaPane() == null) {
+		final ProjectorArenaPane arenaPane = projectorSlide.getArenaPane();
+
+		if (projector && arenaPane == null) {
 			logger.error("{} needs the projector arena", entry.metadata().getName());
 			return;
 		}
@@ -1068,7 +1073,7 @@ public class ShootOFFController implements CameraConfigListener, CameraErrorView
 		}
 		getArenaView().ifPresent(view -> feeds.add((CanvasManager) view));
 
-		final Optional<ProjectorArenaPane> arena = projector ? Optional.of(projectorSlide.getArenaPane())
+		final Optional<ProjectorArenaPane> arena = projector ? Optional.of(arenaPane)
 				: Optional.empty();
 		final CanvasManager canvas = arena.map(ProjectorArenaPane::getCanvasManager)
 				.orElseGet(() -> (CanvasManager) camerasSupervisor.getCameraView(0));

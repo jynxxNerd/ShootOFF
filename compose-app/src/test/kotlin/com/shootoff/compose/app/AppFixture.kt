@@ -80,6 +80,25 @@ object AppFixture {
         override fun stop() {}
     }
 
+    /** A projector drill that gets ready on Reset as the timed drills do: it pauses shot detection in onReset */
+    class GettingReadyDrill : Exercise {
+        private lateinit var host: ExerciseHost
+
+        override fun metadata() = ExerciseMetadata("Getting ready drill", "2.0", "ShootOFF tests", "Pauses in onReset", true)
+
+        override fun start(host: ExerciseHost) {
+            this.host = host
+        }
+
+        override fun onShot(shot: Shot, hit: Optional<Hit>) {}
+
+        override fun onReset() {
+            host.pauseShotDetection(true)
+        }
+
+        override fun stop() {}
+    }
+
     /** A projector drill with no Pause button */
     class UnpausableDrill : Exercise {
         override fun metadata() = ExerciseMetadata("Unpausable drill", "2.0", "ShootOFF tests", "No pause", true)
@@ -133,6 +152,7 @@ object AppFixture {
     val feedDrill = V2ExerciseEntry(FeedDrill::class.java, FeedDrill().metadata())
     val pausingDrill = V2ExerciseEntry(PausingDrill::class.java, PausingDrill().metadata())
     val pausingFeedDrill = V2ExerciseEntry(PausingFeedDrill::class.java, PausingFeedDrill().metadata())
+    val gettingReadyDrill = V2ExerciseEntry(GettingReadyDrill::class.java, GettingReadyDrill().metadata())
     val unpausableDrill = V2ExerciseEntry(UnpausableDrill::class.java, UnpausableDrill().metadata())
 
     /** A camera source with one [TestCamera], which the app opens at start */

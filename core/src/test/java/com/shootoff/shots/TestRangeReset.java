@@ -27,6 +27,7 @@ class TestRangeReset {
 	private final List<Runnable> scheduled = new ArrayList<>();
 	private final List<Long> delays = new ArrayList<>();
 	private final AtomicBoolean calibrating = new AtomicBoolean(false);
+	private final AtomicBoolean exercisePaused = new AtomicBoolean(false);
 	private CamerasSupervisor cameras;
 	private CameraManager first;
 	private CameraManager second;
@@ -41,7 +42,7 @@ class TestRangeReset {
 		cameras.getCameraManagers().add(first);
 		cameras.getCameraManagers().add(second);
 		cameras.setDetectingAll(true);
-		reset = new RangeReset(cameras, calibrating::get, (task, delayMillis) -> {
+		reset = new RangeReset(cameras, calibrating::get, exercisePaused::get, (task, delayMillis) -> {
 			scheduled.add(task);
 			delays.add(delayMillis);
 		});
@@ -82,6 +83,26 @@ class TestRangeReset {
 
 		assertFalse(first.isDetecting());
 		assertFalse(second.isDetecting());
+	}
+
+	// The exercise's own onReset runs after RangeReset has scheduled the restart (a v2 exercise's reset is queued)
+	@Test
+	void detectionStaysOffWhenTheExercisePausesItBeforeTheRestart() {
+		reset.reset(() -> {});
+		exercisePaused.set(true);
+		scheduled.get(0).run();
+
+		assertFalse(first.isDetecting());
+		assertFalse(second.isDetecting());
+	}
+
+	@Test
+	void detectionComesBackWhenTheExerciseDidNotPauseIt() {
+		reset.reset(() -> {});
+		scheduled.get(0).run();
+
+		assertTrue(first.isDetecting());
+		assertTrue(second.isDetecting());
 	}
 
 	@Test

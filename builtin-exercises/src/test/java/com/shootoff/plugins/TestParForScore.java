@@ -153,4 +153,25 @@ class TestParForScore {
 		assertTrue(shootTheTen(ShotColor.RED));
 		assertEquals("red score: 10", host.messages().get(3));
 	}
+
+	// Reset ends the round in progress: a shot before the next beep (detection back on, as Range's own
+	// restart does) scores nothing, no chime plays for the par time that was running, and the drill makes
+	// ready again 10 s after the Reset
+	@Test
+	void resetDuringAParTimeEndsTheRound() {
+		startDrillToTheBeep();
+		advanceSeconds(0.5);
+
+		host.reset();
+		host.pauseShotDetection(false);
+
+		assertTrue(shootTheTen(ShotColor.RED));
+		assertEquals(Map.of("Length", lastRow().get("Length")), lastRow());
+		assertEquals(List.of("score: 0", "score: 0"), host.messages());
+
+		advanceSeconds(9.4);
+		assertEquals(List.of(MAKE_READY, BEEP), host.sounds());
+		advanceSeconds(0.6);
+		assertEquals(List.of(MAKE_READY, BEEP, MAKE_READY), host.sounds());
+	}
 }

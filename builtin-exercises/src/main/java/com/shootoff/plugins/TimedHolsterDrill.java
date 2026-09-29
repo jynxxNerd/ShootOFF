@@ -118,6 +118,7 @@ public class TimedHolsterDrill implements Exercise {
 	public void onReset() {
 		host.pauseShotDetection(true);
 		cancelNextStep();
+		paused();
 		repeatExercise = true;
 		pauseResumeButton.setLabel(PAUSE);
 		resetValues();

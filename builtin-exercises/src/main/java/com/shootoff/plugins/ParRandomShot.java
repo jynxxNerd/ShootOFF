@@ -27,6 +27,7 @@ import com.shootoff.camera.Shot;
 import com.shootoff.exercise.TargetHandle;
 import com.shootoff.targets.model.Hit;
 import com.shootoff.targets.model.Region;
+import com.shootoff.targets.model.TargetId;
 
 /**
  * Merge of ParForScore and RandomShoot: each round calls out a random subtarget of the first target that
@@ -39,6 +40,8 @@ public class ParRandomShot extends ParForScore {
 	private final List<String> subtargets = new ArrayList<>();
 	private final Random rng;
 	private boolean foundTarget;
+	// The target whose subtargets are called out
+	private Optional<TargetId> selectedTarget = Optional.empty();
 	private int currentSubtarget;
 
 	public ParRandomShot() {
@@ -76,14 +79,28 @@ public class ParRandomShot extends ParForScore {
 		return foundTarget;
 	}
 
-	// The call-out replaces the beep
+	// The call-out replaces the beep. Without a target to call out (it was removed) there is no round.
 	@Override
 	protected void doRound() {
+		if (!foundTarget) return;
+
 		pickSubtarget();
 		saySubtarget();
 		host.pauseShotDetection(false);
 		startRoundTimer();
 		startParTime();
+	}
+
+	/**
+	 * As Random Shoot: the called-out target leaving moves the call-outs to another target with subtargets,
+	 * or warns that there is none and runs no rounds until Reset finds one.
+	 */
+	@Override
+	public void onTargetsChanged(List<TargetHandle> targets) {
+		if (selectedTarget.isEmpty()) return;
+
+		final TargetId selected = selectedTarget.get();
+		if (targets.stream().noneMatch(target -> target.id().equals(selected))) fetchSubtargets(targets);
 	}
 
 	// Rows keep their plain shading here, as in the JavaFX app
@@ -125,6 +142,8 @@ public class ParRandomShot extends ParForScore {
 	 */
 	private void fetchSubtargets(List<TargetHandle> targets) {
 		subtargets.clear();
+		selectedTarget = Optional.empty();
+		currentSubtarget = 0;
 
 		foundTarget = false;
 		for (final TargetHandle target : targets) {
@@ -135,7 +154,10 @@ public class ParRandomShot extends ParForScore {
 				}
 			}
 
-			if (foundTarget) break;
+			if (foundTarget) {
+				selectedTarget = Optional.of(target.id());
+				break;
+			}
 		}
 
 		if (!foundTarget) host.playSound(RandomShoot.WARNING_SOUND);

@@ -1,6 +1,7 @@
 package com.shootoff.plugins;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URISyntaxException;
@@ -143,5 +144,33 @@ class TestParRandomShot {
 
 		assertEquals(List.of(drill.getCurrentSubtarget()), host.spoken());
 		assertEquals(List.of(MAKE_READY), host.sounds());
+	}
+
+	// Like Random Shoot: the called-out target leaving moves the call-outs to another target, or warns
+	@Test
+	void theCalledOutTargetLeavingMovesOnOrWarnsAndRunsNoMoreRounds() {
+		final TargetHandle first = host.addTarget("targets/SimpleBullseye_five_small.target", 0, 0).get();
+		final TargetHandle second = host.addTarget("targets/SimpleBullseye_five_small.target", 300, 0).get();
+		final ParRandomShot drill = startDrillToTheCallOut();
+		advanceSeconds(2);
+
+		first.remove();
+		drill.onTargetsChanged(host.targets());
+		assertEquals(5, drill.getSubtargets().size());
+		assertFalse(host.sounds().contains(RandomShoot.WARNING_SOUND));
+
+		// The next round calls out a subtarget of the target that is left, and hits on it score
+		advanceSeconds(1);
+		assertTrue(shoot(hit(second, drill.getCurrentSubtarget())));
+		assertEquals("1", lastRow().get("Score"));
+
+		advanceSeconds(2);
+		second.remove();
+		drill.onTargetsChanged(host.targets());
+		assertEquals(RandomShoot.WARNING_SOUND, host.sounds().get(host.sounds().size() - 1));
+
+		final List<String> sounds = host.sounds();
+		advanceSeconds(30);
+		assertEquals(sounds, host.sounds());
 	}
 }

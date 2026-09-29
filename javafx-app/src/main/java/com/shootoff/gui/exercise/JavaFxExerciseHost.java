@@ -178,6 +178,13 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	}
 
 	/**
+	 * @return whether the exercise has shot detection paused and is still running
+	 */
+	public boolean isShotDetectionPaused() {
+		return support.isShotDetectionPaused();
+	}
+
+	/**
 	 * Stops the exercise and removes everything it added. Waits up to two seconds for the exercise
 	 * thread, which never waits for the JavaFX thread, so this may run on the JavaFX thread.
 	 */

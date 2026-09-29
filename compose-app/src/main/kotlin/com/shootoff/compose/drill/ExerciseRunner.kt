@@ -38,8 +38,9 @@ class Running(val entry: V2ExerciseEntry, val host: ComposeExerciseHost)
  * it by surface: a projector exercise takes arena shots only; a camera exercise takes camera shots, and
  * arena shots too when it runs everywhere (exercise port spec §5). A camera shot that the pipeline passes
  * on to the arena arrives once, as an arena shot. Calibration
- * pauses a projector exercise (see AppState.pauseDrill); one with no Pause button is stopped through
- * [stopProjectorExercise] and started afresh afterwards.
+ * pauses a projector exercise, and a camera exercise that runs everywhere (see AppState.pauseDrill); a
+ * projector exercise with no Pause button is stopped through [stopProjectorExercise] and started afresh
+ * afterwards.
  *
  * @param isCalibrating whether the arena is currently calibrating; a projector drill refuses to start
  *   while it is, so no path (the Drills screen or otherwise) can start one under calibration's feet

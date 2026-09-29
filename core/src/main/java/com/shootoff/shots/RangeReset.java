@@ -49,15 +49,22 @@ public final class RangeReset {
 
 	private final CamerasSupervisor cameras;
 	private final BooleanSupplier calibrating;
+	private final BooleanSupplier exercisePausedDetection;
 	private final Scheduler scheduler;
 
 	/**
 	 * @param calibrating
 	 *            <tt>true</tt> while the arena is calibrating: detection then stays off
+	 * @param exercisePausedDetection
+	 *            <tt>true</tt> while the running exercise has paused shot detection (e.g. its drill is
+	 *            getting ready after the reset): detection then stays off. Asked when detection would come
+	 *            back, by which time an exercise's queued reset has run.
 	 */
-	public RangeReset(CamerasSupervisor cameras, BooleanSupplier calibrating, Scheduler scheduler) {
+	public RangeReset(CamerasSupervisor cameras, BooleanSupplier calibrating, BooleanSupplier exercisePausedDetection,
+			Scheduler scheduler) {
 		this.cameras = cameras;
 		this.calibrating = calibrating;
+		this.exercisePausedDetection = exercisePausedDetection;
 		this.scheduler = scheduler;
 	}
 
@@ -75,7 +82,7 @@ public final class RangeReset {
 
 	/**
 	 * Turns shot detection off for <tt>millis</tt>, unless it is already off everywhere (e.g. an exercise
-	 * paused it). Cameras that were already off stay off, and none comes back on while calibrating.
+	 * paused it). Cameras that were already off stay off, and none comes back on while calibrating or while the running exercise has detection paused.
 	 * Technically a shorter pause could be asked for while a longer one runs; pauses are short, so that
 	 * isn't handled.
 	 */
@@ -93,7 +100,9 @@ public final class RangeReset {
 		cameras.setDetectingAll(false);
 
 		final Runnable restartDetection = () -> {
-			if (!calibrating.getAsBoolean()) {
+			if (exercisePausedDetection.getAsBoolean()) {
+				logger.info("disableShotDetectionTimer did not re-enable shot detection, the exercise paused it");
+			} else if (!calibrating.getAsBoolean()) {
 				if (alreadyOff.isEmpty()) {
 					cameras.setDetectingAll(true);
 				} else {

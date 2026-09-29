@@ -424,6 +424,23 @@ class TestJavaFxExerciseHost {
 		assertEquals(List.of("Make ready"), sounds.spoken);
 	}
 
+	// Range's Reset leaves shot detection off after its own second while the exercise has it paused
+	@Test
+	void theHostSaysWhetherTheExerciseHasShotDetectionPaused() {
+		host.start();
+		assertFalse(host.isShotDetectionPaused());
+
+		host.pauseShotDetection(true);
+		assertTrue(host.isShotDetectionPaused());
+
+		host.pauseShotDetection(false);
+		assertFalse(host.isShotDetectionPaused());
+
+		host.pauseShotDetection(true);
+		host.stop();
+		assertFalse(host.isShotDetectionPaused());
+	}
+
 	@Test
 	void callbacksArriveOnOneExerciseThread() throws Exception {
 		host.start();

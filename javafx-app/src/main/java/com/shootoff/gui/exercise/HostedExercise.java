@@ -95,6 +95,13 @@ public final class HostedExercise implements TrainingExercise {
 		host.ifPresent(JavaFxExerciseHost::reset);
 	}
 
+	/**
+	 * @return whether this is a running exercise that has paused shot detection (false for a menu item)
+	 */
+	public boolean isShotDetectionPaused() {
+		return host.map(JavaFxExerciseHost::isShotDetectionPaused).orElse(false);
+	}
+
 	@Override
 	public void destroy() {
 		host.ifPresent(JavaFxExerciseHost::stop);

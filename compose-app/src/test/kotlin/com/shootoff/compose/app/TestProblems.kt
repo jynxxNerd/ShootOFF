@@ -178,7 +178,7 @@ class TestProblems {
         }
     }
 
-    // Final review (Plan 7): detachCamera moved to pauseOrStopProjectorDrill(), which does nothing for a
+    // Final review (Plan 7): detachCamera moved to pauseOrStopDrillForCalibration(), which does nothing for a
     // non-projector (camera feed) drill; a camera drill with a Pause button must still pause when the camera
     // it depends on is lost.
     @Test
