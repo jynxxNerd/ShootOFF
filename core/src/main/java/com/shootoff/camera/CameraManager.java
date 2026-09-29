@@ -722,8 +722,8 @@ public class CameraManager
 		final Optional<Rect> detectionArea = detectionArea(projectionBounds);
 		if (!detectionArea.equals(lastDetectionArea)) {
 			lastDetectionArea = detectionArea;
-			// The detector's per-pixel averages are of the other area's pixels: they start afresh, so that the
-			// change doesn't look like a shot
+			// The detector's per-pixel averages are of the other area's pixels: it starts afresh, warming up as at
+			// startup, so that the change doesn't look like a shot
 			if (shotDetector instanceof FrameProcessingShotDetector) shotDetector.setFrameSize(getFeedWidth(), getFeedHeight());
 		}
 

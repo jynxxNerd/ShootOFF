@@ -116,6 +116,10 @@ public final class JavaShotDetector extends FrameProcessingShotDetector {
 		lumsMovingAverage = new int[width][height];
 		colorDistanceFromRed = new int[width][height];
 
+		// Starting afresh waits out the same warm-up as at startup: averages seeded from one frame can't tell a shot
+		filtersInitialized = false;
+		initialFrameCount = -1;
+
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				lumsMovingAverage[x][y] = -1;

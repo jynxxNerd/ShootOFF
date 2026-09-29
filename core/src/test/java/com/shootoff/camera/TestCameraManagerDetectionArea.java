@@ -164,4 +164,34 @@ class TestCameraManagerDetectionArea {
 		assertEquals(500, inFrame.getX(), 0.001);
 		assertEquals(400, inFrame.getY(), 0.001);
 	}
+
+	@Test
+	void decalibratingSearchesTheWholeFrameAndStartsTheDetectorAfresh() {
+		manager.setLimitDetectProjection(true);
+		frame();
+		final int before = camera.detector.restarts.get();
+
+		manager.setProjectionBounds(null);
+		frame();
+		frame();
+
+		assertEquals(List.of("200x200", "640x480", "640x480"), camera.detector.frames);
+		assertEquals(before + 1, camera.detector.restarts.get());
+		assertEquals(Optional.empty(), manager.getDetectionArea());
+	}
+
+	// The projection lies partly outside the frame, so the sub-image can't be cut out and the whole frame is searched
+	@Test
+	void whenTheProjectionCantBeCutOutTheShotsAreNotOffset() throws InterruptedException {
+		manager.setProjectionBounds(new Rect(600, 400, 200, 200));
+		manager.setLimitDetectProjection(true);
+
+		camera.detector.shotAt = new double[] { 500, 400 };
+		frame();
+
+		assertEquals(List.of("640x480"), camera.detector.frames);
+		final ScaledShot shot = nextShot();
+		assertEquals(500, shot.getX(), 0.001);
+		assertEquals(400, shot.getY(), 0.001);
+	}
 }
