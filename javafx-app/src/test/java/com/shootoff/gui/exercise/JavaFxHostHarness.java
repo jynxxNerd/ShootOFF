@@ -23,6 +23,7 @@ import com.shootoff.camera.shot.ArenaShot;
 import com.shootoff.camera.shot.DisplayShot;
 import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
+import com.shootoff.config.Settings;
 import com.shootoff.exercise.Exercise;
 import com.shootoff.exercise.ExerciseHost;
 import com.shootoff.exercise.ExerciseHostContract;
@@ -414,6 +415,11 @@ final class JavaFxHostHarness implements ExerciseHostContract.Harness {
 		final boolean node = onFx(() -> view.getTargetGroup().isVisible());
 		if (model != node) throw new AssertionError("The model says visible=" + model + ", the scene " + node);
 		return model;
+	}
+
+	@Override
+	public Settings settings() {
+		return config;
 	}
 
 	@Override

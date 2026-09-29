@@ -92,6 +92,8 @@ public class FakeExerciseHost implements ExerciseHost {
 	private DelayRange delayedStart = DEFAULT_DELAYED_START;
 	private long now = START_TIME;
 	private long nextSequence = 0;
+	private int targetResets = 0;
+	private int magazineReloads = 0;
 
 	/**
 	 * A projector host with the default surface and a new temporary data directory.
@@ -358,6 +360,20 @@ public class FakeExerciseHost implements ExerciseHost {
 		return background;
 	}
 
+	/**
+	 * @return how many times the exercise stood the targets back up ({@link #resetTargets})
+	 */
+	public int targetResets() {
+		return targetResets;
+	}
+
+	/**
+	 * @return how many times the exercise reloaded the virtual magazine
+	 */
+	public int magazineReloads() {
+		return magazineReloads;
+	}
+
 	public boolean isShotDetectionPaused() {
 		return detectionPaused;
 	}
@@ -538,6 +554,19 @@ public class FakeExerciseHost implements ExerciseHost {
 	}
 
 	@Override
+	public void resetTargets() {
+		if (stopped) return;
+		targetResets++;
+		rows.clear();
+		markers.clear();
+	}
+
+	@Override
+	public void reloadVirtualMagazine() {
+		if (!stopped) magazineReloads++;
+	}
+
+	@Override
 	public void pauseShotDetection(boolean paused) {
 		if (!stopped) detectionPaused = paused;
 	}
@@ -550,6 +579,17 @@ public class FakeExerciseHost implements ExerciseHost {
 	@Override
 	public void playSounds(List<String> resourcesOrFiles) {
 		if (!stopped) sounds.addAll(resourcesOrFiles);
+	}
+
+	/**
+	 * Looks where {@link #playSound} would: the exercise's jar ({@link #withResources}), then ShootOFF's
+	 * folder and its <tt>sounds/</tt> folder.
+	 */
+	@Override
+	public boolean hasSound(String resourceOrFile) {
+		final String name = ExercisePaths.resourceName(resourceOrFile);
+		return (!name.isEmpty() && resources.getResource(name) != null)
+				|| ExercisePaths.shootoffFile(resourceOrFile, "sounds").isPresent();
 	}
 
 	@Override

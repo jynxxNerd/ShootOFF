@@ -42,7 +42,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootoff.camera.Shot;
+import com.shootoff.camera.processors.ShotProcessor;
+import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.config.Settings;
 import com.shootoff.exercise.Cancellable;
 import com.shootoff.exercise.DelayRange;
 import com.shootoff.exercise.Exercise;
@@ -295,6 +298,25 @@ public final class ExerciseHostSupport<T> {
 
 		logger.error("Can't find sound {}", resourceOrFile);
 		return Optional.empty();
+	}
+
+	/**
+	 * @return whether {@link #openSound} would find the sound
+	 */
+	public boolean hasSound(String resourceOrFile) {
+		return findResource(ExercisePaths.resourceName(resourceOrFile)).isPresent()
+				|| ExercisePaths.shootoffFile(resourceOrFile, "sounds").isPresent();
+	}
+
+	/**
+	 * Fills the virtual magazine back to its capacity, if it is on.
+	 */
+	public static void reloadVirtualMagazine(Settings settings) {
+		if (!settings.useVirtualMagazine()) return;
+
+		for (final ShotProcessor processor : settings.getShotProcessors()) {
+			if (processor instanceof VirtualMagazineProcessor) processor.reset();
+		}
 	}
 
 	public void playSound(String resourceOrFile, SoundSink sink) {

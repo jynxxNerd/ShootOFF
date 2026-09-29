@@ -137,6 +137,19 @@ public interface ExerciseHost {
 	 */
 	void clearShots();
 
+	/**
+	 * Stands every target back up, on the camera feeds and the arena: their animations go back to their
+	 * first frames, as ShootOFF's Reset button does, and the shots are cleared as {@link #clearShots}
+	 * does. Unlike the Reset button, it doesn't call the exercise's {@link Exercise#onReset}.
+	 */
+	void resetTargets();
+
+	/**
+	 * Fills the virtual magazine back to its capacity, as a reload does. Does nothing while the virtual
+	 * magazine is off.
+	 */
+	void reloadVirtualMagazine();
+
 	void pauseShotDetection(boolean paused);
 
 	void playSound(String resourceOrFile);
@@ -145,6 +158,12 @@ public interface ExerciseHost {
 	 * Plays the sounds one after another.
 	 */
 	void playSounds(List<String> resourcesOrFiles);
+
+	/**
+	 * @return whether {@link #playSound} would find the sound: in the exercise's jar, in ShootOFF's folder,
+	 *         or in its <tt>sounds/</tt> folder
+	 */
+	boolean hasSound(String resourceOrFile);
 
 	/**
 	 * Speaks <tt>text</tt> (text to speech).

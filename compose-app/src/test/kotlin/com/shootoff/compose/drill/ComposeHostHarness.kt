@@ -169,5 +169,7 @@ class ComposeHostHarness private constructor(
 
     override fun playedSounds(): List<String> = played.toList()
 
+    override fun settings(): Settings = settings
+
     override fun close() = host.stop()
 }

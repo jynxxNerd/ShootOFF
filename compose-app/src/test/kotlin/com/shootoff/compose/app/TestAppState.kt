@@ -53,6 +53,25 @@ class TestAppState {
         }
     }
 
+    // Exercise port spec §5 G4: a drill stands the shooter's targets back up, on the feed and the arena, as Reset does
+    @Test
+    fun aDrillStandsFallenTargetsBackUpOnTheFeedAndTheArena() {
+        val clock = ManualClock()
+        val app = AppFixture.app(clock = clock)
+        try {
+            val onArena = AppFixture.fallenPopper(app.arenaLayout.targets, clock)
+            val onFeed = AppFixture.fallenPopper(app.feedTargets, clock)
+            assertTrue(app.startDrill(AppFixture.feedDrill))
+
+            app.runner.running.value!!.host.resetTargets()
+
+            assertTrue(app.arenaLayout.targets.animations.isOnFirstFrame(onArena))
+            assertTrue(app.feedTargets.animations.isOnFirstFrame(onFeed))
+        } finally {
+            app.close()
+        }
+    }
+
     // Spec §6: editing works with the arena closed, and the next window shows the layout
     @Test
     fun theShootersTargetsAndBackgroundOutliveTheArenaWindowButAnExercisesTargetsDont() {

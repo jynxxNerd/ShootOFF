@@ -355,4 +355,35 @@ class TestFakeExerciseHost {
 		assertEquals(temp.resolve("data"), host.dataDirectory());
 		assertTrue(Files.isDirectory(host.dataDirectory()));
 	}
+
+	@Test
+	void aSoundExistsInTheExercisesJarOrShootoffsFolder() throws IOException {
+		final Path jar = Files.createDirectories(temp.resolve("jar/sounds"));
+		Files.write(jar.resolve("cue.wav"), new byte[] { 1 });
+		host.withResources(new URLClassLoader(new URL[] { temp.resolve("jar").toUri().toURL() }, null));
+
+		assertTrue(host.hasSound("sounds/cue.wav"));
+		assertTrue(host.hasSound("@sounds/cue.wav"));
+		assertTrue(host.hasSound("sounds/voice/shootoff-makeready.wav"));
+		assertTrue(host.hasSound("beep.wav"));
+		assertFalse(host.hasSound("sounds/voice/shootoff-undefined_region_name_5.wav"));
+		assertFalse(host.hasSound(""));
+	}
+
+	@Test
+	void resettingTargetsClearsTheShotsWithoutResettingTheExercise() {
+		final Recorder recorder = new Recorder();
+		host.start(recorder);
+		host.shoot(ShotColor.RED, 5, 5);
+		host.showShotMarker(5, 5, new ShotStyle(ShotColor.RED));
+
+		host.resetTargets();
+		host.reloadVirtualMagazine();
+
+		assertEquals(List.of(), host.rows());
+		assertEquals(List.of(), host.shotMarkers());
+		assertEquals(1, host.targetResets());
+		assertEquals(1, host.magazineReloads());
+		assertEquals(List.of("start", "shot -1"), recorder.events);
+	}
 }

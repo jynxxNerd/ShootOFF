@@ -70,6 +70,7 @@ import java.util.function.DoubleConsumer
  * @param clearShots clears every camera's shots and the shot timer
  * @param setDetecting turns every camera's shot detection on or off
  * @param onFailure hears that one of the exercise's callbacks threw
+ * @param resetTargets stands every target on the camera feed and the arena back up, and clears the shots
  */
 class HostContext(
     val settings: Settings,
@@ -81,6 +82,7 @@ class HostContext(
     val clearShots: () -> Unit,
     val setDetecting: (Boolean) -> Unit,
     val onFailure: (ComposeExerciseHost, Throwable) -> Unit = { _, _ -> },
+    val resetTargets: () -> Unit = clearShots,
 )
 
 /**
@@ -431,6 +433,20 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
         }
     }
 
+    override fun resetTargets() {
+        if (support.isStopped) return
+
+        context.resetTargets()
+        ui {
+            drill.markers.removeAll(markers)
+            markers.clear()
+        }
+    }
+
+    override fun reloadVirtualMagazine() {
+        if (!support.isStopped) ExerciseHostSupport.reloadVirtualMagazine(context.settings)
+    }
+
     override fun pauseShotDetection(paused: Boolean) = support.pauseShotDetection(paused) { context.setDetecting(it) }
 
     // ---- Sound
@@ -442,6 +458,8 @@ class ComposeExerciseHost(private val exercise: Exercise, private val context: H
     override fun playSounds(resourcesOrFiles: List<String>) = support.playSounds(resourcesOrFiles) { name, sound, whenDone ->
         context.sounds.play(name, sound) { whenDone.run() }
     }
+
+    override fun hasSound(resourceOrFile: String): Boolean = support.hasSound(resourceOrFile)
 
     override fun say(text: String) {
         if (!support.isStopped) context.sounds.say(text)

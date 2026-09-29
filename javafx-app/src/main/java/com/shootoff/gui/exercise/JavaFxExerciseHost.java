@@ -25,15 +25,18 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.shootoff.camera.CameraView;
 import com.shootoff.camera.Shot;
 import com.shootoff.camera.shot.ArenaShot;
 import com.shootoff.camera.shot.DisplayShot;
@@ -651,6 +654,31 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	}
 
 	@Override
+	public void resetTargets() {
+		if (support.isStopped()) return;
+
+		fx(() -> {
+			// Each camera's canvas stands its targets and the arena's up and clears their shots, as Reset does
+			// without restarting the cameras' shot timers
+			final Set<CanvasManager> canvases = new LinkedHashSet<>();
+			canvases.add(context.canvas());
+			for (final CameraView view : context.cameras().getCameraViews()) {
+				if (view instanceof CanvasManager canvas) canvases.add(canvas);
+			}
+			canvases.forEach(CanvasManager::reset);
+
+			canvasChildren().removeAll(markers);
+			canvasNodes.removeAll(markers);
+			markers.clear();
+		});
+	}
+
+	@Override
+	public void reloadVirtualMagazine() {
+		if (!support.isStopped()) ExerciseHostSupport.reloadVirtualMagazine(context.config());
+	}
+
+	@Override
 	public void pauseShotDetection(boolean paused) {
 		support.pauseShotDetection(paused, context.cameras()::setDetectingAll);
 	}
@@ -665,6 +693,11 @@ public final class JavaFxExerciseHost implements ExerciseHost {
 	@Override
 	public void playSounds(List<String> resourcesOrFiles) {
 		support.playSounds(resourcesOrFiles, context.sounds()::play);
+	}
+
+	@Override
+	public boolean hasSound(String resourceOrFile) {
+		return support.hasSound(resourceOrFile);
 	}
 
 	@Override

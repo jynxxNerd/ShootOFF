@@ -31,7 +31,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.shootoff.camera.Shot;
+import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.config.Settings;
 import com.shootoff.plugins.ExerciseMetadata;
 import com.shootoff.targets.model.Hit;
 
@@ -126,6 +128,11 @@ public abstract class ExerciseHostContract {
 		 * @return the names of the sounds played, in order
 		 */
 		List<String> playedSounds();
+
+		/**
+		 * @return the settings the host was given
+		 */
+		Settings settings();
 
 		@Override
 		void close() throws Exception;
@@ -437,6 +444,59 @@ public abstract class ExerciseHostContract {
 		assertEquals(List.of("par 3.5", "delay 2-6"), heard);
 		assertEquals(3.5, h.host().parTime(), 0);
 		assertEquals(new DelayRange(2, 6), h.host().delayedStart());
+	}
+
+	@Test
+	void aSoundExistsInTheExercisesJarOrShootoffsFolder() throws Exception {
+		final ExerciseHost host = harness().host();
+
+		assertTrue(host.hasSound("sounds/cue.wav"));
+		assertTrue(host.hasSound("sounds/beep.wav"));
+		assertTrue(host.hasSound("beep.wav"));
+		assertFalse(host.hasSound("sounds/voice/shootoff-undefined_region_name_5.wav"));
+	}
+
+	@Test
+	void resettingTargetsClearsTheExercisesMarkersWithoutCallingOnReset() throws Exception {
+		final Harness h = harness();
+		h.start();
+		awaitEvent("start");
+		h.awaitUi();
+		final Object before = h.shownState();
+
+		h.host().showShotMarker(20, 20, new ShotStyle(ShotColor.RED));
+		h.awaitUi();
+		assertNotEquals(before, h.shownState());
+
+		h.host().resetTargets();
+		h.awaitUi();
+
+		assertEquals(before, h.shownState());
+		assertEquals(List.of("start"), drill.events);
+	}
+
+	@Test
+	void aReloadFillsTheVirtualMagazineOnlyWhileItIsOn() throws Exception {
+		final Harness h = harness();
+		final Settings settings = h.settings();
+		settings.setUseVirtualMagazine(true);
+		settings.setVirtualMagazineCapacity(3);
+		final VirtualMagazineProcessor magazine = settings.getShotProcessors().stream()
+				.filter(VirtualMagazineProcessor.class::isInstance).map(VirtualMagazineProcessor.class::cast)
+				.findFirst().orElseThrow();
+		magazine.setUseTTS(false);
+		final Shot shot = new Shot(ShotColor.RED, 0, 0, 0);
+		magazine.processShot(shot);
+		magazine.processShot(shot);
+		assertEquals(1, magazine.getRountCount());
+
+		h.host().reloadVirtualMagazine();
+		assertEquals(3, magazine.getRountCount());
+
+		magazine.processShot(shot);
+		settings.setUseVirtualMagazine(false);
+		h.host().reloadVirtualMagazine();
+		assertEquals(2, magazine.getRountCount());
 	}
 
 	@Test
