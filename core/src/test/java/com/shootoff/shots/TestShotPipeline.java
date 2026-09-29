@@ -23,6 +23,7 @@ import com.shootoff.camera.processors.MalfunctionsProcessor;
 import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.config.CalibrationOption;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.config.Settings;
 import com.shootoff.geom.ArenaGeometry;
@@ -250,14 +251,15 @@ class TestShotPipeline {
 	@Test
 	void aShotInsideTheProjectionGoesToTheArenaInArenaCoordinates() {
 		camera.arena = Optional.of(new FakeArena());
-		camera.addBox(360, 220, Map.of());
+		camera.addBox(10, 10, Map.of());
 		final Point onArena = ArenaGeometry.canvasToArena(381, 235, PROJECTION, ARENA);
 		arena.addBox(onArena.getX() - 5, onArena.getY() - 5, Map.of());
 
 		cameraPipeline.addShot(shot(381, 235), false);
 
-		// The camera feed shows the shot and rows it; the arena hit-tests, records and delivers it
-		assertEquals(List.of("Camera 1 row", "Camera 1 shows (381, 235)",
+		// The camera feed looks for a target of its own first, then shows the shot and rows it; the arena
+		// hit-tests, records and delivers it
+		assertEquals(List.of("Camera 1 hit test", "Camera 1 row", "Camera 1 shows (381, 235)",
 				"arena shows (" + (int) onArena.getX() + ", " + (int) onArena.getY() + ")", "arena hit test",
 				"arena delivers a hit on the arena"), events);
 		assertEquals(List.of(), recorded("Camera 1"));
@@ -278,7 +280,7 @@ class TestShotPipeline {
 
 		assertEquals(List.of("arena shows (640, 360)", "arena shows (1280, 720)"),
 				events.stream().filter(event -> event.startsWith("arena shows")).toList());
-		assertFalse(events.contains("Camera 1 hit test"));
+		assertFalse(events.stream().anyMatch(event -> event.startsWith("Camera 1 delivers")));
 	}
 
 	@Test
@@ -288,9 +290,115 @@ class TestShotPipeline {
 
 		cameraPipeline.addShot(shot(50, 50), false);
 
-		assertEquals(List.of("Camera 1 row", "Camera 1 shows (50, 50)", "Camera 1 hit test", "Camera 1 delivers a hit"),
+		// Once the arena is calibrated, the camera feed's own targets are hit-tested first, once
+		assertEquals(List.of("Camera 1 hit test", "Camera 1 row", "Camera 1 shows (50, 50)", "Camera 1 delivers a hit"),
 				events);
 		assertEquals(List.of(), recorded("arena"));
+	}
+
+	// Spec §9 rule 1: a camera target over the projected area takes the shot, even over an arena target
+	@Test
+	void aShotOnACameraTargetInsideTheProjectionIsTheCameraTargetsEvenOverAnArenaTarget() {
+		camera.arena = Optional.of(new FakeArena());
+		camera.addBox(360, 220, Map.of("command", "play_sound(sounds/metal_clang.wav)"));
+		final Point onArena = ArenaGeometry.canvasToArena(381, 235, PROJECTION, ARENA);
+		arena.addBox(onArena.getX() - 5, onArena.getY() - 5, Map.of());
+
+		cameraPipeline.addShot(shot(381, 235), false);
+
+		assertEquals(List.of("Camera 1 hit test", "Camera 1 row", "Camera 1 shows (381, 235)",
+				"Camera 1 runs [RegionCommand[name=play_sound, args=[sounds/metal_clang.wav]]]", "Camera 1 delivers a hit"),
+				events);
+		assertEquals(Optional.of(0), recorded("Camera 1").get(0).getTargetIndex());
+		assertEquals(List.of(), recorded("arena"));
+	}
+
+	// Spec §9 rule 1: beside the projection, a camera target takes the shot whatever the calibration option
+	@Test
+	void aShotOnACameraTargetOutsideTheProjectionIsTheCameraTargetsWithEveryCalibrationOption() {
+		camera.arena = Optional.of(new FakeArena());
+		camera.addBox(40, 40, Map.of());
+
+		for (final CalibrationOption option : CalibrationOption.values()) {
+			settings.setCalibratedFeedBehavior(option);
+			events.clear();
+
+			cameraPipeline.addShot(shot(50, 50), false);
+
+			assertEquals(List.of("Camera 1 hit test", "Camera 1 row", "Camera 1 shows (50, 50)", "Camera 1 delivers a hit"),
+					events, option.name());
+		}
+		assertEquals(3, recorded("Camera 1").size());
+	}
+
+	// Spec §9 rule 3: with "Only detect shots in projector bounds", a shot beside the projection on no camera
+	// target is dropped: no row, no marker, no miss, no session event, and no malfunction
+	@Test
+	void aMissOutsideTheProjectionIsDroppedWithoutATraceWhenDetectingOnlyInBounds() {
+		settings.setCalibratedFeedBehavior(CalibrationOption.ONLY_IN_BOUNDS);
+		settings.setMalfunctions(true);
+		settings.setMalfunctionsProbability(100);
+		camera.arena = Optional.of(new FakeArena());
+		camera.addBox(40, 40, Map.of());
+
+		cameraPipeline.addShot(shot(20, 300), false);
+
+		assertEquals(List.of("Camera 1 hit test"), events);
+		assertEquals(List.of(), recorded("Camera 1"));
+		assertEquals(List.of(), recorded("arena"));
+
+		// Nor does the next row say a malfunction came before it
+		settings.setMalfunctions(false);
+		cameraPipeline.addShot(shot(50, 50), false);
+		assertEquals(List.of("Camera 1 row"), events.stream().filter(event -> event.contains("row")).toList());
+	}
+
+	// Spec §9 rule 3: a dropped shot uses no round of the virtual magazine
+	@Test
+	void aDroppedShotUsesNoRoundOfTheVirtualMagazine() {
+		settings.setCalibratedFeedBehavior(CalibrationOption.ONLY_IN_BOUNDS);
+		settings.setUseVirtualMagazine(true);
+		settings.setVirtualMagazineCapacity(1);
+		for (final ShotProcessor processor : settings.getShotProcessors()) {
+			if (processor instanceof VirtualMagazineProcessor magazine) magazine.setUseTTS(false);
+		}
+		camera.arena = Optional.of(new FakeArena());
+		camera.addBox(40, 40, Map.of());
+
+		cameraPipeline.addShot(shot(20, 300), false);
+		cameraPipeline.addShot(shot(50, 50), false);
+
+		assertEquals(List.of("Camera 1 row"), events.stream().filter(event -> event.contains("row")).toList());
+		assertEquals(List.of(false), recorded("Camera 1").stream().map(ShotEvent::isReload).toList());
+	}
+
+	// Spec §9 rule 3: "Detect shots everywhere" (and "Crop feed to projector", unchanged) keep a miss beside the
+	// projection on the camera feed
+	@Test
+	void aMissOutsideTheProjectionIsTheCameraFeedsWhenNotDetectingOnlyInBounds() {
+		camera.arena = Optional.of(new FakeArena());
+
+		for (final CalibrationOption option : List.of(CalibrationOption.EVERYWHERE, CalibrationOption.CROP)) {
+			settings.setCalibratedFeedBehavior(option);
+			events.clear();
+
+			cameraPipeline.addShot(shot(20, 300), false);
+
+			assertEquals(List.of("Camera 1 hit test", "Camera 1 row", "Camera 1 shows (20, 300)", "Camera 1 delivers a miss"),
+					events, option.name());
+		}
+		assertEquals(2, recorded("Camera 1").size());
+	}
+
+	// A copy of a shot is routed the same way: a mirrored miss beside the projection is dropped too
+	@Test
+	void aMirroredMissOutsideTheProjectionIsDroppedWhenDetectingOnlyInBounds() {
+		settings.setCalibratedFeedBehavior(CalibrationOption.ONLY_IN_BOUNDS);
+		camera.arena = Optional.of(new FakeArena());
+
+		cameraPipeline.addShot(shot(20, 300), true);
+
+		assertEquals(List.of("Camera 1 hit test"), events);
 	}
 
 	@Test

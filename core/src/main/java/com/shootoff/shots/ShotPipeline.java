@@ -30,6 +30,7 @@ import com.shootoff.camera.processors.ShotProcessor;
 import com.shootoff.camera.processors.VirtualMagazineProcessor;
 import com.shootoff.camera.recorders.ShotRecorder;
 import com.shootoff.camera.shot.ShotColor;
+import com.shootoff.config.CalibrationOption;
 import com.shootoff.config.Settings;
 import com.shootoff.geom.ArenaGeometry;
 import com.shootoff.geom.Point;
@@ -46,13 +47,17 @@ import com.shootoff.targets.model.TargetSet;
  * Everything between a detected shot and the running exercise, for one surface (a camera feed, the
  * arena, or a copy of the arena that mirrors it):
  * <ol>
+ * <li>where the shot goes, while this camera feed's arena is calibrated: a shot on one of the feed's own
+ * targets is the feed's, wherever it lands; otherwise a shot inside the arena's projection goes on to the
+ * arena; otherwise, with "Only detect shots in projector bounds", the shot is dropped here, before
+ * anything below, as if it had not been detected</li>
  * <li>the shot processors (malfunctions, the virtual magazine); a rejected shot is recorded as such and
  * goes no further</li>
  * <li>the laser sound</li>
  * <li>the shot timer row</li>
  * <li>the marker</li>
- * <li>a shot inside the arena's calibrated projection goes on to the arena, in arena coordinates;
- * any other shot is hit-tested against this surface's targets</li>
+ * <li>a shot for the arena goes on to it, in arena coordinates; any other shot is hit-tested against this
+ * surface's targets</li>
  * <li>session recording, the hit region's commands, and delivery to the running exercise</li>
  * </ol>
  * A <i>mirrored</i> shot is a copy of a shot another surface handles: it skips the processors, the
@@ -171,6 +176,13 @@ public final class ShotPipeline<S extends Shot> {
 	 * Handles a shot on this surface, in its coordinates.
 	 */
 	public void addShot(S shot, boolean mirrored) {
+		final Route<S> route = route(shot);
+		if (route.dropped()) {
+			logger.debug("Processing Shot: Dropped ({}, {}): outside the projection and on no camera target",
+					shot.getX(), shot.getY());
+			return;
+		}
+
 		if (!mirrored) {
 			final Optional<ShotProcessor> rejectingProcessor = processShot(shot);
 			if (rejectingProcessor.isPresent()) {
@@ -212,23 +224,60 @@ public final class ShotPipeline<S extends Shot> {
 
 		final Optional<String> videoString = createVideoString(shot);
 
-		final Optional<Arena<S>> arena = surface.arena();
-		if (arena.isPresent()) {
-			final Optional<Rect> projection = arena.get().projection();
+		if (route.arena() != null) {
+			final Arena<S> arena = route.arena();
+			final Point arenaPoint = ArenaGeometry.canvasToArena(shot.getX(), shot.getY(), route.projection(),
+					arena.size());
+			arena.addArenaShot(arena.toArenaShot(shot, arenaPoint), videoString, mirrored);
 
-			if (projection.isPresent() && projection.get().contains(shot.getX(), shot.getY())) {
-				final Point arenaPoint = ArenaGeometry.canvasToArena(shot.getX(), shot.getY(), projection.get(),
-						arena.get().size());
-				arena.get().addArenaShot(arena.get().toArenaShot(shot, arenaPoint), videoString, mirrored);
-
-				// The arena handled the shot
-				return;
-			}
+			// The arena handled the shot
+			return;
 		}
 
-		final Optional<Hit> hit = hitTest(shot, videoString, mirrored);
+		final Optional<Hit> hit = route.feedHit() != null ? record(shot, route.feedHit(), videoString, mirrored)
+				: hitTest(shot, videoString, mirrored);
 		runRegionCommands(shot, hit, mirrored);
 		surface.deliver(shot, hit, false);
+	}
+
+	/**
+	 * Where a shot goes: dropped; on to <tt>arena</tt>, inside its <tt>projection</tt>; or this surface's,
+	 * with <tt>feedHit</tt> the hit test already made (a hit or a miss), or null when it is still to be made.
+	 */
+	private record Route<T extends Shot>(boolean dropped, Optional<Hit> feedHit, Arena<T> arena, Rect projection) {
+		static <T extends Shot> Route<T> drop() {
+			return new Route<>(true, null, null, null);
+		}
+
+		static <T extends Shot> Route<T> toSurface(Optional<Hit> feedHit) {
+			return new Route<>(false, feedHit, null, null);
+		}
+
+		static <T extends Shot> Route<T> toArena(Arena<T> arena, Rect projection) {
+			return new Route<>(false, null, arena, projection);
+		}
+	}
+
+	/*
+	 * Without a calibrated arena every shot is this surface's, hit-tested after its row and marker as always.
+	 * With one (spec §9, Revision 1), this surface is hit-tested first: a hit on one of its own targets keeps
+	 * the shot here wherever it is; otherwise a shot inside the projection goes on to the arena; otherwise it
+	 * is a miss here, or, when the camera looks only inside the projection, dropped: it was seen only because
+	 * the feed has targets (CameraManager.getDetectionArea), and none of them was hit.
+	 */
+	private Route<S> route(S shot) {
+		final Optional<Arena<S>> arena = surface.arena();
+		final Optional<Rect> projection = arena.flatMap(Arena::projection);
+		if (projection.isEmpty()) return Route.toSurface(null);
+
+		final Optional<Hit> feedHit = surface.hitTest(shot.getX(), shot.getY());
+		if (feedHit.isPresent()) return Route.toSurface(feedHit);
+
+		if (projection.get().contains(shot.getX(), shot.getY())) return Route.toArena(arena.get(), projection.get());
+
+		if (CalibrationOption.ONLY_IN_BOUNDS.equals(settings.getCalibratedFeedBehavior())) return Route.drop();
+
+		return Route.toSurface(feedHit);
 	}
 
 	/**
@@ -252,8 +301,11 @@ public final class ShotPipeline<S extends Shot> {
 	 * unless it is mirrored.
 	 */
 	public Optional<Hit> hitTest(S shot, Optional<String> videoString, boolean mirrored) {
-		final Optional<Hit> hit = surface.hitTest(shot.getX(), shot.getY());
+		return record(shot, surface.hitTest(shot.getX(), shot.getY()), videoString, mirrored);
+	}
 
+	// Logs the hit test's outcome and records the shot in the session being recorded, unless it is mirrored
+	private Optional<Hit> record(S shot, Optional<Hit> hit, Optional<String> videoString, boolean mirrored) {
 		if (hit.isPresent()) {
 			if (settings.inDebugMode()) {
 				final Region region = hit.get().region();

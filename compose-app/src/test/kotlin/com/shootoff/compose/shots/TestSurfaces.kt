@@ -68,6 +68,40 @@ class TestSurfaces {
         assertEquals(listOf(640.0 to 360.0), arena.markers.markers.value.map { it.x to it.y })
     }
 
+    // Spec §9 rule 1: a feed target over the projected area takes the shot, not the arena target under it
+    @Test
+    fun aShotOnAFeedTargetInsideTheProjectionIsTheFeedTargetsNotTheArenas() {
+        fixture.projection = Rect(100.0, 100.0, 320.0, 180.0)
+        val (arenaBox, arenaPlacement) = box(620.0, 340.0)
+        arena.targets.add(arenaBox, ResourceResolver.files(), arenaPlacement)
+        val (feedBox, feedPlacement) = box(240.0, 170.0)
+        val feedTarget = feed.targets.add(feedBox, ResourceResolver.files(), feedPlacement)
+
+        feed.add(ScaledShot(ShotColor.RED, 260.0, 190.0, 1000))
+
+        val delivered = fixture.delivered.single()
+        assertFalse(delivered.arenaShot)
+        assertEquals(feedTarget.id, delivered.hit!!.targetId())
+        assertEquals(1, feed.timer.rows.value.size)
+        assertEquals(listOf(260.0 to 190.0), feed.markers.markers.value.map { it.x to it.y })
+        assertEquals(emptyList<Marker>(), arena.markers.markers.value)
+    }
+
+    // Spec §9 rule 3: "Only detect shots in projector bounds" is the default; a miss beside the projection
+    // leaves no row, no marker and no miss for the exercise
+    @Test
+    fun aMissBesideTheProjectionIsDroppedWhenDetectingOnlyInBounds() {
+        fixture.projection = Rect(100.0, 100.0, 320.0, 180.0)
+        val (definition, placement) = box(10.0, 10.0)
+        feed.targets.add(definition, ResourceResolver.files(), placement)
+
+        feed.add(ScaledShot(ShotColor.RED, 60.0, 400.0, 1000))
+
+        assertEquals(emptyList<RowView>(), feed.timer.rows.value)
+        assertEquals(emptyList<Marker>(), feed.markers.markers.value)
+        assertEquals(emptyList<SurfaceFixture.Delivered>(), fixture.delivered.toList())
+    }
+
     @Test
     fun withoutACalibrationOrAnArenaShotsStayOnTheFeed() {
         feed.add(ScaledShot(ShotColor.RED, 260.0, 190.0, 1000))
