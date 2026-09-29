@@ -29,8 +29,8 @@ import com.shootoff.plugins.engine.V2ExerciseEntry;
 public final class BuiltInRegistry {
 	private BuiltInRegistry() {}
 
-	private static final List<Class<? extends Exercise>> EXERCISES = List.of(RandomShoot.class, ShootForScore.class,
-			TimedHolsterDrill.class, ParForScore.class, ParRandomShot.class);
+	private static final List<Class<? extends Exercise>> EXERCISES = List.of(ISSFStandardPistol.class,
+			RandomShoot.class, ShootForScore.class, TimedHolsterDrill.class, ParForScore.class, ParRandomShot.class);
 
 	public static List<V2ExerciseEntry> entries() {
 		return EXERCISES.stream().map(BuiltInRegistry::entry).toList();

@@ -150,7 +150,8 @@ private fun FeedArea(app: AppState, modifier: Modifier) {
             DrillControls(app, Modifier.align(Alignment.TopEnd).padding(10.dp))
             Column(Modifier.align(Alignment.TopCenter).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 failure?.let { BannerView(Banner(-1, it, BannerKind.ERROR), onDismiss = app.runner::dismissFailure) }
-                message?.let { BannerView(Banner(0, it, BannerKind.INFO), onDismiss = { app.drill.setMessage(null) }) }
+                // A drill clears its message with an empty one (ISSF's Reset does)
+                message?.takeIf { it.isNotEmpty() }?.let { BannerView(Banner(0, it, BannerKind.INFO), onDismiss = { app.drill.setMessage(null) }) }
                 FeedBanners(app.feed)
             }
             StatusLine(app, Modifier.align(Alignment.BottomStart).padding(10.dp))

@@ -65,6 +65,18 @@ class TestRangeScreen {
         assertTrue(app.feedTargets.animations.isOnFirstFrame(key))
     }
 
+    // A drill clears its message with an empty one (ISSF's Reset does): no empty banner
+    @Test
+    fun anEmptyDrillMessageShowsNoBanner() {
+        app.openStartCamera()
+        showApp()
+
+        app.drill.setMessage("score: 0")
+        compose.onNodeWithTag("banner-0").assertExists()
+        app.drill.setMessage("")
+        compose.onNodeWithTag("banner-0").assertDoesNotExist()
+    }
+
     @Test
     fun theChipSaysWhatIsMissingAndOpensSetup() {
         app.openStartCamera()
