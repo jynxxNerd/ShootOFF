@@ -1,5 +1,7 @@
 package com.shootoff.camera.shotdetection;
 
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,9 +91,10 @@ public abstract class ShotDetector {
 
 		}
 
-		if (scaleShot && (cameraManager.isLimitingDetectionToProjection() || cameraManager.isCroppingFeedToProjection())
-				&& cameraManager.getProjectionBounds().isPresent()) {
-			final Rect b = cameraManager.getProjectionBounds().get();
+		// The area the camera searched: a shot found in the projection's sub-image is offset back onto the feed
+		final Optional<Rect> area = scaleShot ? cameraManager.getDetectionArea() : Optional.empty();
+		if (area.isPresent()) {
+			final Rect b = area.get();
 
 			if (handlesBounds()) {
 				shot.adjustBounds(b.getMinX(), b.getMinY());

@@ -21,6 +21,7 @@ import com.shootoff.camera.shot.ShotColor;
 import com.shootoff.config.Configuration;
 import com.shootoff.config.ConfigurationException;
 import com.shootoff.config.ScratchConfig;
+import com.shootoff.geom.Rect;
 import com.shootoff.gui.controller.ShootOFFController;
 import com.shootoff.gui.targets.TargetView;
 import com.shootoff.targets.Hit;
@@ -116,6 +117,22 @@ public class TestCanvasManager {
 		cm.removeTarget(ipscTarget);
 
 		assertEquals(0, cm.getTargets().size());
+	}
+
+	// Spec §9, Revision 1: while the feed has a target, its camera looks at the whole frame
+	@Test
+	public void testTheCameraLooksAtTheWholeFrameOnlyWhileTheFeedHasTargets() {
+		final CameraManager cameraManager = cm.getCameraManager();
+		cameraManager.setLimitDetectProjection(true);
+		cameraManager.setProjectionBounds(new Rect(100, 40, 200, 200));
+
+		assertTrue(cm.hasTargets());
+		assertEquals(Optional.empty(), cameraManager.getDetectionArea());
+
+		cm.removeTarget(ipscTarget);
+
+		assertFalse(cm.hasTargets());
+		assertEquals(Optional.of(new Rect(100, 40, 200, 200)), cameraManager.getDetectionArea());
 	}
 
 	@Test

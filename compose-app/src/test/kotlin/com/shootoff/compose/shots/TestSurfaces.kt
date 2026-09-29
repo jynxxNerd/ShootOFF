@@ -3,6 +3,7 @@ package com.shootoff.compose.shots
 import com.shootoff.camera.shot.ScaledShot
 import com.shootoff.camera.shot.ShotColor
 import com.shootoff.compose.targets.RegionKey
+import com.shootoff.compose.targets.TargetOwner
 import com.shootoff.geom.Rect
 import com.shootoff.shots.ShotQueue
 import com.shootoff.targets.model.Placement
@@ -100,6 +101,20 @@ class TestSurfaces {
         assertEquals(emptyList<RowView>(), feed.timer.rows.value)
         assertEquals(emptyList<Marker>(), feed.markers.markers.value)
         assertEquals(emptyList<SurfaceFixture.Delivered>(), fixture.delivered.toList())
+    }
+
+    // Spec §9, Revision 1: the camera looks at its whole frame while the feed has a target, an exercise's too
+    @Test
+    fun theFeedHasTargetsWhileAnyTargetIsOnIt() {
+        assertFalse(feed.hasTargets())
+        val (definition, placement) = box(10.0, 10.0)
+        val shooters = feed.targets.add(definition, ResourceResolver.files(), placement)
+        assertTrue(feed.hasTargets())
+        val exercises = feed.targets.add(definition, ResourceResolver.files(), placement, TargetOwner.EXERCISE)
+        feed.targets.set.remove(shooters.id)
+        assertTrue(feed.hasTargets())
+        feed.targets.set.remove(exercises.id)
+        assertFalse(feed.hasTargets())
     }
 
     @Test

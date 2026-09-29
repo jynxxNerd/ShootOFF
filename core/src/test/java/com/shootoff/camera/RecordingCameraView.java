@@ -19,6 +19,7 @@ public class RecordingCameraView implements CameraView {
 	private final List<String> diagnosticWarnings = new CopyOnWriteArrayList<>();
 	private final Semaphore removedWarnings = new Semaphore(0);
 	private final BlockingQueue<ScaledShot> shots = new LinkedBlockingQueue<>();
+	private volatile boolean hasTargets = false;
 
 	@Override
 	public void addShot(ScaledShot shot) {
@@ -45,6 +46,15 @@ public class RecordingCameraView implements CameraView {
 
 	@Override
 	public void updateBackground(BufferedImage frame, Optional<Rect> projectionBounds) {}
+
+	@Override
+	public boolean hasTargets() {
+		return hasTargets;
+	}
+
+	public void setHasTargets(boolean hasTargets) {
+		this.hasTargets = hasTargets;
+	}
 
 	public List<String> diagnosticWarnings() {
 		return List.copyOf(diagnosticWarnings);

@@ -39,12 +39,17 @@ interface FeedShots {
 
     fun reset()
 
+    /** Whether the feed has targets of its own; asked on the camera's thread for every frame */
+    fun hasTargets(): Boolean
+
     object None : FeedShots {
         override fun add(shot: ScaledShot) {}
 
         override fun clear() {}
 
         override fun reset() {}
+
+        override fun hasTargets() = false
     }
 }
 
@@ -96,6 +101,8 @@ class ComposeCameraView(
     }
 
     override fun clearShots() = shots.clear()
+
+    override fun hasTargets() = shots.hasTargets()
 
     override fun reset() = shots.reset()
 

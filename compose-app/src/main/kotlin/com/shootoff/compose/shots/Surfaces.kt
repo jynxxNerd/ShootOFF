@@ -121,6 +121,9 @@ class FeedSurface(
         clear()
     }
 
+    /** The shooter's targets and an exercise's alike: while there are any, the camera looks at its whole frame */
+    override fun hasTargets(): Boolean = targets.set.size() > 0
+
     // ---- The pipeline's view of the feed
 
     override fun name(): String = name

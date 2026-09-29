@@ -355,6 +355,16 @@ public class CanvasManager implements CameraView {
 		Platform.runLater(() -> background.setImage(img));
 	}
 
+	/**
+	 * Whether this canvas has targets, an exercise's included: its camera then looks at the whole frame, even
+	 * when it looks only inside the projection otherwise. Called on the camera's thread; the target set is safe
+	 * to read from any thread.
+	 */
+	@Override
+	public boolean hasTargets() {
+		return targetSet.size() > 0;
+	}
+
 	public void updateBackground(Image img) {
 		updateCanvasGroup();
 		background.setX(0);

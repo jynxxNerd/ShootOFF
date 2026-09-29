@@ -100,8 +100,15 @@ public class CameraManager
 	private final AtomicBoolean isDetecting = new AtomicBoolean(true);
 	private final AtomicBoolean isCalibrating = new AtomicBoolean(false);
 	private boolean shownBrightnessWarning = false;
-	private boolean cropFeedToProjection = false;
-	private boolean limitDetectProjection = false;
+	// Set on the UI thread, read on the camera's for every frame
+	private volatile boolean cropFeedToProjection = false;
+	private volatile boolean limitDetectProjection = false;
+
+	// Where the frame this thread is processing is searched for shots (processFrame), so that a shot found in it
+	// is offset by that area, even if the view's targets change meanwhile; null outside processFrame
+	private final ThreadLocal<Optional<Rect>> frameDetectionArea = new ThreadLocal<>();
+	// The camera's thread only: the area the last frame was searched in
+	private Optional<Rect> lastDetectionArea = Optional.empty();
 
 	protected Optional<Integer> minimumShotDimension = Optional.empty();
 
@@ -373,6 +380,32 @@ public class CameraManager
 
 	public Optional<Rect> getProjectionBounds() {
 		return projectionBounds;
+	}
+
+	/**
+	 * Where the camera looks for shots, on its feed: the projection while the feed is cropped to it, or while
+	 * detection is limited to it and the camera's view has no targets of its own (spec §9, Revision 1: with
+	 * targets on the feed the camera looks at the whole frame, so shots on them beside the projection are seen,
+	 * and the shot pipeline drops the rest). Empty for the whole frame.
+	 * <p>
+	 * On the camera's thread while it processes a frame, it is the area that frame is searched in.
+	 */
+	public Optional<Rect> getDetectionArea() {
+		final Optional<Rect> frameArea = frameDetectionArea.get();
+		if (frameArea != null) return frameArea;
+
+		final Rect bounds;
+		synchronized (projectionBoundsLock) {
+			bounds = projectionBounds.orElse(null);
+		}
+		return detectionArea(bounds);
+	}
+
+	private Optional<Rect> detectionArea(Rect projectionBounds) {
+		if (projectionBounds == null) return Optional.empty();
+		if (cropFeedToProjection) return Optional.of(projectionBounds);
+		if (limitDetectProjection && (cameraView == null || !cameraView.hasTargets())) return Optional.of(projectionBounds);
+		return Optional.empty();
 	}
 
 	public boolean startRecordingStream(File videoFile) {
@@ -686,31 +719,46 @@ public class CameraManager
 			}
 		}
 
-		if ((isLimitingDetectionToProjection() || isCroppingFeedToProjection()) && projectionBounds != null) {
-			if (submatFrameBGR == null) {
-				try {
-					submatFrameBGR = currentFrame.getOriginalMat().submat((int) projectionBounds.getMinY(),
-							(int) projectionBounds.getMaxY(), (int) projectionBounds.getMinX(),
-							(int) projectionBounds.getMaxX());
-				} catch (CvException e) {
-					logger.error("Failed to get submat for frame to limit detection bounds, projectionBounds = "
-							+ projectionBounds.toString() + ", frameSize = "
-							+ currentFrame.getOriginalMat().size().toString(), e);
-				}
-			}
+		final Optional<Rect> detectionArea = detectionArea(projectionBounds);
+		if (!detectionArea.equals(lastDetectionArea)) {
+			lastDetectionArea = detectionArea;
+			// The detector's per-pixel averages are of the other area's pixels: they start afresh, so that the
+			// change doesn't look like a shot
+			if (shotDetector instanceof FrameProcessingShotDetector) shotDetector.setFrameSize(getFeedWidth(), getFeedHeight());
+		}
 
-			if (shotDetector instanceof FrameProcessingShotDetector) {
-				if (submatFrameBGR != null) {
-					((FrameProcessingShotDetector) shotDetector)
-							.processFrame(new Frame(submatFrameBGR, currentFrame.getTimestamp()), isDetecting.get());
-				} else {
-					logger.warn("Due to errors fetching frame submat, falling back to using full frame");
-					((FrameProcessingShotDetector) shotDetector).processFrame(currentFrame, isDetecting.get());
+		frameDetectionArea.set(detectionArea);
+		try {
+			if (detectionArea.isPresent()) {
+				if (submatFrameBGR == null) {
+					try {
+						submatFrameBGR = currentFrame.getOriginalMat().submat((int) projectionBounds.getMinY(),
+								(int) projectionBounds.getMaxY(), (int) projectionBounds.getMinX(),
+								(int) projectionBounds.getMaxX());
+					} catch (CvException e) {
+						logger.error("Failed to get submat for frame to limit detection bounds, projectionBounds = "
+								+ projectionBounds.toString() + ", frameSize = "
+								+ currentFrame.getOriginalMat().size().toString(), e);
+					}
 				}
+
+				if (shotDetector instanceof FrameProcessingShotDetector) {
+					if (submatFrameBGR != null) {
+						((FrameProcessingShotDetector) shotDetector)
+								.processFrame(new Frame(submatFrameBGR, currentFrame.getTimestamp()), isDetecting.get());
+					} else {
+						logger.warn("Due to errors fetching frame submat, falling back to using full frame");
+						// Shots found in the full frame need no offset
+						frameDetectionArea.set(Optional.empty());
+						((FrameProcessingShotDetector) shotDetector).processFrame(currentFrame, isDetecting.get());
+					}
+				}
+			} else {
+				if (shotDetector instanceof FrameProcessingShotDetector)
+					((FrameProcessingShotDetector) shotDetector).processFrame(currentFrame, isDetecting.get());
 			}
-		} else {
-			if (shotDetector instanceof FrameProcessingShotDetector)
-				((FrameProcessingShotDetector) shotDetector).processFrame(currentFrame, isDetecting.get());
+		} finally {
+			frameDetectionArea.remove();
 		}
 
 		// currentFrame is showing the colored pixels for brightness and motion,

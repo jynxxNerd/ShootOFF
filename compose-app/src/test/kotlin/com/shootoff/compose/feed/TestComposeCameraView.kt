@@ -8,7 +8,9 @@ import com.shootoff.config.Settings
 import com.shootoff.geom.Rect
 import com.shootoff.geom.Size
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.awt.image.BufferedImage
@@ -17,6 +19,7 @@ import java.util.Optional
 class TestComposeCameraView {
     private val feed = FeedState(Size(640.0, 480.0))
     private val events = mutableListOf<String>()
+    private var feedHasTargets = false
     private lateinit var view: ComposeCameraView
 
     @BeforeEach
@@ -34,8 +37,19 @@ class TestComposeCameraView {
             override fun reset() {
                 events += "reset"
             }
+
+            override fun hasTargets() = feedHasTargets
         })
         CameraManager(MockCamera(), null, view)
+    }
+
+    // Spec §9, Revision 1: the camera asks its view whether the feed has targets
+    @Test
+    fun theViewHasTargetsWhileItsFeedDoes() {
+        assertFalse(view.hasTargets())
+        feedHasTargets = true
+        assertTrue(view.hasTargets())
+        assertFalse(ComposeCameraView("C270", feed).hasTargets())
     }
 
     @Test

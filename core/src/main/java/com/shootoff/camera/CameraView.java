@@ -36,4 +36,13 @@ public interface CameraView extends Closeable {
 	public void setCameraManager(CameraManager cameraManager);
 
 	public void updateBackground(BufferedImage frame, Optional<Rect> projectionBounds);
+
+	/**
+	 * @return whether the view has targets of its own, an exercise's included, shown or hidden. While it does,
+	 *         a camera that limits detection to the arena's projection looks at the whole frame, so that shots
+	 *         on those targets beside the projection are seen (see {@link CameraManager#getDetectionArea}).
+	 *         Called on the camera's thread for every frame: it must be quick and safe to call from any
+	 *         thread.
+	 */
+	public boolean hasTargets();
 }

@@ -126,5 +126,10 @@ class TestRangeReset {
 
 		@Override
 		public void updateBackground(BufferedImage frame, Optional<Rect> projectionBounds) {}
+
+		@Override
+		public boolean hasTargets() {
+			return false;
+		}
 	}
 }
