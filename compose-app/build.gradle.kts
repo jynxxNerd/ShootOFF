@@ -12,6 +12,8 @@ repositories {
 dependencies {
     implementation(project(":core"))
     implementation(project(":plugin-api"))
+    // The exercises that ship with ShootOFF, which the JavaFX app lists too
+    implementation(project(":builtin-exercises"))
 
     // Linux x64 only, like core's native libraries
     implementation(libs.compose.desktop.linux.x64)

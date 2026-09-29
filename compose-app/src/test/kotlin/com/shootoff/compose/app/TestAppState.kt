@@ -13,6 +13,7 @@ import com.shootoff.geom.Point
 import com.shootoff.geom.Rect
 import com.shootoff.exercise.Exercise
 import com.shootoff.exercise.ExerciseHost
+import com.shootoff.plugins.BuiltInRegistry
 import com.shootoff.plugins.ExerciseMetadata
 import com.shootoff.plugins.engine.V2ExerciseEntry
 import com.shootoff.targets.model.Hit
@@ -27,6 +28,8 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 import java.util.Optional
 
 class TestAppState {
@@ -111,6 +114,21 @@ class TestAppState {
     @Test
     fun theCatalogListsTheV2DrillsByName() {
         assertEquals(listOf("Feed drill", "Projector drill"), app.catalog.entries.value.map { it.metadata().name })
+    }
+
+    // Exercise port spec §5: the Drills screen lists the exercises that ship with ShootOFF beside the plugins
+    @Test
+    fun theDrillsScreenListsTheBuiltInExercises(@TempDir plugins: Path) {
+        val previous = System.getProperty("shootoff.plugins")
+        System.setProperty("shootoff.plugins", plugins.toString())
+        try {
+            val catalog = ExerciseCatalog()
+            pluginEngine(catalog)
+
+            assertEquals(BuiltInRegistry.entries().map { it.metadata().name }.sorted(), catalog.entries.value.map { it.metadata().name })
+        } finally {
+            if (previous == null) System.clearProperty("shootoff.plugins") else System.setProperty("shootoff.plugins", previous)
+        }
     }
 
     @Test

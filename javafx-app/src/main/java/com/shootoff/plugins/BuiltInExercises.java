@@ -18,22 +18,26 @@
 
 package com.shootoff.plugins;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.shootoff.plugins.engine.ExerciseEntry;
 import com.shootoff.plugins.engine.LegacyExerciseEntry;
 
 /**
- * The exercises that ship with the JavaFX app, in Training menu order.
+ * The exercises that ship with the JavaFX app: the ones ported to the v2 exercise API, which the Compose
+ * app lists too ({@link BuiltInRegistry}), then the JavaFX ones still to port, in Training menu order.
  */
 public final class BuiltInExercises {
 	private BuiltInExercises() {}
 
 	public static List<ExerciseEntry> entries() {
-		return List.of(standard(new ISSFStandardPistol()), standard(new RandomShoot()), standard(new ShootForScore()),
+		final List<ExerciseEntry> entries = new ArrayList<>(BuiltInRegistry.entries());
+		entries.addAll(List.of(standard(new ISSFStandardPistol()), standard(new RandomShoot()),
 				standard(new TimedHolsterDrill()), standard(new ParForScore()), standard(new ParRandomShot()),
 				projector(new BouncingTargets()), projector(new DuelingTree()), projector(new ShootDontShoot()),
-				projector(new SteelChallenge()));
+				projector(new SteelChallenge())));
+		return entries;
 	}
 
 	private static ExerciseEntry standard(TrainingExercise exercise) {

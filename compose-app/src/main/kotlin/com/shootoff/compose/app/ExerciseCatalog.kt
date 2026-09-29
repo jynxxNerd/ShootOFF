@@ -18,13 +18,25 @@
 
 package com.shootoff.compose.app
 
+import com.shootoff.plugins.BuiltInRegistry
 import com.shootoff.plugins.engine.ExerciseEntry
+import com.shootoff.plugins.engine.PluginEngine
 import com.shootoff.plugins.engine.PluginListener
 import com.shootoff.plugins.engine.V2ExerciseEntry
+import com.shootoff.plugins.engine.V2ExerciseLoader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+
+/**
+ * The plugin engine that fills [catalog]: the exercises that ship with ShootOFF (exercise port spec §5), and
+ * the v2 plugin jars in the shootoff.plugins folder.
+ */
+fun pluginEngine(catalog: ExerciseCatalog): PluginEngine {
+    val builtIns: List<ExerciseEntry> = BuiltInRegistry.entries()
+    return PluginEngine(catalog, listOf(V2ExerciseLoader()), builtIns)
+}
 
 /**
  * The exercises the Drills screen lists: the v2 exercises the plugin engine registers (the Compose app

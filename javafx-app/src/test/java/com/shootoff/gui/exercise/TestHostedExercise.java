@@ -13,12 +13,36 @@ import com.shootoff.camera.Shot;
 import com.shootoff.exercise.Exercise;
 import com.shootoff.exercise.ExerciseHost;
 import com.shootoff.plugins.ExerciseMetadata;
-import com.shootoff.plugins.ShootForScore;
 import com.shootoff.plugins.SteelChallenge;
+import com.shootoff.plugins.TrainingExercise;
 import com.shootoff.plugins.engine.V2ExerciseEntry;
+import com.shootoff.targets.Target;
 import com.shootoff.targets.model.Hit;
 
 class TestHostedExercise {
+	// A v1 exercise for the camera feed
+	private static final class V1FeedDrill implements TrainingExercise {
+		@Override
+		public void init() {}
+
+		@Override
+		public void targetUpdate(Target target, TargetChange change) {}
+
+		@Override
+		public ExerciseMetadata getInfo() {
+			return new ExerciseMetadata("V1 drill", "1.0", "ShootOFF tests", "A v1 drill");
+		}
+
+		@Override
+		public void shotListener(Shot shot, Optional<com.shootoff.targets.Hit> hit) {}
+
+		@Override
+		public void reset(List<Target> targets) {}
+
+		@Override
+		public void destroy() {}
+	}
+
 	public static final class Drill implements Exercise {
 		private final boolean projectorOnly;
 
@@ -56,7 +80,7 @@ class TestHostedExercise {
 		assertTrue(HostedExercise.isProjectorExercise(projectorItem));
 		assertFalse(HostedExercise.isProjectorExercise(feedItem));
 		assertTrue(HostedExercise.isProjectorExercise(new SteelChallenge()));
-		assertFalse(HostedExercise.isProjectorExercise(new ShootForScore()));
+		assertFalse(HostedExercise.isProjectorExercise(new V1FeedDrill()));
 
 		// A menu item has no host: its callbacks do nothing
 		projectorItem.init();

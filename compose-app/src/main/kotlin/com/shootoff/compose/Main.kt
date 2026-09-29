@@ -43,6 +43,7 @@ import com.shootoff.compose.app.PrefsStore
 import com.shootoff.compose.app.UiPrefs
 import com.shootoff.compose.app.WindowBounds
 import com.shootoff.compose.app.handleKey
+import com.shootoff.compose.app.pluginEngine
 import com.shootoff.compose.app.ShootOffApp
 import com.shootoff.compose.app.UiErrors
 import com.shootoff.compose.app.WindowRole
@@ -52,8 +53,6 @@ import com.shootoff.compose.theme.RangeTheme
 import com.shootoff.config.Settings
 import com.shootoff.geom.Point
 import com.shootoff.plugins.TextToSpeech
-import com.shootoff.plugins.engine.PluginEngine
-import com.shootoff.plugins.engine.V2ExerciseLoader
 import com.shootoff.util.TimerPool
 import org.bytedeco.javacpp.Loader
 import org.bytedeco.opencv.opencv_java
@@ -77,7 +76,7 @@ fun main() {
     Thread({ TextToSpeech.say("") }, "Speech warm-up").apply { isDaemon = true }.start()
 
     val catalog = ExerciseCatalog()
-    val plugins = PluginEngine(catalog, listOf(V2ExerciseLoader()), emptyList())
+    val plugins = pluginEngine(catalog)
     plugins.startWatching()
 
     val app = AppState(

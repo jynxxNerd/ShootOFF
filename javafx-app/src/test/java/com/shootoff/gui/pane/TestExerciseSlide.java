@@ -108,9 +108,10 @@ public class TestExerciseSlide {
 
 	@Test
 	public void v2ExercisesAreListedWithV1Ones() {
-		slide.registerExercise(new LegacyExerciseEntry(new ShootForScore(), false));
+		slide.registerProjectorExercise(new LegacyExerciseEntry(new SteelChallenge(), true));
+		slide.registerExercise(new V2ExerciseEntry(ShootForScore.class, new ShootForScore().metadata()));
 		slide.registerProjectorExercise(new V2ExerciseEntry(V2Drill.class, new V2Drill().metadata()));
 
-		assertTrue(menuNames().containsAll(List.of("Shoot for Score", "V2 Drill")));
+		assertTrue(menuNames().containsAll(List.of("Steel Challenge", "Shoot for Score", "V2 Drill")));
 	}
 }

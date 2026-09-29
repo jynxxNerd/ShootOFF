@@ -15,6 +15,8 @@ dependencies {
     // such as Settings and Shot, without declaring them
     api(project(":core"))
     api(project(":plugin-api"))
+    // The exercises that ship with ShootOFF, which the Compose app lists too
+    implementation(project(":builtin-exercises"))
     testImplementation(testFixtures(project(":core")))
     // ExerciseHostContract, which JavaFxExerciseHost must pass
     testImplementation(testFixtures(project(":plugin-api")))
